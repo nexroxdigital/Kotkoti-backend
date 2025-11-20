@@ -15,6 +15,11 @@ export class PostController {
     return this.postService.findAll();
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.postService.findOne(Number(id));
+  }
+
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.postService.delete(Number(id));

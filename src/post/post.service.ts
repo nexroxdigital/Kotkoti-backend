@@ -14,6 +14,15 @@ export class PostService {
     });
   }
 
+  // GET ONE
+  async findOne(id: number) {
+    const post = await this.prisma.post.findUnique({
+      where: { id },
+    });
+
+    return post;
+  }
+
   findAll() {
     return this.prisma.post.findMany();
   }

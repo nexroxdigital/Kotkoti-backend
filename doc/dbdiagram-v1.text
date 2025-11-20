@@ -1,0 +1,864 @@
+///////////////////////////////////////////////////////////////
+// USERS / AUTH / SESSION
+///////////////////////////////////////////////////////////////
+
+Table User {
+  id string [pk]
+  name string
+  email string [unique]
+  mobile string [unique]
+  profilePic string
+  password string
+  role string
+  dob string
+  bio string
+  gender string
+  country string
+  vipId string
+  activeAnimationId string
+  activeProfileFrameId string
+  gold int
+  diamond int
+  isDiamondBlocked boolean
+  isGoldBlocked boolean
+  isAccountBlocked boolean
+  agencyId string
+  isHost boolean
+  isReseller boolean
+  deviceId string
+  ipAddress string
+  charmLevel string
+  wealthLevel string
+  createdAt datetime
+  updatedAt datetime
+}
+  
+Table Agency {
+  id string [pk]
+  name string
+  ownerId string
+  code string [unique]
+  level string
+  description string
+  logoUrl string
+  country string
+  totalMembers int
+  totalEarnings bigint
+  balance bigint 
+  status string 
+  createdAt datetime
+  updatedAt datetime
+}
+
+Table AgentProfile {
+  id string [pk]
+  userId string [unique]
+  agencyId string
+  commissionRate float
+  maxHosts int
+  totalRecruited int
+  monthlyRecruited int
+  totalEarnings bigint
+  verified boolean
+  status string
+  notes string
+  createdAt datetime
+  updatedAt datetime
+}
+
+Table AgentCommission {
+  id string [pk]
+  agentId string
+  hostId string
+  agencyId string
+  month string
+  year string
+  totalHostEarnings bigint
+  commissionRate float
+  commissionAmount bigint
+  bonus bigint
+  penalty bigint
+  netCommission bigint
+  source string
+  status string
+  approvedBy string
+  paidAt datetime
+  createdAt datetime
+  updatedAt datetime
+}
+
+Table oauth_access_tokens {
+  id varchar(100) [pk]
+  user_id string
+  client_id bigint [not null]
+  name varchar(191)
+  scopes text
+  revoked tinyint(1) [not null]
+  created_at timestamp
+  updated_at timestamp
+  expires_at datetime
+  indexes { user_id }
+}
+
+Table oauth_refresh_tokens {
+  id varchar(100) [pk]
+  access_token_id varchar(100) [not null]
+  revoked tinyint(1) [not null]
+  expires_at datetime
+  indexes { access_token_id }
+}
+
+///////////////////////////////////////////////////////////////
+// SOCIAL SYSTEM
+///////////////////////////////////////////////////////////////
+
+Table followers {
+  id bigint [pk, increment]
+  user_id string
+  follower_id string
+  is_muted boolean [default: false]
+  is_blocked boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  Indexes {
+    (user_id, follower_id) [unique]
+    (user_id)
+    (follower_id)
+  }
+}
+
+
+Table following {
+  id bigint [pk, increment]
+  user_id string
+  following_id string
+  is_muted boolean [default: false]
+  is_blocked boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  Indexes {
+    (user_id, following_id) [unique]
+    (user_id)
+    (following_id)
+  }
+}
+
+
+Table friends {
+  id bigint [pk, increment]
+  user_id string
+  friend_id string
+  status string [default: 'pending']
+  is_favorite boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp
+
+  Indexes {
+    (user_id, friend_id) [unique]
+    (user_id)
+    (friend_id)
+  }
+}
+
+
+// Table SearchHistory {
+//   id string [pk]
+//   userId string
+//   keyword string
+//   createdAt datetime
+
+//   Indexes {
+//     (userId)
+//     (keyword)
+//   }
+// }
+
+///////////////////////////////////////////////////////////////
+// NOTIFICATION / MODERATION
+///////////////////////////////////////////////////////////////
+
+Table Notification {
+  id string [pk]
+  userId string
+  title string
+  message string 
+  isRead boolean [default: false]
+  createdAt datetime
+
+  Indexes {
+    (userId)
+    (isRead) 
+  }
+}
+
+
+Table ModerationLog {
+  id string [pk]
+  userId string
+  moderatorId string
+  action string   // ban, mute, warning, takedown
+  reason string
+  duration int
+  createdAt datetime
+}
+
+Table RoomKickout {
+  id string [pk]
+  roomId string
+  userId string
+  kickedBy string
+  reason string
+  duration int
+  status string [default: 'active']  // active, expired
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (roomId)
+    (userId)
+    (kickedBy)
+    (status)
+  }
+}
+
+
+Table AppBanList {
+  id string [pk]
+  userId string
+  reason string
+  bannedAt datetime
+  duration int
+  status string [default: 'active']
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (userId)
+    (status)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// LIVE STREAMING SYSTEM
+///////////////////////////////////////////////////////////////
+
+Table LiveStream {
+  id string [pk]
+  hostId string
+  title string
+  description string
+  agoraChannel string
+  coverImage string
+  status string       // live, ended, scheduled
+  startedAt datetime
+  endedAt datetime
+  streamType string [default: 'public']
+  viewerCount int [default: 0]
+  maxViewers int
+  recordingUrl string
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (hostId)
+    (status)
+    (startedAt)
+  }
+}
+
+
+Table StreamStats {
+  id string [pk]
+  streamId string
+  viewers int
+  bitrate int
+  rtt int
+  audioBitrate int
+  videoBitrate int
+  frameRate float
+  createdAt datetime
+
+  Indexes {
+    (streamId)
+    (createdAt)
+  }
+}
+
+
+
+Table Visitors {
+  id string [pk]
+  userId string
+  streamId string
+  joinedAt datetime
+  leftAt datetime
+  duration int
+  isVIP boolean [default: false]
+  deviceType string
+  country string
+
+  Indexes {
+    (streamId)
+    (userId)
+    (joinedAt)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// VOICE / VIDEO ROOMS
+///////////////////////////////////////////////////////////////
+
+Table VoiceRoom {
+  id string [pk]
+  hostId string
+  title string
+  status string       // active, ended, scheduled
+  maxParticipants int
+  roomType string [default: 'public'] // public, private
+  agoraChannel string
+  recordingUrl string
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (hostId)
+    (status)
+    (createdAt)
+  }
+}
+
+Table RoomParticipant {
+  id string [pk]
+  roomId string
+  userId string
+  role string           // host, speaker, audience
+  joinedAt datetime
+  leftAt datetime
+  duration int
+  isMuted boolean [default: false]
+  isBanned boolean [default: false]
+  status string [default: 'active']
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (roomId)
+    (userId)
+    (joinedAt)
+    (status)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// PK SYSTEM
+///////////////////////////////////////////////////////////////
+
+Table PKLive {
+  id string [pk]
+  streamAId string
+  streamBId string
+  status string       // pending, live, ended
+  winnerStreamId string
+  scoreA bigint [default: 0]
+  scoreB bigint [default: 0]
+  duration int
+  startedAt datetime
+  endedAt datetime
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (streamAId)
+    (streamBId)
+    (status)
+    (startedAt)
+  }
+}
+
+
+Table PKLiveStats {
+  id string [pk]
+  pkId string
+  streamId string
+  score bigint [default: 0]
+  scoreType string
+  viewerCount int
+  updatedAt datetime
+  createdAt datetime
+
+  Indexes {
+    (pkId)
+    (streamId)
+    (updatedAt)
+  }
+}
+
+///////////////////////////////////////////////////////////////
+// GIFTS / WALLET / ECONOMY
+///////////////////////////////////////////////////////////////
+
+Table GiftCategory {
+  id string [pk]
+  name string
+  icon string
+}
+
+Table Gift {
+  id string [pk]
+  categoryId string
+  name string
+  type string
+  needCoin bigint
+  giftIcon string
+  swf string
+  swfTime string
+  worldMsg boolean [default: false]
+  isSound boolean [default: false]
+
+  Indexes {
+    (categoryId)
+  }
+}
+
+Table GiftTransaction {
+  id string [pk]
+  streamId string
+  senderId string
+  receiverId string
+  giftId string
+  quantity int
+  totalCoins bigint
+  createdAt datetime
+
+  Indexes {
+    (streamId)
+    (senderId)
+    (receiverId)
+    (giftId)
+  }
+}
+
+
+Table Wallet {
+  id string [pk]
+  userId string
+  coins bigint [default: 0]
+  earnings bigint [default: 0]
+  updatedAt datetime
+
+  Indexes {
+    (userId)
+  }
+}
+
+Table WalletTransaction {
+  id string [pk]
+  walletId string
+  type string           // credit or debit
+  amount bigint
+  description string
+  createdAt datetime
+
+  Indexes {
+    (walletId)
+    (type)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// VIP / SVIP / BADGES / LABELS
+///////////////////////////////////////////////////////////////
+
+Table Vip {
+  id string [pk]
+  name string
+  type string
+  privilegeId string
+  validity int
+  amount int
+  imageUrl string
+  entryAnimation string
+  profileFrame string
+  purchaseDate datetime
+  expiryDate datetime
+  createdAt datetime
+  updatedAt datetime
+}
+
+Table VipPrivileges {
+  id string [pk]
+  name string
+  icon string
+  createdAt datetime
+}
+
+
+Table SVIP {
+  id string [pk]
+  name string
+  validity int
+  privilegeId string
+  amount int
+  imageUrl string
+  createdAt datetime
+}
+
+Table SVIPPrivileges {
+  id string [pk]
+  name string
+  icon string
+  createdAt datetime
+}
+
+
+Table BadgeType {
+  id string [pk]
+  name string
+  description string
+}
+
+Table Badge {
+  id string [pk]
+  badgeTypeId string
+  name string
+  icon string
+
+  Indexes {
+    (badgeTypeId)
+  }
+}
+
+Table BadgeList {
+  id string [pk]
+  userId string
+  badgeId string
+  acquiredAt datetime
+
+  Indexes {
+    (userId)
+    (badgeId)
+  }
+}
+
+Table LabelCategory {
+  id string [pk]
+  name string
+}
+
+Table LabelPrivileges {
+  id string [pk]
+  categoryId string
+  privilege string
+
+  Indexes {
+    (categoryId)
+  }
+}
+
+///////////////////////////////////////////////////////////////
+// STORE / BACKPACK
+///////////////////////////////////////////////////////////////
+
+Table StoreCategory {
+  id string [pk]
+  name string
+  icon string
+}
+
+Table StoreItem {
+  id string [pk]
+  categoryId string
+  name string
+  price bigint
+  validity datetime
+  icon string
+  type string
+  createdAt datetime
+
+  Indexes {
+    (categoryId)
+  }
+}
+
+Table Backpack {
+  id string [pk]
+  userId string
+  itemId string
+  quantity int [default: 1]
+  acquiredAt datetime
+
+  Indexes {
+    (userId)
+    (itemId)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// MUSIC SYSTEM
+///////////////////////////////////////////////////////////////
+
+Table Song {
+  id string [pk]
+  title string
+  artist string
+  duration int
+}
+
+Table UserPlaylist {
+  id string [pk]
+  userId string
+  songId string
+  addedAt datetime
+
+  Indexes {
+    (userId)
+    (songId)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// MOMENTS / STORIES / FEED
+///////////////////////////////////////////////////////////////
+
+Table Moments {
+  id string [pk]
+  userId string
+  content text
+  mediaUrl string
+  createdAt datetime
+  likes number
+
+  Indexes {
+    (userId)
+  }
+}
+
+Table MomentsLike {
+  id string [pk]
+  momentId string
+  userId string
+  createdAt datetime
+
+  Indexes {
+    (momentId)
+    (userId)
+  }
+}
+
+Table MomentsComment {
+  id string [pk]
+  momentId string
+  userId string
+  comment text
+  createdAt datetime
+
+  Indexes {
+    (momentId)
+    (userId)
+  }
+}
+
+Table MomentsShare {
+  id string [pk]
+  momentId string
+  userId string
+  createdAt datetime
+
+  Indexes {
+    (momentId)
+    (userId)
+  }
+}
+
+Table Story {
+  id string [pk]
+  userId string
+  mediaUrl string
+  createdAt datetime
+  expiresAt datetime
+
+  Indexes {
+    (userId)
+  }
+}
+
+Table StoryLike {
+  id string [pk]
+  storyId string
+  userId string
+  createdAt datetime
+
+  Indexes {
+    (storyId)
+    (userId)
+  }
+}
+
+Table StoryComment {
+  id string [pk]
+  storyId string
+  userId string
+  comment text
+  createdAt datetime
+
+  Indexes {
+    (storyId)
+    (userId)
+  }
+}
+
+Table StoryShare {
+  id string [pk]
+  storyId string
+  userId string
+  createdAt datetime
+
+  Indexes {
+    (storyId)
+    (userId)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// MESSAGING SYSTEM
+///////////////////////////////////////////////////////////////
+
+Table P2PMessage {
+  id string [pk]
+  senderId string
+  receiverId string
+  message string
+  messageType string
+  seen boolean [default: false]
+  deletedBySender boolean [default: false]
+  deletedByReceiver boolean [default: false]
+  createdAt datetime
+  updatedAt datetime
+
+  Indexes {
+    (senderId)
+    (receiverId)
+    (createdAt)
+  }
+}
+
+Table Chattings {
+  id string [pk]
+  userId string
+  chatId string
+  lastMessage string
+  updatedAt datetime
+
+  Indexes {
+    (userId)
+    (chatId)
+  }
+}
+
+
+///////////////////////////////////////////////////////////////
+// REFERRAL / RANKING / TASKS
+///////////////////////////////////////////////////////////////
+
+Table Referral {
+  id string [pk]
+  userId string
+  referredUserId string
+  createdAt datetime
+}
+
+Table RankingCategory {
+  id string [pk]
+  name string
+  description string
+}
+
+Table Ranking {
+  id string [pk]
+  categoryId string
+  name string
+  period string        // daily, weekly, monthly, all-time
+  createdAt datetime
+}
+
+Table RankList {
+  id string [pk]
+  rankingId string
+  userId string
+  score int
+  updatedAt datetime
+}
+
+Table DailyTask {
+  id string [pk]
+  userId string
+  task string
+  completed boolean
+  taskDate date
+  createdAt datetime
+}
+
+Table LuckyBag {
+  id string [pk]
+  userId string
+  prize string
+  prizeAmount int
+  createdAt datetime
+}
+
+///////////////////////////////////////////////////////////////
+// RELATIONS
+///////////////////////////////////////////////////////////////
+
+Ref: friends.user_id > User.id
+Ref: friends.friend_id > User.id
+Ref: followers.user_id > User.id
+Ref: followers.follower_id > User.id
+Ref: following.user_id > User.id
+Ref: following.following_id > User.id
+Ref: User.vipId > Vip.id
+Ref: User.agencyId > Agency.id
+Ref: P2PMessage.senderId > User.id
+Ref: P2PMessage.receiverId > User.id
+Ref: LiveStream.hostId > User.id
+Ref: StreamStats.streamId > LiveStream.id
+Ref: Visitors.streamId > LiveStream.id
+Ref: Visitors.userId > User.id
+Ref: GiftTransaction.streamId > LiveStream.id
+Ref: GiftTransaction.giftId > Gift.id
+Ref: GiftTransaction.senderId > User.id
+Ref: GiftTransaction.receiverId > User.id
+Ref: Wallet.userId > User.id
+Ref: WalletTransaction.walletId > Wallet.id
+Ref: StoreItem.categoryId > StoreCategory.id
+Ref: Backpack.itemId > StoreItem.id
+Ref: Backpack.userId > User.id
+Ref: Vip.privilegeId > VipPrivileges.id
+Ref: SVIP.privilegeId > SVIPPrivileges.id
+Ref: Badge.badgeTypeId > BadgeType.id
+Ref: BadgeList.badgeId > Badge.id
+Ref: BadgeList.userId > User.id
+Ref: LabelPrivileges.categoryId > LabelCategory.id
+Ref: UserPlaylist.songId > Song.id
+Ref: UserPlaylist.userId > User.id
+Ref: Moments.userId > User.id
+Ref: MomentsComment.momentId > Moments.id
+Ref: MomentsLike.momentId > Moments.id
+Ref: Story.userId > User.id
+Ref: StoryComment.storyId > Story.id
+// Ref: SearchHistory.userId > User.id
+Ref: Agency.ownerId > User.id
+Ref: AgentProfile.userId > User.id
+Ref: AgentProfile.agencyId > Agency.id
+Ref: AgentCommission.agentId > AgentProfile.userId
+Ref: AgentCommission.hostId > User.id
+Ref: AgentCommission.agencyId > Agency.id
