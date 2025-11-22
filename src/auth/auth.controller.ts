@@ -38,16 +38,20 @@ export class AuthController {
 
 @Post('verify-otp')
 async verifyOtp(@Req() req: any, @Body() dto: VerifyOtpDto) {
-  const ip = req.ip || req.connection?.remoteAddress;
+  const ip =
+    req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+    req.ip ||
+    req.connection?.remoteAddress;
 
   const result = await this.authService.verifyOtp(dto.email, dto.otp, ip);
 
   return {
     success: true,
     message: 'OTP verified',
-    country: result.country,   // <-- include country
+    country: result.country,
   };
 }
+
 
 
   @Post('set-password')
