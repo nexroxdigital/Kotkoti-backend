@@ -10,20 +10,99 @@ datasource db {
 
 
 model User {
-  id             String   @id @default(uuid())
-  email          String   @unique
-  password       String?
-  phone          String?  @unique
-  nickName       String?
+  id             String           @id @default(uuid())
+  nickName       String           @default("Unknown")
+  email          String           @unique
+  phone          String?          @unique
+  profilePicture String?
+  password       String
+  roleId         String?
   dob            DateTime?
   bio            String?
   gender         String?
   country        String?
-  profilePicture String?
-  roleId         String?
-  refreshTokens  RefreshToken[]   // ← Add this line
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+
+  activePropsId  String?
+  agencyId       String?
+  vipId          String?
+
+  activeProps    ActiveProps? @relation(fields: [activePropsId], references: [id], map: "user_activeProps_fk")
+  agency         Agency?      @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
+  vip            Vip?         @relation(fields: [vipId], references: [id], map: "user_vip_fk")
+            
+  gold           Int              @default(0)
+  diamond        Int              @default(0)
+  isDiamondBlocked Boolean        @default(false)
+  isGoldBlocked    Boolean        @default(false)
+  isAccountBlocked Boolean        @default(false)
+
+  isHost         Boolean          @default(false)
+  isReseller     Boolean          @default(false)
+  deviceId       String?
+  ipAddress      String?
+
+  charmLevel     String?    
+  wealthLevel    String?
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  sessions     Session[]
+  refreshTokens  RefreshToken[]
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  user         User     @relation(fields: [userId], references: [id])
+  userId       String       
+  createdAt    DateTime @default(now())  
+  expiresAt    DateTime?             
+  lastAccessed DateTime?            
+
+  @@index([userId])
+}
+
+
+model ActiveProps {
+  id            String @id @default(uuid())
+  car           String
+  profileFrame  String
+  users         User[]
+}
+
+model Agency {
+  id           String @id @default(uuid())
+  name         String
+  ownerId      String
+  code         String @unique
+  level        String
+  description  String
+  logoUrl      String
+  country      String
+  totalMembers Int
+  totalEarnings BigInt
+  balance      BigInt
+  status       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  users        User[]
+}
+
+model Vip {
+  id            String   @id @default(uuid())
+  name          String
+  type          String
+  privilegeId   String
+  validity      Int
+  amount        Int
+  imageUrl      String
+  entryAnimation String
+  profileFrame  String
+  purchaseDate  DateTime
+  expiryDate    DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         User[]
 }
 
 model EmailOtp {
@@ -38,7 +117,6 @@ model EmailOtp {
   @@index([email])
 }
 
-
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String
@@ -46,8 +124,6 @@ model RefreshToken {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id])
 }
-
-
 
 model Post {
   id        Int      @id @default(autoincrement())

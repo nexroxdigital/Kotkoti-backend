@@ -1,20 +1,20 @@
 import {
-  Injectable,
   BadRequestException,
+  Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { MailService } from '../mail/mail.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { MailService } from '../mail/mail.service';
+import { PrismaService } from '../prisma/prisma.service';
 
-import { CompleteProfileDto } from './dto/complete-profile.dto';
-import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { User } from '@prisma/client/edge';
-import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -137,54 +137,58 @@ export class AuthService {
   // ----------------------------------
   // VERIFY OTP
   // ----------------------------------
-async verifyOtp(email: string, otp: string, ip: string, purpose = 'register') {
-  // 1. find latest unconsumed OTP
-  const rec = await this.prisma.emailOtp.findFirst({
-    where: {
-      email,
-      purpose,
-      consumed: false,
-      expiresAt: { gte: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  async verifyOtp(
+    email: string,
+    otp: string,
+    ip: string,
+    purpose = 'register',
+  ) {
+    // 1. find latest unconsumed OTP
+    const rec = await this.prisma.emailOtp.findFirst({
+      where: {
+        email,
+        purpose,
+        consumed: false,
+        expiresAt: { gte: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  if (!rec) {
-    throw new BadRequestException('Invalid or expired OTP');
-  }
-
-  // 2. Compare provided OTP with hashed one
-  const isMatch = await bcrypt.compare(otp, rec.otp);
-  if (!isMatch) {
-    throw new BadRequestException('Invalid or expired OTP');
-  }
-
-  // 3. Mark OTP as consumed
-  await this.prisma.emailOtp.update({
-    where: { id: rec.id },
-    data: { consumed: true },
-  });
-
-  // ---------------------------
-  // 4. Detect country from IP
-  // ---------------------------
-  let country = 'Unknown';
-
-  try {
-    const res = await fetch(`http://ip-api.com/json/${ip}`);
-    const geo = await res.json();
-
-    if (geo.status === 'success') {
-      country = geo.country;
+    if (!rec) {
+      throw new BadRequestException('Invalid or expired OTP');
     }
-  } catch (err) {
-    console.error('IP lookup failed:', err);
+
+    // 2. Compare provided OTP with hashed one
+    const isMatch = await bcrypt.compare(otp, rec.otp);
+    if (!isMatch) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // 3. Mark OTP as consumed
+    await this.prisma.emailOtp.update({
+      where: { id: rec.id },
+      data: { consumed: true },
+    });
+
+    // ---------------------------
+    // 4. Detect country from IP
+    // ---------------------------
+    let country = 'Unknown';
+
+    try {
+      const res = await fetch(`http://ip-api.com/json/${ip}`);
+      const geo = await res.json();
+
+      if (geo.status === 'success') {
+        country = geo.country;
+      }
+    } catch (err) {
+      console.error('IP lookup failed:', err);
+    }
+
+    // 5. return country info
+    return { country };
   }
-
-  // 5. return country info
-  return { country };
-}
-
 
   // ----------------------------------
   // SET PASSWORD
@@ -280,6 +284,12 @@ async verifyOtp(email: string, otp: string, ip: string, purpose = 'register') {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new BadRequestException('Invalid credentials');
 
+    await this.prisma.session.create({
+      data: {
+        userId: user.id,
+      },
+    });
+
     const jti = crypto.randomUUID();
     const refreshRaw = this.jwtService.sign(
       { userId: user.id, jti },
@@ -362,7 +372,7 @@ async verifyOtp(email: string, otp: string, ip: string, purpose = 'register') {
   }
 
   // ----------------------------------
-  // LOGOUT 
+  // LOGOUT
   // ----------------------------------
 
   async logout(userId: string) {
@@ -438,95 +448,92 @@ async verifyOtp(email: string, otp: string, ip: string, purpose = 'register') {
     };
   }
 
-
   // ----------------------------------
   // RESET PASSWORD
   // ----------------------------------
 
   async resetPassword(dto: ResetPasswordDto) {
-  const { email, otp, newPassword } = dto;
+    const { email, otp, newPassword } = dto;
 
-  // 1. find the OTP
-  const record = await this.prisma.emailOtp.findFirst({
-    where: {
-      email,
-      purpose: 'forgot_password',
-      consumed: false,
-      expiresAt: { gte: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+    // 1. find the OTP
+    const record = await this.prisma.emailOtp.findFirst({
+      where: {
+        email,
+        purpose: 'forgot_password',
+        consumed: false,
+        expiresAt: { gte: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  if (!record) {
-    throw new BadRequestException('Invalid or expired OTP');
+    if (!record) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // 2. verify OTP
+    const isMatch = await bcrypt.compare(otp, record.otp);
+    if (!isMatch) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    // 3. mark OTP as consumed
+    await this.prisma.emailOtp.update({
+      where: { id: record.id },
+      data: { consumed: true },
+    });
+
+    // 4. update user password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { email },
+      data: { password: hashedPassword },
+    });
+
+    return {
+      message: 'Password has been reset successfully',
+    };
   }
-
-  // 2. verify OTP
-  const isMatch = await bcrypt.compare(otp, record.otp);
-  if (!isMatch) {
-    throw new BadRequestException('Invalid or expired OTP');
-  }
-
-  // 3. mark OTP as consumed
-  await this.prisma.emailOtp.update({
-    where: { id: record.id },
-    data: { consumed: true },
-  });
-
-  // 4. update user password
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-  await this.prisma.user.update({
-    where: { email },
-    data: { password: hashedPassword },
-  });
-
-  return {
-    message: 'Password has been reset successfully',
-  };
-}
 
   // ----------------------------------
   // CHANGE PASSWORD
   // ----------------------------------
 
-async changePassword(userId: string, dto: ChangePasswordDto) {
-  const { oldPassword, newPassword } = dto;
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const { oldPassword, newPassword } = dto;
 
-  // 1. Find user
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-  });
+    // 1. Find user
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
 
-  if (!user) {
-    throw new BadRequestException('User not found');
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // 2. Check old password
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Old password is incorrect');
+    }
+
+    // 3. Prevent using same password
+    const isSame = await bcrypt.compare(newPassword, user.password);
+    if (isSame) {
+      throw new BadRequestException('New password must be different');
+    }
+
+    // 4. Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // 5. Update password
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    return {
+      message: 'Password changed successfully',
+    };
   }
-
-  // 2. Check old password
-  const isMatch = await bcrypt.compare(oldPassword, user.password);
-  if (!isMatch) {
-    throw new BadRequestException('Old password is incorrect');
-  }
-
-  // 3. Prevent using same password
-  const isSame = await bcrypt.compare(newPassword, user.password);
-  if (isSame) {
-    throw new BadRequestException('New password must be different');
-  }
-
-  // 4. Hash new password
-  const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-
-  // 5. Update password
-  await this.prisma.user.update({
-    where: { id: userId },
-    data: { password: hashedNewPassword },
-  });
-
-  return {
-    message: 'Password changed successfully',
-  };
-}
-
-
 }
