@@ -137,29 +137,54 @@ export class AuthService {
   // ----------------------------------
   // VERIFY OTP
   // ----------------------------------
-  async verifyOtp(email: string, otp: string, purpose = 'register') {
-    const rec = await this.prisma.emailOtp.findFirst({
-      where: {
-        email,
-        purpose,
-        consumed: false,
-        expiresAt: { gte: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+async verifyOtp(email: string, otp: string, ip: string, purpose = 'register') {
+  // 1. find latest unconsumed OTP
+  const rec = await this.prisma.emailOtp.findFirst({
+    where: {
+      email,
+      purpose,
+      consumed: false,
+      expiresAt: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
-    if (!rec) throw new BadRequestException('Invalid or expired OTP');
-
-    const isMatch = await bcrypt.compare(otp, rec.otp);
-    if (!isMatch) throw new BadRequestException('Invalid or expired OTP');
-
-    await this.prisma.emailOtp.update({
-      where: { id: rec.id },
-      data: { consumed: true },
-    });
-
-    return true;
+  if (!rec) {
+    throw new BadRequestException('Invalid or expired OTP');
   }
+
+  // 2. Compare provided OTP with hashed one
+  const isMatch = await bcrypt.compare(otp, rec.otp);
+  if (!isMatch) {
+    throw new BadRequestException('Invalid or expired OTP');
+  }
+
+  // 3. Mark OTP as consumed
+  await this.prisma.emailOtp.update({
+    where: { id: rec.id },
+    data: { consumed: true },
+  });
+
+  // ---------------------------
+  // 4. Detect country from IP
+  // ---------------------------
+  let country = 'Unknown';
+
+  try {
+    const res = await fetch(`http://ip-api.com/json/${ip}`);
+    const geo = await res.json();
+
+    if (geo.status === 'success') {
+      country = geo.country;
+    }
+  } catch (err) {
+    console.error('IP lookup failed:', err);
+  }
+
+  // 5. return country info
+  return { country };
+}
+
 
   // ----------------------------------
   // SET PASSWORD

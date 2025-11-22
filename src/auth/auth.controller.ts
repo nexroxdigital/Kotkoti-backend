@@ -36,11 +36,19 @@ export class AuthController {
     return result;
   }
 
-  @Post('verify-otp')
-  async verifyOtp(@Body() dto: VerifyOtpDto) {
-    await this.authService.verifyOtp(dto.email, dto.otp);
-    return { success: true, message: 'OTP verified' };
-  }
+@Post('verify-otp')
+async verifyOtp(@Req() req: any, @Body() dto: VerifyOtpDto) {
+  const ip = req.ip || req.connection?.remoteAddress;
+
+  const result = await this.authService.verifyOtp(dto.email, dto.otp, ip);
+
+  return {
+    success: true,
+    message: 'OTP verified',
+    country: result.country,   // <-- include country
+  };
+}
+
 
   @Post('set-password')
   async setPassword(@Body() dto: SetPasswordDto) {
