@@ -280,13 +280,13 @@ export class AuthService {
     else if (phone)
       user = await this.prisma.user.findUnique({ where: { phone } });
 
-    if (!user) throw new BadRequestException('Invalid credentials');
+    if (!user) throw new BadRequestException('Account not found');
 
     if (!user.password)
       throw new BadRequestException('User has no password set');
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new BadRequestException('Invalid credentials');
+    if (!isMatch) throw new BadRequestException('Password incorrect');
 
     // extract request metadata
     const ip =
