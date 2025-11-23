@@ -1,16 +1,16 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
-import { RegisterEmailDto } from './dto/register-email.dto';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { ResendOtpDto } from './dto/resend-otp.dto';
-import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { SetPasswordDto } from './dto/set-password.dto';
-import { CompleteProfileDto } from './dto/complete-profile.dto';
-import { LoginDto } from './dto/login.dto';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
-import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterEmailDto } from './dto/register-email.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SetPasswordDto } from './dto/set-password.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -36,23 +36,21 @@ export class AuthController {
     return result;
   }
 
-@Post('verify-otp')
-async verifyOtp(@Req() req: any, @Body() dto: VerifyOtpDto) {
-  const ip =
-    req.headers['x-forwarded-for']?.split(',')[0].trim() ||
-    req.ip ||
-    req.connection?.remoteAddress;
+  @Post('verify-otp')
+  async verifyOtp(@Req() req: any, @Body() dto: VerifyOtpDto) {
+    const ip =
+      req.headers['x-forwarded-for']?.split(',')[0].trim() ||
+      req.ip ||
+      req.connection?.remoteAddress;
 
-  const result = await this.authService.verifyOtp(dto.email, dto.otp, ip);
+    const result = await this.authService.verifyOtp(dto.email, dto.otp, ip);
 
-  return {
-    success: true,
-    message: 'OTP verified',
-    country: result.country,
-  };
-}
-
-
+    return {
+      success: true,
+      message: 'OTP verified',
+      country: result.country,
+    };
+  }
 
   @Post('set-password')
   async setPassword(@Body() dto: SetPasswordDto) {
@@ -102,5 +100,13 @@ async verifyOtp(@Req() req: any, @Body() dto: VerifyOtpDto) {
   @Get('test')
   getTest() {
     return { message: 'Auth route working!' };
+  }
+
+  @Get('me')
+  // @UseGuards(JwtAuthGuard)
+  async getMyProfile(@Req() req: any) {
+    const userId = req.user.userId;
+    const userData = await this.authService.getUserData(userId);
+    return { success: true, user: userData };
   }
 }

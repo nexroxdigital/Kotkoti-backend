@@ -6,14 +6,16 @@ import {
   Param,
   Patch,
   Post,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { CreateUserDto } from './dto/create-user.dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto/update-user.dto';
 import { UserService } from './user.service';
 
-@Controller('users')
+@Controller('admin/users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -23,23 +25,27 @@ export class UserController {
     return this.userService.create(data);
   }
 
-  @Get()
+  @Get('all')
+  @UseGuards(JwtAuthGuard)
   findAll() {
     return this.userService.findAll();
   }
 
-  @Get(':id')
+  @Get('details/:id')
+  @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
 
-  @Patch(':id')
+  @Patch('update/:id')
+  @UseGuards(JwtAuthGuard)
   @UsePipes(new ValidationPipe({ whitelist: true }))
   update(@Param('id') id: string, @Body() data: UpdateUserDto) {
     return this.userService.update(id, data);
   }
 
-  @Delete(':id')
+  @Delete('delete/:id')
+  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
   }
