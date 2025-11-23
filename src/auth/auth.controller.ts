@@ -22,6 +22,7 @@ import type { Request } from 'express';
 import { VerifyForgotOtpDto } from './dto/verify-forgot-otp.dto';
 import { SetNewPasswordDto } from './dto/set-new-password.dto';
 
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -118,5 +119,13 @@ async setNewPassword(@Body() dto: SetNewPasswordDto) {
   @Get('verify-forgot-otp')
   getTest() {
     return { message: 'Auth route working!' };
+  }
+
+  @Get('me')
+  // @UseGuards(JwtAuthGuard)
+  async getMyProfile(@Req() req: any) {
+    const userId = req.user.userId;
+    const userData = await this.authService.getUserData(userId);
+    return { success: true, user: userData };
   }
 }

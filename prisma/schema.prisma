@@ -52,8 +52,18 @@ model User {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
-  sessions     Session[]
+  sessions       Session[]
   refreshTokens  RefreshToken[]
+
+  followers      Follow[]         @relation("UserFollowers")
+  following      Follow[]         @relation("UserFollowing")
+
+  activityLog    ActivityLog[]
+  blocking       Block[] @relation("UserBlocking")
+  blockedBy      Block[] @relation("UserBlocked")
+
+  requestedFriends Friendship[] @relation("RequestedFriends")
+  receivedFriends  Friendship[] @relation("ReceivedFriends")
 }
 
 model Session {
@@ -134,6 +144,89 @@ model RefreshToken {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id])
 }
+
+
+model Follow {
+  id          String   @id @default(uuid())
+  
+  user        User     @relation("UserFollowers", fields: [userId], references: [id])
+  userId      String  
+
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id])
+  followerId  String   
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, followerId])
+  @@index([userId])
+  @@index([followerId])
+}
+
+model Friendship {
+  id           String   @id @default(uuid())
+
+  requester    User     @relation("RequestedFriends", fields: [requesterId], references: [id])
+  requesterId  String
+
+  receiver     User     @relation("ReceivedFriends", fields: [receiverId], references: [id])
+  receiverId   String
+
+  status       FriendshipStatus @default(PENDING)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([requesterId, receiverId])
+  @@index([requesterId])
+  @@index([receiverId])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+
+
+model Block {
+  id          String   @id @default(uuid())
+
+  blocker     User     @relation("UserBlocking", fields: [blockerId], references: [id])
+  blockerId   String
+
+  blocked     User     @relation("UserBlocked", fields: [blockedId], references: [id])
+  blockedId   String
+
+  createdAt   DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+
+  action      String    
+  targetId    String?   
+  targetType  String?   
+  metadata    Json?     
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([action])
+}
+
+
 
 model Post {
   id        Int      @id @default(autoincrement())
