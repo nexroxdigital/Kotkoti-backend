@@ -22,11 +22,9 @@ model User {
   gender         String?
   country        String?
 
-  activePropsId  String?
   agencyId       String?
   vipId          String?
 
-  activeProps    ActiveProps? @relation(fields: [activePropsId], references: [id], map: "user_activeProps_fk")
   agency         Agency?      @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
   vip            Vip?         @relation(fields: [vipId], references: [id], map: "user_vip_fk")
             
@@ -38,9 +36,6 @@ model User {
 
   isHost         Boolean          @default(false)
   isReseller     Boolean          @default(false)
-
-  charmLevel     String?    
-  wealthLevel    String?
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -55,8 +50,16 @@ model User {
   blocking       Block[] @relation("UserBlocking")
   blockedBy      Block[] @relation("UserBlocked")
 
-  requestedFriends Friendship[] @relation("RequestedFriends")
-  receivedFriends  Friendship[] @relation("ReceivedFriends")
+  requestedFriends Friends[] @relation("RequestedFriends")
+  receivedFriends  Friends[] @relation("ReceivedFriends")
+
+  charmLevelId String?
+  wealthLevelId String?
+
+  charmLevel   CharmLevel? @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
+  wealthLevel  WealthLevel? @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
+
+  loginHistory LoginHistory[]
 }
 
 model Session {
@@ -74,12 +77,18 @@ model Session {
   @@index([userId])
 }
 
-model ActiveProps {
-  id            String @id @default(uuid())
-  car           String
-  profileFrame  String
-  users         User[]
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  ip        String?
+  country   String?
+  deviceId  String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
+
 
 model Agency {
   id           String @id @default(uuid())
@@ -136,6 +145,21 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 }
 
+model CharmLevel {
+  id            String  @id @default(uuid())
+  name          String
+  imageUrl      String
+  levelup_point Int
+  users         User[]  @relation("UserCharmLevel")
+}
+
+model WealthLevel {
+  id            String  @id @default(uuid())
+  name          String
+  imageUrl      String
+  levelup_point Int
+  users         User[]  @relation("UserWealthLevel")
+}
 
 model Follow {
   id          String   @id @default(uuid())
@@ -154,7 +178,7 @@ model Follow {
   @@index([followerId])
 }
 
-model Friendship {
+model Friends {
   id           String   @id @default(uuid())
 
   requester    User     @relation("RequestedFriends", fields: [requesterId], references: [id])
@@ -180,8 +204,6 @@ enum FriendshipStatus {
   CANCELLED
 }
 
-
-
 model Block {
   id          String   @id @default(uuid())
 
@@ -197,8 +219,6 @@ model Block {
   @@index([blockerId])
   @@index([blockedId])
 }
-
-
 
 model ActivityLog {
   id          String   @id @default(uuid())
@@ -216,8 +236,6 @@ model ActivityLog {
   @@index([userId])
   @@index([action])
 }
-
-
 
 model Post {
   id        Int      @id @default(autoincrement())

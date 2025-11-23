@@ -548,13 +548,11 @@ export class AuthService {
         nickName: true,
         email: true,
         phone: true,
-        profilePicture: true,
         roleId: true,
         dob: true,
         bio: true,
         gender: true,
         country: true,
-        activePropsId: true,
         agencyId: true,
         vipId: true,
         gold: true,
@@ -564,8 +562,22 @@ export class AuthService {
         isAccountBlocked: true,
         isHost: true,
         isReseller: true,
-        charmLevel: true,
-        wealthLevel: true,
+        charmLevel: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            levelup_point: true,
+          },
+        },
+        wealthLevel: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            levelup_point: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -581,7 +593,7 @@ export class AuthService {
     });
 
     // 3. Count friends (status = ACCEPTED)
-    const friendsCount = await this.prisma.friendship.count({
+    const friendsCount = await this.prisma.friends.count({
       where: {
         OR: [
           { requesterId: userId, status: 'ACCEPTED' },
