@@ -50,10 +50,6 @@ export class CreateUserDto {
   vipId?: string; // corresponds to Vip relation
 
   @IsOptional()
-  @IsString()
-  activePropsId?: string; // corresponds to ActiveProps relation
-
-  @IsOptional()
   @IsInt()
   @Min(0)
   gold?: number;
@@ -77,7 +73,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  agencyId?: string; // corresponds to Agency relation
+  agencyId?: string;
 
   @IsOptional()
   @IsBoolean()
@@ -97,11 +93,11 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  charmLevel?: string;
+  charmLevelId?: string;
 
   @IsOptional()
   @IsString()
-  wealthLevel?: string;
+  wealthLevelId?: string;
 
   @IsOptional()
   @IsDateString()

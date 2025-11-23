@@ -720,13 +720,11 @@ async setNewPassword(email: string, newPassword: string) {
         nickName: true,
         email: true,
         phone: true,
-        profilePicture: true,
         roleId: true,
         dob: true,
         bio: true,
         gender: true,
         country: true,
-        activePropsId: true,
         agencyId: true,
         vipId: true,
         gold: true,
@@ -736,8 +734,22 @@ async setNewPassword(email: string, newPassword: string) {
         isAccountBlocked: true,
         isHost: true,
         isReseller: true,
-        charmLevel: true,
-        wealthLevel: true,
+        charmLevel: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            levelup_point: true,
+          },
+        },
+        wealthLevel: {
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            levelup_point: true,
+          },
+        },
         createdAt: true,
         updatedAt: true,
       },
@@ -753,7 +765,7 @@ async setNewPassword(email: string, newPassword: string) {
     });
 
     // 3. Count friends (status = ACCEPTED)
-    const friendsCount = await this.prisma.friendship.count({
+    const friendsCount = await this.prisma.friends.count({
       where: {
         OR: [
           { requesterId: userId, status: 'ACCEPTED' },
