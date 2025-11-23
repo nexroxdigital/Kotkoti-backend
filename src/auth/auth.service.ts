@@ -16,6 +16,7 @@ import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -271,55 +272,118 @@ export class AuthService {
   // ----------------------------------
   // LOGIN + REFRESH TOKEN CREATION
   // ----------------------------------
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, req?: Request) {
     const { email, phone, password } = dto;
 
     let user: User | null = null;
-
     if (email) user = await this.prisma.user.findUnique({ where: { email } });
     else if (phone)
       user = await this.prisma.user.findUnique({ where: { phone } });
 
-    if (!user) throw new BadRequestException('Invalid credentials');
+    if (!user) throw new BadRequestException('Account not found');
+
+    if (!user.password)
+      throw new BadRequestException('User has no password set');
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) throw new BadRequestException('Invalid credentials');
+    if (!isMatch) throw new BadRequestException('Password incorrect');
 
-    await this.prisma.session.create({
+    // extract request metadata
+    const ip =
+      (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req?.ip ||
+      req?.connection?.remoteAddress ||
+      undefined;
+
+    const userAgent = req?.headers?.['user-agent']?.toString() || undefined;
+    const deviceId = (req?.headers?.['x-device-id'] as string) || undefined;
+
+    // geolocate IP (best-effort)
+    let country: string | undefined;
+    try {
+      if (ip && !['127.0.0.1', '::1'].includes(ip)) {
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}`);
+        const geo = await geoRes.json();
+        if (geo?.status === 'success') country = geo.country;
+      }
+    } catch (err) {
+      // don't block login for geo failures
+      country = undefined;
+    }
+
+    // create session
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const session = await this.prisma.session.create({
       data: {
         userId: user.id,
+        expiresAt,
+        lastAccessed: new Date(),
+        deviceId,
+        ipAddress: ip,
+        country,
+        userAgent,
       },
     });
 
+    // create access token (shorter expiry recommended; adjust env)
+    const accessToken = await this.jwtService.signAsync(
+      { userId: user.id, sessionId: session.id, email: user.email },
+      { expiresIn:  '1d' },
+    );
+
+    // create refresh token with jti (use sessionId in payload)
     const jti = crypto.randomUUID();
-    const refreshRaw = this.jwtService.sign(
-      { userId: user.id, jti },
+    const refreshRaw = await this.jwtService.signAsync(
+      { userId: user.id, sessionId: session.id, jti },
       { expiresIn: '7d' },
     );
+
     const refreshHash = await bcrypt.hash(refreshRaw, 10);
 
-    await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
-
+    // store refresh token with jti and link to session
     await this.prisma.refreshToken.create({
       data: {
-        id: jti,
+        id: jti, // acts as the unique id (jti)
         token: refreshHash,
         userId: user.id,
+     
       },
     });
 
-    const token = this.jwtService.sign(
-      { userId: user.id, email: user.email },
-      { expiresIn: '1d' },
-    );
+    // suspicious login detection: compare last session
+    const last = await this.prisma.session.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: 'desc' },
+    });
 
-    return { user, token, refreshToken: refreshRaw };
+    if (last) {
+      const isNewDevice = deviceId && last.deviceId !== deviceId;
+      const isNewCountry = country && last.country !== country;
+      if (isNewDevice || isNewCountry) {
+        const html = `<p>New login detected for your account</p>
+<p>Device: ${deviceId ?? userAgent ?? 'unknown'}</p>
+<p>IP: ${ip ?? 'unknown'}</p>
+<p>Country: ${country ?? 'unknown'}</p>
+<p>If this wasn't you, change your password or revoke sessions immediately.</p>`;
+        this.mailService
+          .sendMail(user.email, 'New login detected', html)
+          .catch(() => {});
+      }
+    }
+
+    return {
+      user,
+      token: accessToken,
+      refreshToken: refreshRaw,
+      sessionId: session.id,
+    };
   }
 
   // ----------------------------------
   // REFRESH TOKEN ROTATION
   // ----------------------------------
   async rotateRefreshToken(refreshToken: string) {
+    // 1. Verify refresh token
     let payload;
     try {
       payload = await this.jwtService.verifyAsync(refreshToken, {
@@ -329,8 +393,25 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const { userId, jti } = payload;
+    const { userId, sessionId, jti } = payload;
 
+    // 2. Check session exists
+    const session = await this.prisma.session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!session || session.userId !== userId) {
+      throw new UnauthorizedException('Invalid session');
+    }
+
+    // 3. Check session expiry
+    if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+      // Delete expired session
+      await this.prisma.session.delete({ where: { id: sessionId } });
+      throw new UnauthorizedException('Session expired, please login again');
+    }
+
+    // 4. Check refresh token in DB (hashed)
     const stored = await this.prisma.refreshToken.findUnique({
       where: { id: jti },
     });
@@ -345,23 +426,34 @@ export class AuthService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
+    // 5. Update session lastAccessed
+    await this.prisma.session.update({
+      where: { id: sessionId },
+      data: { lastAccessed: new Date() },
+    });
+
+    // 6. Rotate refresh token
     const newJti = crypto.randomUUID();
     const newRefreshRaw = this.jwtService.sign(
-      { userId, jti: newJti },
+      { userId, sessionId, jti: newJti },
       { expiresIn: '7d' },
     );
+
     const newRefreshHash = await bcrypt.hash(newRefreshRaw, 10);
 
+    // Save new refresh token
     await this.prisma.refreshToken.create({
       data: { id: newJti, token: newRefreshHash, userId },
     });
 
+    // Delete old refresh token
     await this.prisma.refreshToken.delete({ where: { id: jti } });
 
+    // 7. Create NEW access token with same sessionId
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
 
     const newAccessToken = this.jwtService.sign(
-      { userId, email: user?.email },
+      { userId, email: user?.email, sessionId },
       { expiresIn: '1d' },
     );
 
@@ -369,6 +461,7 @@ export class AuthService {
       user,
       token: newAccessToken,
       refreshToken: newRefreshRaw,
+      sessionId,
     };
   }
 
@@ -376,14 +469,28 @@ export class AuthService {
   // LOGOUT
   // ----------------------------------
 
-  async logout(userId: string) {
+  async logout(userId: string, sessionId: string) {
     // delete all refresh tokens for user
-    await this.prisma.refreshToken.deleteMany({
-      where: { userId },
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+
+    // delete only the session
+    await this.prisma.session.deleteMany({
+      where: { id: sessionId, userId },
     });
 
     return { message: 'Logged out successfully' };
   }
+
+  // ---------- LOGOUT ALL ----------
+  async logoutAll(userId: string) {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.prisma.session.deleteMany({ where: { userId } });
+    return { message: 'Logged out from all devices' };
+  }
+
+  // ----------------------------------
+  // FORGOT PASSWORD
+  // ----------------------------------
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const { email, phone } = dto;
@@ -452,6 +559,67 @@ export class AuthService {
   // ----------------------------------
   // RESET PASSWORD
   // ----------------------------------
+async verifyForgotOtp(email: string, otp: string) {
+  // 1. find latest unconsumed OTP
+  const rec = await this.prisma.emailOtp.findFirst({
+    where: {
+      email,
+      purpose: 'forgot_password',
+      consumed: false,
+      expiresAt: { gte: new Date() },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!rec) throw new BadRequestException('Invalid or expired OTP');
+
+  // 2. compare otp
+  const match = await bcrypt.compare(otp, rec.otp);
+  if (!match) throw new BadRequestException('Invalid OTP');
+
+  // 3. mark otp consumed
+  await this.prisma.emailOtp.update({
+    where: { id: rec.id },
+    data: { consumed: true },
+  });
+
+  return { success: true, message: 'OTP verified' };
+}
+
+
+async setNewPassword(email: string, newPassword: string) {
+  // check otp consumed
+  const consumedOtp = await this.prisma.emailOtp.findFirst({
+    where: {
+      email,
+      purpose: 'forgot_password',
+      consumed: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (!consumedOtp) {
+    throw new BadRequestException('OTP not verified. Please verify OTP first.');
+  }
+
+  const user = await this.prisma.user.findUnique({ where: { email } });
+  if (!user) throw new BadRequestException('User not found');
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+
+  await this.prisma.user.update({
+    where: { email },
+    data: { password: hashed },
+  });
+
+  // remove all sessions for safety
+  await this.prisma.session.deleteMany({ where: { userId: user.id } });
+
+  // remove all refresh tokens
+  await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+
+  return { message: 'Password reset successful' };
+}
 
   async resetPassword(dto: ResetPasswordDto) {
     const { email, otp, newPassword } = dto;
@@ -532,6 +700,10 @@ export class AuthService {
       where: { id: userId },
       data: { password: hashedNewPassword },
     });
+
+    // revoke sessions & refresh tokens as extra security
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+    await this.prisma.session.deleteMany({ where: { userId } });
 
     return {
       message: 'Password changed successfully',
