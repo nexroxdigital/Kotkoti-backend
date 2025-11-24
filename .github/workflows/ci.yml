@@ -1,0 +1,50 @@
+name: CI Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd="pg_isready -U test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgres://test:test@localhost:5432/testdb
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prisma Validate
+        run: npx prisma validate
+
+      - name: Prisma Format
+        run: npx prisma format
+
+      - name: Prisma Migrate Check
+        run: npx prisma migrate dev --create-only
+
+      - name: Prisma Migrate Deploy Test
+        run: npx prisma migrate deploy
+
+      - name: NestJS Build
+        run: npm run build
