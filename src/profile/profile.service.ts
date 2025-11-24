@@ -77,6 +77,12 @@ export class ProfileService {
       where: { userId },
     });
 
+ /*       // ---- Count Following ----
+    const followingCount = await (this.prisma as any).following.count({
+      where: { userId },
+    }); */
+
+
     // ---- Count Friends ----
     const friendsCount = await (this.prisma as any).friends.count({
       where: {
@@ -98,6 +104,7 @@ export class ProfileService {
     return {
       ...user,
       followersCount,
+      followingCount: 0,
       friendsCount,
       agencyCount,
       visitorsCount,
