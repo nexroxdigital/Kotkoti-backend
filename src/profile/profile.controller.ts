@@ -56,7 +56,7 @@ export class ProfileController {
     return this.authService.blockUser(req.user.userId, userId, dto.reason);
   }
 
-  @Delete('users/:userId/unblock')
+  @Delete('user/:userId/unblock')
   @UseGuards(JwtAuthGuard)
   async unblockUser(@Req() req: any, @Param('userId') userId: string) {
     return this.authService.unblockUser(req.user.userId, userId);
