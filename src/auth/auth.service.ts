@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -506,7 +505,7 @@ export class AuthService {
     // SECURITY: Always respond success even if user doesn't exist
     // But only send OTP if user exists
     if (!user) {
-      return { message: 'If this account exists, a reset link has been sent.' };
+      return { message: 'If this account exists, a reset code has been sent.' };
     }
 
     const targetEmail = user.email; // Always send reset OTP to registered email
@@ -557,7 +556,7 @@ export class AuthService {
   }
 
   // ----------------------------------
-  // RESET PASSWORD
+  // VERIFY FORGOT OTP
   // ----------------------------------
 async verifyForgotOtp(email: string, otp: string) {
   // 1. find latest unconsumed OTP
@@ -586,6 +585,10 @@ async verifyForgotOtp(email: string, otp: string) {
   return { success: true, message: 'OTP verified' };
 }
 
+
+  // ----------------------------------
+  // SET NEW PASSWORD
+  // ----------------------------------
 
 async setNewPassword(email: string, newPassword: string) {
   // check otp consumed
@@ -620,6 +623,11 @@ async setNewPassword(email: string, newPassword: string) {
 
   return { message: 'Password reset successful' };
 }
+
+
+  // ----------------------------------
+  // RESET PASSWORD
+  // ----------------------------------
 
   async resetPassword(dto: ResetPasswordDto) {
     const { email, otp, newPassword } = dto;
@@ -710,79 +718,4 @@ async setNewPassword(email: string, newPassword: string) {
     };
   }
 
-  //  get user data
-  async getUserData(userId: string) {
-    // 1. Fetch user (exclude password)
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        nickName: true,
-        email: true,
-        phone: true,
-        roleId: true,
-        dob: true,
-        bio: true,
-        gender: true,
-        country: true,
-        agencyId: true,
-        vipId: true,
-        gold: true,
-        diamond: true,
-        isDiamondBlocked: true,
-        isGoldBlocked: true,
-        isAccountBlocked: true,
-        isHost: true,
-        isReseller: true,
-        charmLevel: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
-            levelup_point: true,
-          },
-        },
-        wealthLevel: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
-            levelup_point: true,
-          },
-        },
-        createdAt: true,
-        updatedAt: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // 2. Count followers
-    const followersCount = await this.prisma.follow.count({
-      where: { userId },
-    });
-
-    // 3. Count friends (status = ACCEPTED)
-    const friendsCount = await this.prisma.friends.count({
-      where: {
-        OR: [
-          { requesterId: userId, status: 'ACCEPTED' },
-          { receiverId: userId, status: 'ACCEPTED' },
-        ],
-      },
-    });
-
-    // 4. Count agency (1 if user has agencyId)
-    const agencyCount = user.agencyId ? 1 : 0;
-
-    // 5. Return combined data
-    return {
-      ...user,
-      followersCount,
-      friendsCount,
-      agencyCount,
-    };
-  }
 }

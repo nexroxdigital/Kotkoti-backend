@@ -7,6 +7,7 @@ import { PostModule } from './post/post.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SocialModule } from './social/social.module';
 import { UserModule } from './user/user.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { UserModule } from './user/user.module';
     PrismaModule,
     PostModule,
     AuthModule,
+    ProfileModule,
     UserModule,
     SocialModule,
   ],
