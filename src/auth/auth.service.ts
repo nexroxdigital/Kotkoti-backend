@@ -280,6 +280,15 @@ export class AuthService {
       user = await this.prisma.user.findUnique({ where: { phone } });
 
     if (!user) throw new BadRequestException('Account not found');
+    const deactivated = await (this.prisma as any).userDeactivation.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (deactivated) {
+      throw new BadRequestException(
+        'Account is deactivated. Please reactivate.',
+      );
+    }
 
     if (!user.password)
       throw new BadRequestException('User has no password set');
@@ -327,7 +336,7 @@ export class AuthService {
     // create access token (shorter expiry recommended; adjust env)
     const accessToken = await this.jwtService.signAsync(
       { userId: user.id, sessionId: session.id, email: user.email },
-      { expiresIn:  '1d' },
+      { expiresIn: '1d' },
     );
 
     // create refresh token with jti (use sessionId in payload)
@@ -345,7 +354,6 @@ export class AuthService {
         id: jti, // acts as the unique id (jti)
         token: refreshHash,
         userId: user.id,
-     
       },
     });
 
@@ -558,72 +566,72 @@ export class AuthService {
   // ----------------------------------
   // VERIFY FORGOT OTP
   // ----------------------------------
-async verifyForgotOtp(email: string, otp: string) {
-  // 1. find latest unconsumed OTP
-  const rec = await this.prisma.emailOtp.findFirst({
-    where: {
-      email,
-      purpose: 'forgot_password',
-      consumed: false,
-      expiresAt: { gte: new Date() },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  async verifyForgotOtp(email: string, otp: string) {
+    // 1. find latest unconsumed OTP
+    const rec = await this.prisma.emailOtp.findFirst({
+      where: {
+        email,
+        purpose: 'forgot_password',
+        consumed: false,
+        expiresAt: { gte: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  if (!rec) throw new BadRequestException('Invalid or expired OTP');
+    if (!rec) throw new BadRequestException('Invalid or expired OTP');
 
-  // 2. compare otp
-  const match = await bcrypt.compare(otp, rec.otp);
-  if (!match) throw new BadRequestException('Invalid OTP');
+    // 2. compare otp
+    const match = await bcrypt.compare(otp, rec.otp);
+    if (!match) throw new BadRequestException('Invalid OTP');
 
-  // 3. mark otp consumed
-  await this.prisma.emailOtp.update({
-    where: { id: rec.id },
-    data: { consumed: true },
-  });
+    // 3. mark otp consumed
+    await this.prisma.emailOtp.update({
+      where: { id: rec.id },
+      data: { consumed: true },
+    });
 
-  return { success: true, message: 'OTP verified' };
-}
-
+    return { success: true, message: 'OTP verified' };
+  }
 
   // ----------------------------------
   // SET NEW PASSWORD
   // ----------------------------------
 
-async setNewPassword(email: string, newPassword: string) {
-  // check otp consumed
-  const consumedOtp = await this.prisma.emailOtp.findFirst({
-    where: {
-      email,
-      purpose: 'forgot_password',
-      consumed: true,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  async setNewPassword(email: string, newPassword: string) {
+    // check otp consumed
+    const consumedOtp = await this.prisma.emailOtp.findFirst({
+      where: {
+        email,
+        purpose: 'forgot_password',
+        consumed: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  if (!consumedOtp) {
-    throw new BadRequestException('OTP not verified. Please verify OTP first.');
+    if (!consumedOtp) {
+      throw new BadRequestException(
+        'OTP not verified. Please verify OTP first.',
+      );
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) throw new BadRequestException('User not found');
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { email },
+      data: { password: hashed },
+    });
+
+    // remove all sessions for safety
+    await this.prisma.session.deleteMany({ where: { userId: user.id } });
+
+    // remove all refresh tokens
+    await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+
+    return { message: 'Password reset successful' };
   }
-
-  const user = await this.prisma.user.findUnique({ where: { email } });
-  if (!user) throw new BadRequestException('User not found');
-
-  const hashed = await bcrypt.hash(newPassword, 10);
-
-  await this.prisma.user.update({
-    where: { email },
-    data: { password: hashed },
-  });
-
-  // remove all sessions for safety
-  await this.prisma.session.deleteMany({ where: { userId: user.id } });
-
-  // remove all refresh tokens
-  await this.prisma.refreshToken.deleteMany({ where: { userId: user.id } });
-
-  return { message: 'Password reset successful' };
-}
-
 
   // ----------------------------------
   // RESET PASSWORD
@@ -717,5 +725,4 @@ async setNewPassword(email: string, newPassword: string) {
       message: 'Password changed successfully',
     };
   }
-
 }
