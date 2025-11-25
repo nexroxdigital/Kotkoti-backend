@@ -10,6 +10,9 @@ import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { join } from 'path';
+import * as fs from 'fs';
+import sharp from 'sharp';
 
 @Injectable()
 export class ProfileService {
@@ -77,11 +80,10 @@ export class ProfileService {
       where: { userId },
     });
 
- /*       // ---- Count Following ----
+          // ---- Count Following ----
     const followingCount = await (this.prisma as any).following.count({
       where: { userId },
-    }); */
-
+    });
 
     // ---- Count Friends ----
     const friendsCount = await (this.prisma as any).friends.count({
@@ -104,14 +106,14 @@ export class ProfileService {
     return {
       ...user,
       followersCount,
-      followingCount: 0,
+      followingCount,
       friendsCount,
       agencyCount,
       visitorsCount,
     };
   }
 
-    // ----------------------------------
+  // ----------------------------------
   // PUBLIC PROFILE
   // ----------------------------------
 
@@ -225,7 +227,67 @@ export class ProfileService {
   }
 
   // ----------------------------------
-  // BLOCK A USER
+  // UPLOAD PROFILE PICTURE
+  // ----------------------------------
+
+async uploadProfilePic(userId: string, file: Express.Multer.File) {
+  if (!file) throw new BadRequestException('No file uploaded');
+
+  const tempPath = file.path;
+  const outputDir = join(process.cwd(), 'uploads/profile');
+  const finalFileName = `${userId}.webp`;
+  const finalPath = join(outputDir, finalFileName);
+
+  // ensure output folder exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // 🔥 1. Delete old image if exists (any format)
+  const user = await this.prisma.user.findUnique({
+    where: { id: userId },
+    select: { profilePicture: true },
+  });
+
+  if (user?.profilePicture) {
+    const old = join(process.cwd(), user.profilePicture);
+    if (fs.existsSync(old)) fs.unlinkSync(old);
+  }
+
+  // 🔥 2. Resize + crop + convert to WebP using Sharp
+  await sharp(tempPath)
+    .resize(300, 300, {
+      fit: 'cover',
+      position: 'center',
+    })
+    .webp({ quality: 80 }) // AUTO-WEBP!
+    .toFile(finalPath);
+
+  // delete temp raw upload
+  if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+  // 🔥 3. Update user profile
+  const updatedUser = await this.prisma.user.update({
+    where: { id: userId },
+    data: {
+      profilePicture: `/uploads/profile/${finalFileName}`,
+    },
+    select: {
+      id: true,
+      nickName: true,
+      profilePicture: true,
+      updatedAt: true,
+    },
+  });
+
+  return {
+    message: 'Profile picture updated successfully (WebP format)',
+    user: updatedUser,
+  };
+}
+
+  // ----------------------------------
+  // BLOCK USERS LIST
   // ----------------------------------
 
   async getBlockedUsers(userId: string, page = 1, limit = 10) {
@@ -276,94 +338,100 @@ export class ProfileService {
   }
 
   // ----------------------------------
-  // UNBLOCK A USER
+  // BLOCK A USER
   // ----------------------------------
 
   async blockUser(blockerId: string, blockedId: string, reason?: string) {
-  if (blockerId === blockedId) {
-    throw new BadRequestException("You cannot block yourself");
-  }
+    if (blockerId === blockedId) {
+      throw new BadRequestException('You cannot block yourself');
+    }
 
-  // check if user exists
-  const target = await this.prisma.user.findUnique({ where: { id: blockedId } });
-  if (!target) throw new NotFoundException("User not found");
+    // check if user exists
+    const target = await this.prisma.user.findUnique({
+      where: { id: blockedId },
+    });
+    if (!target) throw new NotFoundException('User not found');
 
-  // check if already blocked
-  const existing = await this.prisma.block.findUnique({
-    where: {
-      blockerId_blockedId: {
+    // check if already blocked
+    const existing = await this.prisma.block.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+    });
+
+    if (existing) {
+      return {
+        message: 'User already blocked',
+        blockedUserId: blockedId,
+      };
+    }
+
+    // create block
+    await (this.prisma as any).block.create({
+      data: {
         blockerId,
         blockedId,
+        // optional: store reason into metadata in ActivityLog
       },
-    },
-  });
+    });
 
-  if (existing) {
+    // optional: prevent follow record
+    await this.prisma.follow.deleteMany({
+      where: {
+        OR: [
+          { userId: blockerId, followerId: blockedId },
+          { userId: blockedId, followerId: blockerId },
+        ],
+      },
+    });
+
+    // optional: delete friend relation
+    await this.prisma.friends.deleteMany({
+      where: {
+        OR: [
+          { requesterId: blockerId, receiverId: blockedId },
+          { requesterId: blockedId, receiverId: blockerId },
+        ],
+      },
+    });
+
     return {
-      message: "User already blocked",
+      message: 'User blocked successfully',
       blockedUserId: blockedId,
     };
   }
 
-  // create block
-  await (this.prisma as any).block.create({
-    data: {
-      blockerId,
-      blockedId,
-      // optional: store reason into metadata in ActivityLog
-    },
-  });
 
-  // optional: prevent follow record
-  await this.prisma.follow.deleteMany({
-    where: {
-      OR: [
-        { userId: blockerId, followerId: blockedId },
-        { userId: blockedId, followerId: blockerId },
-      ],
-    },
-  });
+  // ----------------------------------
+  // UNBLOCK A USER
+  // ----------------------------------
 
-  // optional: delete friend relation
-  await this.prisma.friends.deleteMany({
-    where: {
-      OR: [
-        { requesterId: blockerId, receiverId: blockedId },
-        { requesterId: blockedId, receiverId: blockerId },
-      ],
-    },
-  });
-
-  return {
-    message: "User blocked successfully",
-    blockedUserId: blockedId,
-  };
-}
-
-async unblockUser(blockerId: string, blockedId: string) {
-  const existing = await this.prisma.block.findUnique({
-    where: {
-      blockerId_blockedId: {
-        blockerId,
-        blockedId,
+  async unblockUser(blockerId: string, blockedId: string) {
+    const existing = await this.prisma.block.findUnique({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
       },
-    },
-  });
+    });
 
-  if (!existing) {
-    return { message: "User is not blocked" };
+    if (!existing) {
+      return { message: 'User is not blocked' };
+    }
+
+    await this.prisma.block.delete({
+      where: {
+        blockerId_blockedId: {
+          blockerId,
+          blockedId,
+        },
+      },
+    });
+
+    return { message: 'User unblocked successfully' };
   }
-
-  await this.prisma.block.delete({
-    where: {
-      blockerId_blockedId: {
-        blockerId,
-        blockedId,
-      },
-    },
-  });
-
-  return { message: "User unblocked successfully" };
-}
-
 }

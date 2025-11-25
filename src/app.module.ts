@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -8,12 +8,14 @@ import { PrismaModule } from './prisma/prisma.module';
 import { SocialModule } from './social/social.module';
 import { UserModule } from './user/user.module';
 import { ProfileModule } from './profile/profile.module';
+import { ImageValidationMiddleware } from './common/image-validation.middleware';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+
     PrismaModule,
     PostModule,
     AuthModule,
@@ -24,4 +26,10 @@ import { ProfileModule } from './profile/profile.module';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(ImageValidationMiddleware)
+      .forRoutes('profile/upload/profile-picture');
+  }
+}

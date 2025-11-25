@@ -9,11 +9,15 @@ import {
   Param,
   Query,
   Put,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ProfileService } from './profile.service';
 import { BlockUserDto } from './dto/block.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { profilePicMulterConfig } from 'src/common/multer.config';
 
 @Controller('profile')
 export class ProfileController {
@@ -34,6 +38,16 @@ export class ProfileController {
   @UseGuards(JwtAuthGuard)
   async updateMe(@Req() req: any, @Body() dto: UpdateMeDto) {
     return this.authService.updateMe(req.user.userId, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('upload/profile-picture')
+  @UseInterceptors(FileInterceptor('file', profilePicMulterConfig))
+  async uploadProfilePic(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.authService.uploadProfilePic(req.user.userId, file);
   }
 
   @Get('user/blocked')
