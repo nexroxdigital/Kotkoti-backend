@@ -13,6 +13,7 @@ model User {
   email          String    @unique
   phone          String?   @unique
   profilePicture String?
+  coverImage     String?   
   password       String
   roleId         String?
   dob            DateTime?
@@ -43,6 +44,7 @@ model User {
 
   followers Follow[] @relation("UserFollowers")
   following Follow[] @relation("UserFollowing")
+   visitors Visitors[] @relation("UserVisitors")
 
   activityLog ActivityLog[]
   blocking    Block[]       @relation("UserBlocking")
@@ -200,6 +202,19 @@ enum FriendStatus {
   REJECTED
   CANCELLED
 }
+
+
+model Visitors {
+  id         String   @id @default(uuid())
+  userId     String
+  visitorId  String
+  createdAt  DateTime @default(now())
+
+  user User @relation("UserVisitors", fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
 
 model Block {
   id String @id @default(uuid())

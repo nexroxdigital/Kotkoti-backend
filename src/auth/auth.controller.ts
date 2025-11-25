@@ -5,8 +5,6 @@ import {
   UseGuards,
   Req,
   Get,
-  Delete,
-  Param,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterEmailDto } from './dto/register-email.dto';
@@ -93,17 +91,15 @@ export class AuthController {
     return this.authService.forgotPassword(body);
   }
 
-
   @Post('verify-forgot-otp')
-async verifyForgotOtp(@Body() dto: VerifyForgotOtpDto) {
-  return this.authService.verifyForgotOtp(dto.email, dto.otp);
-}
+  async verifyForgotOtp(@Body() dto: VerifyForgotOtpDto) {
+    return this.authService.verifyForgotOtp(dto.email, dto.otp);
+  }
 
-@Post('set-new-password')
-async setNewPassword(@Body() dto: SetNewPasswordDto) {
-  return this.authService.setNewPassword(dto.email, dto.newPassword);
-}
-
+  @Post('set-new-password')
+  async setNewPassword(@Body() dto: SetNewPasswordDto) {
+    return this.authService.setNewPassword(dto.email, dto.newPassword);
+  }
 
   @Post('reset-password')
   async resetPassword(@Body() body: any) {
@@ -116,16 +112,10 @@ async setNewPassword(@Body() dto: SetNewPasswordDto) {
     return this.authService.changePassword(req.user.userId, dto);
   }
 
-  @Get('verify-forgot-otp')
+
+    @Get('')
   getTest() {
     return { message: 'Auth route working!' };
   }
 
-  @Get('me')
-  // @UseGuards(JwtAuthGuard)
-  async getMyProfile(@Req() req: any) {
-    const userId = req.user.userId;
-    const userData = await this.authService.getUserData(userId);
-    return { success: true, user: userData };
-  }
 }
