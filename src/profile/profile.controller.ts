@@ -17,27 +17,27 @@ import { UpdateMeDto } from './dto/update-me.dto';
 import { ProfileService } from './profile.service';
 import { BlockUserDto } from './dto/block.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { profilePicMulterConfig } from 'src/common/multer.config';
+import { coverPicMulterConfig, profilePicMulterConfig } from 'src/common/multer.config';
 
 @Controller('profile')
 export class ProfileController {
-  constructor(private readonly authService: ProfileService) {}
+  constructor(private readonly profileService: ProfileService) {}
 
   @Get('view/me')
   @UseGuards(JwtAuthGuard)
   async viewMe(@Req() req: any, @Query('expand') expand?: string) {
-    return this.authService.viewMe(req.user.userId, expand);
+    return this.profileService.viewMe(req.user.userId, expand);
   }
 
   @Get('user/:userId/public-profile')
   async getPublicProfile(@Param('userId') userId: string) {
-    return this.authService.getPublicProfile(userId);
+    return this.profileService.getPublicProfile(userId);
   }
 
   @Put('update/me')
   @UseGuards(JwtAuthGuard)
   async updateMe(@Req() req: any, @Body() dto: UpdateMeDto) {
-    return this.authService.updateMe(req.user.userId, dto);
+    return this.profileService.updateMe(req.user.userId, dto);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -47,7 +47,17 @@ export class ProfileController {
     @Req() req: any,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return this.authService.uploadProfilePic(req.user.userId, file);
+    return this.profileService.uploadProfilePic(req.user.userId, file);
+  }
+
+  @Post('upload/cover')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', coverPicMulterConfig))
+  async uploadCoverPhoto(
+    @Req() req: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.profileService.uploadCoverPhoto(req.user.userId, file);
   }
 
   @Get('user/blocked')
@@ -57,7 +67,7 @@ export class ProfileController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.authService.getBlockedUsers(req.user.userId, page, limit);
+    return this.profileService.getBlockedUsers(req.user.userId, page, limit);
   }
 
   @Post('user/:userId/block')
@@ -67,12 +77,12 @@ export class ProfileController {
     @Param('userId') userId: string,
     @Body() dto: BlockUserDto,
   ) {
-    return this.authService.blockUser(req.user.userId, userId, dto.reason);
+    return this.profileService.blockUser(req.user.userId, userId, dto.reason);
   }
 
   @Delete('user/:userId/unblock')
   @UseGuards(JwtAuthGuard)
   async unblockUser(@Req() req: any, @Param('userId') userId: string) {
-    return this.authService.unblockUser(req.user.userId, userId);
+    return this.profileService.unblockUser(req.user.userId, userId);
   }
 }

@@ -13,6 +13,7 @@ model User {
   email          String    @unique
   phone          String?   @unique
   profilePicture String?
+  coverImage     String?   
   password       String
   roleId         String?
   dob            DateTime?
