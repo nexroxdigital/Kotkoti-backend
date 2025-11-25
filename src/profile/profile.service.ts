@@ -13,6 +13,10 @@ import { UpdateMeDto } from './dto/update-me.dto';
 import { join } from 'path';
 import * as fs from 'fs';
 import sharp from 'sharp';
+import {
+  countryCodeToFlag,
+  normalizeCountry,
+} from 'src/common/utils/country.util';
 
 @Injectable()
 export class ProfileService {
@@ -23,93 +27,80 @@ export class ProfileService {
   // ----------------------------------
 
   async viewMe(userId: string, expandQuery?: string) {
-    // ---- Parse expand options ----
     const expand = expandQuery
       ? expandQuery.split(',').map((x) => x.trim())
       : [];
 
-    // ---- Build dynamic include object ----
-    const include: any = {};
+    // Base select
+    const baseSelect = {
+      id: true,
+      nickName: true,
+      email: true,
+      phone: true,
+      profilePicture: true,
+      coverImage: true,
+      roleId: true,
+      dob: true,
+      bio: true,
+      gender: true,
+      country: true,
+      gold: true,
+      diamond: true,
+      isDiamondBlocked: true,
+      isGoldBlocked: true,
+      isAccountBlocked: true,
+      isHost: true,
+      isReseller: true,
+      agencyId: true,
+      vipId: true,
+      charmLevel: true,
+      wealthLevel: true,
+      createdAt: true,
+      updatedAt: true,
+    };
 
-    if (expand.includes('agency')) include.agency = true;
-    if (expand.includes('vip')) include.vip = true;
-    if (expand.includes('charmLevel')) include.charmLevel = true;
-    if (expand.includes('wealthLevel')) include.wealthLevel = true;
+    const relationSelect: Record<string, true> = {};
+    if (expand.includes('agency')) relationSelect.agency = true;
+    if (expand.includes('vip')) relationSelect.vip = true;
+    if (expand.includes('charmLevel')) relationSelect.charmLevel = true;
+    if (expand.includes('wealthLevel')) relationSelect.wealthLevel = true;
 
-    // ---- Fetch user (exclude password) ----
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        nickName: true,
-        email: true,
-        phone: true,
-        profilePicture: true,
-        roleId: true,
-        dob: true,
-        bio: true,
-        gender: true,
-        country: true,
+    // Run ALL queries at once
+    const [user, followersCount, followingCount, friendsCount, visitorsCount] =
+      await Promise.all([
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { ...baseSelect, ...relationSelect },
+        }),
 
-        gold: true,
-        diamond: true,
-        isDiamondBlocked: true,
-        isGoldBlocked: true,
-        isAccountBlocked: true,
-
-        isHost: true,
-        isReseller: true,
-
-        agencyId: true,
-        vipId: true,
-
-        charmLevel: true,
-        wealthLevel: true,
-
-        createdAt: true,
-        updatedAt: true,
-
-        ...include, // dynamic relations
-      },
-    });
+        this.prisma.follow.count({ where: { userId } }),
+        this.prisma.follow.count({ where: { followerId: userId } }),
+        this.prisma.friends.count({
+          where: {
+            OR: [
+              { requesterId: userId, status: 'ACCEPTED' },
+              { receiverId: userId, status: 'ACCEPTED' },
+            ],
+          },
+        }),
+        this.prisma.visitors.count({ where: { userId } }),
+      ]);
 
     if (!user) throw new NotFoundException('User not found');
 
-    // ---- Count Followers ----
-    const followersCount = await (this.prisma as any).follow.count({
-      where: { userId },
-    });
-
-          // ---- Count Following ----
-    const followingCount = await (this.prisma as any).following.count({
-      where: { userId },
-    });
-
-    // ---- Count Friends ----
-    const friendsCount = await (this.prisma as any).friends.count({
-      where: {
-        OR: [
-          { requesterId: userId, status: 'ACCEPTED' },
-          { receiverId: userId, status: 'ACCEPTED' },
-        ],
-      },
-    });
-
-    const visitorsCount = await (this.prisma as any).visitors.count({
-      where: { userId },
-    });
-
-    // ---- Count Agency ----
     const agencyCount = user.agencyId ? 1 : 0;
 
-    // ---- Build Final Response ----
+    const countryCode = normalizeCountry(user.country);
+    const countryFlag = countryCodeToFlag(countryCode);
+
     return {
       ...user,
       followersCount,
       followingCount,
       friendsCount,
-      agencyCount,
       visitorsCount,
+      agencyCount,
+      countryFlag,
     };
   }
 
@@ -230,61 +221,118 @@ export class ProfileService {
   // UPLOAD PROFILE PICTURE
   // ----------------------------------
 
-async uploadProfilePic(userId: string, file: Express.Multer.File) {
-  if (!file) throw new BadRequestException('No file uploaded');
+  async uploadProfilePic(userId: string, file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
 
-  const tempPath = file.path;
-  const outputDir = join(process.cwd(), 'uploads/profile');
-  const finalFileName = `${userId}.webp`;
-  const finalPath = join(outputDir, finalFileName);
+    const tempPath = file.path;
+    const outputDir = join(process.cwd(), 'uploads/profile');
+    const finalFileName = `${userId}.webp`;
+    const finalPath = join(outputDir, finalFileName);
 
-  // ensure output folder exists
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+    // ensure output folder exists
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 🔥 1. Delete old image if exists (any format)
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePicture: true },
+    });
+
+    if (user?.profilePicture) {
+      const old = join(process.cwd(), user.profilePicture);
+      if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+
+    // 🔥 2. Resize + crop + convert to WebP using Sharp
+    await sharp(tempPath)
+      .resize(300, 300, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .webp({ quality: 80 }) // AUTO-WEBP!
+      .toFile(finalPath);
+
+    // delete temp raw upload
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+    // 🔥 3. Update user profile
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        profilePicture: `/uploads/profile/${finalFileName}`,
+      },
+      select: {
+        id: true,
+        nickName: true,
+        profilePicture: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      message: 'Profile picture updated successfully (WebP format)',
+      user: updatedUser,
+    };
   }
 
-  // 🔥 1. Delete old image if exists (any format)
-  const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    select: { profilePicture: true },
-  });
+  // ----------------------------------
+  // UPLOAD COVER PICTURE
+  // ----------------------------------
 
-  if (user?.profilePicture) {
-    const old = join(process.cwd(), user.profilePicture);
-    if (fs.existsSync(old)) fs.unlinkSync(old);
+  async uploadCoverPhoto(userId: string, file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
+
+    const tempPath = file.path;
+    const outputDir = join(process.cwd(), 'uploads/cover');
+    const finalFileName = `${userId}.webp`;
+    const finalPath = join(outputDir, finalFileName);
+
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 🔥 Delete old cover photo
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { coverImage: true },
+    });
+
+    if (user?.coverImage) {
+      const old = join(process.cwd(), user.coverImage);
+      if (fs.existsSync(old)) fs.unlinkSync(old);
+    }
+
+    // 🔥 Resize & convert to WebP
+    await sharp(tempPath)
+      .resize(1200, 400, {
+        // cover aspect ratio
+        fit: 'cover',
+        position: 'center',
+      })
+      .webp({ quality: 80 })
+      .toFile(finalPath);
+
+    // remove temp file
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+    // 🔥 update DB
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { coverImage: `/uploads/cover/${finalFileName}` },
+      select: {
+        id: true,
+        coverImage: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      message: 'Cover photo updated successfully',
+      user: updatedUser,
+    };
   }
-
-  // 🔥 2. Resize + crop + convert to WebP using Sharp
-  await sharp(tempPath)
-    .resize(300, 300, {
-      fit: 'cover',
-      position: 'center',
-    })
-    .webp({ quality: 80 }) // AUTO-WEBP!
-    .toFile(finalPath);
-
-  // delete temp raw upload
-  if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-  // 🔥 3. Update user profile
-  const updatedUser = await this.prisma.user.update({
-    where: { id: userId },
-    data: {
-      profilePicture: `/uploads/profile/${finalFileName}`,
-    },
-    select: {
-      id: true,
-      nickName: true,
-      profilePicture: true,
-      updatedAt: true,
-    },
-  });
-
-  return {
-    message: 'Profile picture updated successfully (WebP format)',
-    user: updatedUser,
-  };
-}
 
   // ----------------------------------
   // BLOCK USERS LIST
@@ -403,7 +451,6 @@ async uploadProfilePic(userId: string, file: Express.Multer.File) {
       blockedUserId: blockedId,
     };
   }
-
 
   // ----------------------------------
   // UNBLOCK A USER
