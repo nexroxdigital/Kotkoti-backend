@@ -9,6 +9,7 @@ import { SocialModule } from './social/social.module';
 import { UserModule } from './user/user.module';
 import { ProfileModule } from './profile/profile.module';
 import { ImageValidationMiddleware } from './common/image-validation.middleware';
+import { UserSettingModule } from './user-setting/user-setting.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ImageValidationMiddleware } from './common/image-validation.middleware'
     ProfileModule,
     UserModule,
     SocialModule,
+    UserSettingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
