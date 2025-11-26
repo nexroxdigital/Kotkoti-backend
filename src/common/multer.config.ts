@@ -42,3 +42,23 @@ export const coverPicMulterConfig = {
     callback(null, true);
   },
 };
+
+
+
+export const galleryMulterConfig = {
+  storage: diskStorage({
+    destination: './uploads/temp',
+    filename: (req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random()*1e9)}${extname(file.originalname)}`;
+      cb(null, unique);
+    },
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB per image
+  fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+    const allowed = ['image/jpeg','image/png','image/webp','image/jpg'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
+    }
+    cb(null, true);
+  }
+};
