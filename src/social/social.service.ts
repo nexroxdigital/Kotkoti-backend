@@ -7,6 +7,8 @@ export class SocialService {
 
   // Follow a user
   async followUser(userId: string, followerId: string) {
+    // console.log('userid', followerId);
+
     if (userId === followerId) {
       throw new BadRequestException('You cannot follow yourself');
     }
