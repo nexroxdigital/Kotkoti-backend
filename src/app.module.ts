@@ -11,6 +11,7 @@ import { ProfileModule } from './profile/profile.module';
 import { ImageValidationMiddleware } from './common/image-validation.middleware';
 import { UserSettingModule } from './user-setting/user-setting.module';
 import { StoreModule } from './store/store.module';
+import { GalleryModule } from './profile/gallery/gallery.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { StoreModule } from './store/store.module';
     UserModule,
     SocialModule,
     UserSettingModule,
+    GalleryModule,
     StoreModule,
   ],
   controllers: [AppController],

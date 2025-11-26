@@ -327,7 +327,11 @@ export class ProfileService {
         updatedAt: true,
       },
     });
-
+    const finalUrl = `/uploads/cover/${finalFileName}`;
+    // insert into gallery
+    await (this.prisma as any).coverPhoto.create({
+      data: { userId, url: finalUrl},
+    });
     return {
       message: 'Cover photo updated successfully',
       user: updatedUser,
