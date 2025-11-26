@@ -8,62 +8,75 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  email            String            @unique
-  password         String
-  phone            String?           @unique
-  dob              DateTime?
-  bio              String?
-  gender           String?
-  country          String?
-  profilePicture   String?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  agencyId         String?
-  diamond          Int               @default(0)
-  gold             Int               @default(0)
-  isAccountBlocked Boolean           @default(false)
-  isDiamondBlocked Boolean           @default(false)
-  isGoldBlocked    Boolean           @default(false)
-  isHost           Boolean           @default(false)
-  isReseller       Boolean           @default(false)
-  vipId            String?
-  nickName         String            @default("Unknown")
-  roleId           String?
-  charmLevelId     String?
-  wealthLevelId    String?
-  coverImage       String?
-  activityLog      ActivityLog[]
-  backpack         Backpack[]
-  blockedBy        Block[]           @relation("UserBlocked")
-  blocking         Block[]           @relation("UserBlocking")
-  UserGallery      CoverPhoto[]
-  following        Follow[]          @relation("UserFollowing")
-  followers        Follow[]          @relation("UserFollowers")
-  receivedFriends  Friends[]         @relation("ReceivedFriends")
-  requestedFriends Friends[]         @relation("RequestedFriends")
-  loginHistory     LoginHistory[]
-  refreshTokens    RefreshToken[]
-  sessions         Session[]
-  charmLevel       CharmLevel?       @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
-  wealthLevel      WealthLevel?      @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
-  agency           Agency?           @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
-  vip              Vip?              @relation(fields: [vipId], references: [id], map: "user_vip_fk")
-  deactivation     UserDeactivation?
-  visitors         Visitors[]        @relation("UserVisitors")
+  id             String    @id @default(uuid())
+  nickName       String    @default("Unknown")
+  email          String    @unique
+  phone          String?   @unique
+  profilePicture String?
+  coverImage     String?   
+  password       String
+  roleId         String?
+  dob            DateTime?
+  bio            String?
+  gender         String?
+  country        String?
+
+  agencyId String?
+  vipId    String?
+
+  agency Agency? @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
+  vip    Vip?    @relation(fields: [vipId], references: [id], map: "user_vip_fk")
+
+  gold             Int     @default(0)
+  diamond          Int     @default(0)
+  isDiamondBlocked Boolean @default(false)
+  isGoldBlocked    Boolean @default(false)
+  isAccountBlocked Boolean @default(false)
+
+  isHost     Boolean @default(false)
+  isReseller Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+
+  followers Follow[] @relation("UserFollowers")
+  following Follow[] @relation("UserFollowing")
+   visitors Visitors[] @relation("UserVisitors")
+
+  activityLog ActivityLog[]
+  blocking    Block[]       @relation("UserBlocking")
+  blockedBy   Block[]       @relation("UserBlocked")
+
+  requestedFriends Friends[] @relation("RequestedFriends")
+  receivedFriends  Friends[] @relation("ReceivedFriends")
+
+  charmLevelId  String?
+  wealthLevelId String?
+
+  charmLevel  CharmLevel?  @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
+  wealthLevel WealthLevel? @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
+
+  loginHistory LoginHistory[]
+  deactivation   UserDeactivation?
+
+  UserGallery CoverPhoto[]
+  backpack Backpack[]
 }
 
 model Session {
   id           String    @id @default(uuid())
+  user         User      @relation(fields: [userId], references: [id])
   userId       String
   createdAt    DateTime  @default(now())
   expiresAt    DateTime?
   lastAccessed DateTime?
-  country      String?
   deviceId     String?
   ipAddress    String?
+  country      String?
   userAgent    String?
-  user         User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -76,16 +89,20 @@ model LoginHistory {
   deviceId  String?
   userAgent String?
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model CoverPhoto {
   id        String   @id @default(uuid())
   userId    String
   url       String
+  // lower index -> shown first
   orderIdx  Int      @default(0)
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([userId, orderIdx])
 }
 
 model Agency {
@@ -127,7 +144,7 @@ model EmailOtp {
   id        String   @id @default(uuid())
   email     String
   otp       String
-  purpose   String
+  purpose   String // e.g. "register", "forgot_password"
   expiresAt DateTime
   consumed  Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -160,13 +177,16 @@ model WealthLevel {
 }
 
 model Follow {
-  id         String   @id @default(uuid())
-  userId     String
+  id String @id @default(uuid())
+
+  user   User   @relation("UserFollowers", fields: [userId], references: [id])
+  userId String
+
+  follower   User   @relation("UserFollowing", fields: [followerId], references: [id])
   followerId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  follower   User     @relation("UserFollowing", fields: [followerId], references: [id])
-  user       User     @relation("UserFollowers", fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, followerId])
   @@index([userId])
@@ -174,37 +194,54 @@ model Follow {
 }
 
 model Friends {
-  id          String       @id @default(uuid())
+  id String @id @default(uuid())
+
+  requester   User   @relation("RequestedFriends", fields: [requesterId], references: [id])
   requesterId String
-  receiverId  String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  status      FriendStatus @default(PENDING)
-  receiver    User         @relation("ReceivedFriends", fields: [receiverId], references: [id])
-  requester   User         @relation("RequestedFriends", fields: [requesterId], references: [id])
+
+  receiver   User   @relation("ReceivedFriends", fields: [receiverId], references: [id])
+  receiverId String
+
+  status FriendStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([requesterId, receiverId])
   @@index([requesterId])
   @@index([receiverId])
 }
 
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+
 model Visitors {
-  id        String   @id @default(uuid())
-  userId    String
-  visitorId String
-  createdAt DateTime @default(now())
-  user      User     @relation("UserVisitors", fields: [userId], references: [id])
+  id         String   @id @default(uuid())
+  userId     String
+  visitorId  String
+  createdAt  DateTime @default(now())
+
+  user User @relation("UserVisitors", fields: [userId], references: [id])
 
   @@index([userId])
 }
 
+
 model Block {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
+
+  blocker   User   @relation("UserBlocking", fields: [blockerId], references: [id])
   blockerId String
+
+  blocked   User   @relation("UserBlocked", fields: [blockedId], references: [id])
   blockedId String
+
   createdAt DateTime @default(now())
-  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id])
-  blocker   User     @relation("UserBlocking", fields: [blockerId], references: [id])
 
   @@unique([blockerId, blockedId])
   @@index([blockerId])
@@ -212,29 +249,30 @@ model Block {
 }
 
 model ActivityLog {
-  id         String   @id @default(uuid())
-  userId     String
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
   action     String
   targetId   String?
   targetType String?
   metadata   Json?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  user       User     @relation(fields: [userId], references: [id])
-
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   @@index([userId])
   @@index([action])
 }
 
-model UserDeactivation {
-  id            String    @id @default(uuid())
-  userId        String    @unique
-  reason        String?
-  feedback      String?
-  deactivatedAt DateTime  @default(now())
-  reactivatedAt DateTime?
-  user          User      @relation(fields: [userId], references: [id])
 
+
+model UserDeactivation {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique      // Each user can only have 1 active deactivation record
+  reason    String?
+  feedback  String?
+  deactivatedAt DateTime @default(now())
+  reactivatedAt DateTime?
+  // use @@index() for reporting queries
   @@index([userId])
 }
 
@@ -246,41 +284,41 @@ model Post {
   updatedAt DateTime @updatedAt
 }
 
+
 model StoreCategory {
-  id    String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id    String @id @default(uuid())
   name  String
   icon  String
+
   items StoreItem[]
 }
 
 model StoreItem {
-  id         String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  categoryId String        @db.Uuid
+  id         String   @id @default(uuid())
+  category   StoreCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
   name       String
   price      Int
   icon       String
   type       String
-  validity   DateTime?     @db.Timestamp(6)
-  createdAt  DateTime      @default(now()) @db.Timestamp(6)
-  backpacks  Backpack[]
-  category   StoreCategory @relation(fields: [categoryId], references: [id])
+  validity   DateTime?
+  createdAt  DateTime @default(now())
 
-  @@index([categoryId])
+  backpacks  Backpack[]
 }
 
 model Backpack {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String
-  itemId    String    @db.Uuid
-  createdAt DateTime? @default(now()) @db.Timestamp(6)
-  quantity  Int?      @default(1)
-  item      StoreItem @relation(fields: [itemId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_item")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user")
-}
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
 
-enum FriendStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  CANCELLED
+  item       StoreItem @relation(fields: [itemId], references: [id])
+  itemId     String
+
+  quantity   Int       @default(1)
+  acquiredAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([itemId])
 }

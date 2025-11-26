@@ -1,98 +1,324 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+generator client {
+  provider = "prisma-client-js"
+}
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+model User {
+  id             String    @id @default(uuid())
+  nickName       String    @default("Unknown")
+  email          String    @unique
+  phone          String?   @unique
+  profilePicture String?
+  coverImage     String?   
+  password       String
+  roleId         String?
+  dob            DateTime?
+  bio            String?
+  gender         String?
+  country        String?
 
-## Description
+  agencyId String?
+  vipId    String?
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+  agency Agency? @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
+  vip    Vip?    @relation(fields: [vipId], references: [id], map: "user_vip_fk")
 
-## Project setup
+  gold             Int     @default(0)
+  diamond          Int     @default(0)
+  isDiamondBlocked Boolean @default(false)
+  isGoldBlocked    Boolean @default(false)
+  isAccountBlocked Boolean @default(false)
 
-```bash
-$ pnpm install
-```
+  isHost     Boolean @default(false)
+  isReseller Boolean @default(false)
 
-## Compile and run the project
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-```bash
-# development
-$ pnpm run start
+  sessions      Session[]
+  refreshTokens RefreshToken[]
 
-# watch mode
-$ pnpm run start:dev
+  followers Follow[] @relation("UserFollowers")
+  following Follow[] @relation("UserFollowing")
+   visitors Visitors[] @relation("UserVisitors")
 
-# production mode
-$ pnpm run start:prod
-```
+  activityLog ActivityLog[]
+  blocking    Block[]       @relation("UserBlocking")
+  blockedBy   Block[]       @relation("UserBlocked")
 
-## Run tests
+  requestedFriends Friends[] @relation("RequestedFriends")
+  receivedFriends  Friends[] @relation("ReceivedFriends")
 
-```bash
-# unit tests
-$ pnpm run test
+  charmLevelId  String?
+  wealthLevelId String?
 
-# e2e tests
-$ pnpm run test:e2e
+  charmLevel  CharmLevel?  @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
+  wealthLevel WealthLevel? @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
 
-# test coverage
-$ pnpm run test:cov
-```
+  loginHistory LoginHistory[]
+  deactivation   UserDeactivation?
 
-## Deployment
+  UserGallery CoverPhoto[]
+  backpack Backpack[]
+}
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+model Session {
+  id           String    @id @default(uuid())
+  user         User      @relation(fields: [userId], references: [id])
+  userId       String
+  createdAt    DateTime  @default(now())
+  expiresAt    DateTime?
+  lastAccessed DateTime?
+  deviceId     String?
+  ipAddress    String?
+  country      String?
+  userAgent    String?
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+  @@index([userId])
+}
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy 
-```
+model LoginHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  ip        String?
+  country   String?
+  deviceId  String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+  user User @relation(fields: [userId], references: [id])
+}
 
-## Resources
+model CoverPhoto {
+  id        String   @id @default(uuid())
+  userId    String
+  url       String
+  // lower index -> shown first
+  orderIdx  Int      @default(0)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id])
+  @@index([userId])
+  @@index([userId, orderIdx])
+}
 
-Check out a few resources that may come in handy when working with NestJS:
+model Agency {
+  id            String   @id @default(uuid())
+  name          String
+  ownerId       String
+  code          String   @unique
+  level         String
+  description   String
+  logoUrl       String
+  country       String
+  totalMembers  Int
+  totalEarnings BigInt
+  balance       BigInt
+  status        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         User[]
+}
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+model Vip {
+  id             String   @id @default(uuid())
+  name           String
+  type           String
+  privilegeId    String
+  validity       Int
+  amount         Int
+  imageUrl       String
+  entryAnimation String
+  profileFrame   String
+  purchaseDate   DateTime
+  expiryDate     DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  users          User[]
+}
 
-## Support
+model EmailOtp {
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  purpose   String // e.g. "register", "forgot_password"
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+  @@index([email])
+}
 
-## Stay in touch
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String
+  userId    String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+model CharmLevel {
+  id            String @id @default(uuid())
+  name          String
+  imageUrl      String
+  levelup_point Int
+  users         User[] @relation("UserCharmLevel")
+}
 
-## License
+model WealthLevel {
+  id            String @id @default(uuid())
+  name          String
+  imageUrl      String
+  levelup_point Int
+  users         User[] @relation("UserWealthLevel")
+}
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+model Follow {
+  id String @id @default(uuid())
+
+  user   User   @relation("UserFollowers", fields: [userId], references: [id])
+  userId String
+
+  follower   User   @relation("UserFollowing", fields: [followerId], references: [id])
+  followerId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, followerId])
+  @@index([userId])
+  @@index([followerId])
+}
+
+model Friends {
+  id String @id @default(uuid())
+
+  requester   User   @relation("RequestedFriends", fields: [requesterId], references: [id])
+  requesterId String
+
+  receiver   User   @relation("ReceivedFriends", fields: [receiverId], references: [id])
+  receiverId String
+
+  status FriendStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([requesterId, receiverId])
+  @@index([requesterId])
+  @@index([receiverId])
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+
+model Visitors {
+  id         String   @id @default(uuid())
+  userId     String
+  visitorId  String
+  createdAt  DateTime @default(now())
+
+  user User @relation("UserVisitors", fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+
+model Block {
+  id String @id @default(uuid())
+
+  blocker   User   @relation("UserBlocking", fields: [blockerId], references: [id])
+  blockerId String
+
+  blocked   User   @relation("UserBlocked", fields: [blockedId], references: [id])
+  blockedId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model ActivityLog {
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  action     String
+  targetId   String?
+  targetType String?
+  metadata   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+  @@index([action])
+}
+
+
+
+model UserDeactivation {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String   @unique      // Each user can only have 1 active deactivation record
+  reason    String?
+  feedback  String?
+  deactivatedAt DateTime @default(now())
+  reactivatedAt DateTime?
+  // use @@index() for reporting queries
+  @@index([userId])
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+
+model StoreCategory {
+  id    String @id @default(uuid())
+  name  String
+  icon  String
+
+  items StoreItem[]
+}
+
+model StoreItem {
+  id         String   @id @default(uuid())
+  category   StoreCategory @relation(fields: [categoryId], references: [id])
+  categoryId String
+
+  name       String
+  price      Int
+  icon       String
+  type       String
+  validity   DateTime?
+  createdAt  DateTime @default(now())
+
+  backpacks  Backpack[]
+}
+
+model Backpack {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+
+  item       StoreItem @relation(fields: [itemId], references: [id])
+  itemId     String
+
+  quantity   Int       @default(1)
+  acquiredAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([itemId])
+}
