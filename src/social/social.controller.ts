@@ -24,28 +24,29 @@ export class SocialController {
   // Follow a user
   @Post(':userId/follow')
   follow(@Param('userId') userId: string, @Req() req: RequestWithUser) {
-    const followerId = (req.user as any).id;
+    const followerId = (req.user as any).userId;
+    console.log('req user', req.user);
     return this.focialService.followUser(userId, followerId);
   }
 
   // Unfollow a user
   @Delete(':userId/unfollow')
   unfollow(@Param('userId') userId: string, @Req() req: RequestWithUser) {
-    const followerId = (req.user as any).id;
+    const followerId = (req.user as any).userId;
     return this.focialService.unfollowUser(userId, followerId);
   }
 
   // Get followers of current user
   @Get('me/followers')
   getFollowers(@Req() req: RequestWithUser) {
-    const userId = (req.user as any).id;
+    const userId = (req.user as any).userId;
     return this.focialService.getFollowers(userId);
   }
 
   // Get following of current user
   @Get('me/following')
   getFollowing(@Req() req: RequestWithUser) {
-    const followerId = (req.user as any).id;
+    const followerId = (req.user as any).userId;
     return this.focialService.getFollowing(followerId);
   }
 }
