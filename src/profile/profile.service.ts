@@ -287,7 +287,8 @@ export class ProfileService {
 
     const tempPath = file.path;
     const outputDir = join(process.cwd(), 'uploads/cover');
-    const finalFileName = `${userId}.webp`;
+    const timestamp = Date.now();
+    const finalFileName = `${userId}-${timestamp}.webp`;
     const finalPath = join(outputDir, finalFileName);
 
     if (!fs.existsSync(outputDir)) {
