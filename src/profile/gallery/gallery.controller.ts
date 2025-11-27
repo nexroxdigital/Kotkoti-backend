@@ -88,5 +88,4 @@ export class GalleryController {
   async deletePhoto(@Req() req: any, @Param('id') id: string) {
     return this.galleryService.deletePhoto(req.user.userId, id);
   }
-
 }

@@ -2,41 +2,41 @@
 // Mapping: Country Name → Country Code
 // ---------------------------------------------
 export const countryNameToCode: Record<string, string> = {
-  Bangladesh: "BD",
-  India: "IN",
-  Pakistan: "PK",
-  "United States": "US",
-  USA: "US",
-  America: "US",
-  UK: "GB",
-  "United Kingdom": "GB",
-  Canada: "CA",
-  Australia: "AU",
-  Germany: "DE",
-  France: "FR",
-  Italy: "IT",
-  Spain: "ES",
-  China: "CN",
-  Japan: "JP",
-  Korea: "KR",
-  "South Korea": "KR",
-  "Saudi Arabia": "SA",
-  Saudi: "SA",
-  UAE: "AE",
-  Russia: "RU",
-  Brazil: "BR",
-  Mexico: "MX",
-  Turkey: "TR",
-  Indonesia: "ID",
-  Malaysia: "MY",
-  Nepal: "NP",
-  SriLanka: "LK",
-  "Sri Lanka": "LK",
-  Philippines: "PH",
-  Thailand: "TH",
-  Egypt: "EG",
-  SouthAfrica: "ZA",
-  "South Africa": "ZA",
+  Bangladesh: 'BD',
+  India: 'IN',
+  Pakistan: 'PK',
+  'United States': 'US',
+  USA: 'US',
+  America: 'US',
+  UK: 'GB',
+  'United Kingdom': 'GB',
+  Canada: 'CA',
+  Australia: 'AU',
+  Germany: 'DE',
+  France: 'FR',
+  Italy: 'IT',
+  Spain: 'ES',
+  China: 'CN',
+  Japan: 'JP',
+  Korea: 'KR',
+  'South Korea': 'KR',
+  'Saudi Arabia': 'SA',
+  Saudi: 'SA',
+  UAE: 'AE',
+  Russia: 'RU',
+  Brazil: 'BR',
+  Mexico: 'MX',
+  Turkey: 'TR',
+  Indonesia: 'ID',
+  Malaysia: 'MY',
+  Nepal: 'NP',
+  SriLanka: 'LK',
+  'Sri Lanka': 'LK',
+  Philippines: 'PH',
+  Thailand: 'TH',
+  Egypt: 'EG',
+  SouthAfrica: 'ZA',
+  'South Africa': 'ZA',
   // add more as needed
 };
 
@@ -74,10 +74,5 @@ export function countryCodeToFlag(code: string | null): string | null {
 
   return code
     .toUpperCase()
-    .replace(/./g, char =>
-      String.fromCodePoint(char.charCodeAt(0) + 127397)
-    );
-
-
-    
+    .replace(/./g, (char) => String.fromCodePoint(char.charCodeAt(0) + 127397));
 }

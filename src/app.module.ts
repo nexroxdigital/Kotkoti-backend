@@ -12,6 +12,7 @@ import { ImageValidationMiddleware } from './common/image-validation.middleware'
 import { UserSettingModule } from './user-setting/user-setting.module';
 import { StoreModule } from './store/store.module';
 import { GalleryModule } from './profile/gallery/gallery.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { GalleryModule } from './profile/gallery/gallery.module';
     UserSettingModule,
     GalleryModule,
     StoreModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

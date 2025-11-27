@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
@@ -23,11 +28,16 @@ export class MailService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
-    try { await this.transporter.close(); } catch (err) { /* ignore */ }
+    try {
+      await this.transporter.close();
+    } catch (err) {
+      /* ignore */
+    }
   }
 
   async sendMail(to: string, subject: string, html: string, text?: string) {
-    const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+    const from =
+      process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com';
     try {
       const info = await this.transporter.sendMail({
         from,

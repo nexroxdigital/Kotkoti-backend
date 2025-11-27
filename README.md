@@ -1,3 +1,5 @@
+```bash
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,62 +10,50 @@ datasource db {
 }
 
 model User {
-  id             String    @id @default(uuid())
-  nickName       String    @default("Unknown")
-  email          String    @unique
-  phone          String?   @unique
-  profilePicture String?
-  coverImage     String?   
-  password       String
-  roleId         String?
-  dob            DateTime?
-  bio            String?
-  gender         String?
-  country        String?
-
-  agencyId String?
-  vipId    String?
-
-  agency Agency? @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
-  vip    Vip?    @relation(fields: [vipId], references: [id], map: "user_vip_fk")
-
-  gold             Int     @default(0)
-  diamond          Int     @default(0)
-  isDiamondBlocked Boolean @default(false)
-  isGoldBlocked    Boolean @default(false)
-  isAccountBlocked Boolean @default(false)
-
-  isHost     Boolean @default(false)
-  isReseller Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  sessions      Session[]
-  refreshTokens RefreshToken[]
-
-  followers Follow[] @relation("UserFollowers")
-  following Follow[] @relation("UserFollowing")
-   visitors Visitors[] @relation("UserVisitors")
-
-  activityLog ActivityLog[]
-  blocking    Block[]       @relation("UserBlocking")
-  blockedBy   Block[]       @relation("UserBlocked")
-
-  requestedFriends Friends[] @relation("RequestedFriends")
-  receivedFriends  Friends[] @relation("ReceivedFriends")
-
-  charmLevelId  String?
-  wealthLevelId String?
-
-  charmLevel  CharmLevel?  @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
-  wealthLevel WealthLevel? @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
-
-  loginHistory LoginHistory[]
-  deactivation   UserDeactivation?
-
-  UserGallery CoverPhoto[]
-  backpack Backpack[]
+  id               String            @id @default(uuid())
+  nickName         String            @default("Unknown")
+  email            String            @unique
+  phone            String?           @unique
+  profilePicture   String?
+  coverImage       String?
+  password         String
+  roleId           String?
+  dob              DateTime?
+  bio              String?
+  gender           String?
+  country          String?
+  activeItemId     String?
+  agencyId         String?
+  vipId            String?
+  agency           Agency?           @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
+  vip              Vip?              @relation(fields: [vipId], references: [id], map: "user_vip_fk")
+  gold             Int               @default(0)
+  diamond          Int               @default(0)
+  isDiamondBlocked Boolean           @default(false)
+  isGoldBlocked    Boolean           @default(false)
+  isAccountBlocked Boolean           @default(false)
+  isHost           Boolean           @default(false)
+  isReseller       Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sessions         Session[]
+  refreshTokens    RefreshToken[]
+  followers        Follow[]          @relation("UserFollowers")
+  following        Follow[]          @relation("UserFollowing")
+  visitors         Visitors[]        @relation("UserVisitors")
+  activityLog      ActivityLog[]
+  blocking         Block[]           @relation("UserBlocking")
+  blockedBy        Block[]           @relation("UserBlocked")
+  requestedFriends Friends[]         @relation("RequestedFriends")
+  receivedFriends  Friends[]         @relation("ReceivedFriends")
+  charmLevelId     String?
+  wealthLevelId    String?
+  charmLevel       CharmLevel?       @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
+  wealthLevel      WealthLevel?      @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
+  loginHistory     LoginHistory[]
+  deactivation     UserDeactivation?
+  UserGallery      CoverPhoto[]
+  backpack         Backpack[]
 }
 
 model Session {
@@ -89,8 +79,7 @@ model LoginHistory {
   deviceId  String?
   userAgent String?
   createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model CoverPhoto {
@@ -100,7 +89,8 @@ model CoverPhoto {
   // lower index -> shown first
   orderIdx  Int      @default(0)
   createdAt DateTime @default(now())
-  user User @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
   @@index([userId])
   @@index([userId, orderIdx])
 }
@@ -177,16 +167,13 @@ model WealthLevel {
 }
 
 model Follow {
-  id String @id @default(uuid())
-
-  user   User   @relation("UserFollowers", fields: [userId], references: [id])
-  userId String
-
-  follower   User   @relation("UserFollowing", fields: [followerId], references: [id])
+  id         String   @id @default(uuid())
+  user       User     @relation("UserFollowers", fields: [userId], references: [id])
+  userId     String
+  follower   User     @relation("UserFollowing", fields: [followerId], references: [id])
   followerId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([userId, followerId])
   @@index([userId])
@@ -194,18 +181,14 @@ model Follow {
 }
 
 model Friends {
-  id String @id @default(uuid())
-
-  requester   User   @relation("RequestedFriends", fields: [requesterId], references: [id])
+  id          String       @id @default(uuid())
+  requester   User         @relation("RequestedFriends", fields: [requesterId], references: [id])
   requesterId String
-
-  receiver   User   @relation("ReceivedFriends", fields: [receiverId], references: [id])
-  receiverId String
-
-  status FriendStatus @default(PENDING)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  receiver    User         @relation("ReceivedFriends", fields: [receiverId], references: [id])
+  receiverId  String
+  status      FriendStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   @@unique([requesterId, receiverId])
   @@index([requesterId])
@@ -219,28 +202,22 @@ enum FriendStatus {
   CANCELLED
 }
 
-
 model Visitors {
-  id         String   @id @default(uuid())
-  userId     String
-  visitorId  String
-  createdAt  DateTime @default(now())
-
-  user User @relation("UserVisitors", fields: [userId], references: [id])
+  id        String   @id @default(uuid())
+  userId    String
+  visitorId String
+  createdAt DateTime @default(now())
+  user      User     @relation("UserVisitors", fields: [userId], references: [id])
 
   @@index([userId])
 }
 
-
 model Block {
-  id String @id @default(uuid())
-
-  blocker   User   @relation("UserBlocking", fields: [blockerId], references: [id])
+  id        String   @id @default(uuid())
+  blocker   User     @relation("UserBlocking", fields: [blockerId], references: [id])
   blockerId String
-
-  blocked   User   @relation("UserBlocked", fields: [blockedId], references: [id])
+  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id])
   blockedId String
-
   createdAt DateTime @default(now())
 
   @@unique([blockerId, blockedId])
@@ -249,29 +226,29 @@ model Block {
 }
 
 model ActivityLog {
-  id     String @id @default(uuid())
-  user   User   @relation(fields: [userId], references: [id])
-  userId String
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
   action     String
   targetId   String?
   targetType String?
   metadata   Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
   @@index([userId])
   @@index([action])
 }
 
-
-
 model UserDeactivation {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String   @unique      // Each user can only have 1 active deactivation record
-  reason    String?
-  feedback  String?
-  deactivatedAt DateTime @default(now())
+  id            String    @id @default(uuid())
+  user          User      @relation(fields: [userId], references: [id])
+  userId        String    @unique // Each user can only have 1 active deactivation record
+  reason        String?
+  feedback      String?
+  deactivatedAt DateTime  @default(now())
   reactivatedAt DateTime?
+
   // use @@index() for reporting queries
   @@index([userId])
 }
@@ -284,41 +261,37 @@ model Post {
   updatedAt DateTime @updatedAt
 }
 
-
 model StoreCategory {
-  id    String @id @default(uuid())
+  id    String      @id @default(uuid())
   name  String
   icon  String
-
   items StoreItem[]
 }
 
 model StoreItem {
-  id         String   @id @default(uuid())
+  id         String        @id @default(uuid())
   category   StoreCategory @relation(fields: [categoryId], references: [id])
   categoryId String
-
   name       String
   price      Int
   icon       String
   type       String
   validity   DateTime?
-  createdAt  DateTime @default(now())
-
+  createdAt  DateTime      @default(now())
   backpacks  Backpack[]
 }
 
 model Backpack {
-  id         String   @id @default(uuid())
-  user       User     @relation(fields: [userId], references: [id])
+  id         String    @id @default(uuid())
+  user       User      @relation(fields: [userId], references: [id])
   userId     String
-
   item       StoreItem @relation(fields: [itemId], references: [id])
   itemId     String
-
   quantity   Int       @default(1)
   acquiredAt DateTime  @default(now())
 
   @@index([userId])
   @@index([itemId])
 }
+
+```

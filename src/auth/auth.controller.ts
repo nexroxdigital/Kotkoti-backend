@@ -1,11 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  UseGuards,
-  Req,
-  Get,
-} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterEmailDto } from './dto/register-email.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
@@ -19,7 +12,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Request } from 'express';
 import { VerifyForgotOtpDto } from './dto/verify-forgot-otp.dto';
 import { SetNewPasswordDto } from './dto/set-new-password.dto';
-
 
 @Controller('auth')
 export class AuthController {
@@ -112,10 +104,8 @@ export class AuthController {
     return this.authService.changePassword(req.user.userId, dto);
   }
 
-
-    @Get('')
+  @Get('')
   getTest() {
     return { message: 'Auth route working!' };
   }
-
 }
