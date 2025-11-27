@@ -9,7 +9,7 @@ import { ReactivateAccountDto } from './dto/reactivate-account.dto';
 export class UserSettingController {
   constructor(private readonly userSettingService: UserSettingService) {}
 
-  @Delete('me/account')
+  @Delete('me/account-delete')
   @UseGuards(JwtAuthGuard)
   async deleteMyAccount(@Req() req: any, @Body() dto: DeleteAccountDto) {
     return this.userSettingService.deleteMyAccount(

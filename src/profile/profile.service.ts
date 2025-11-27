@@ -226,7 +226,8 @@ export class ProfileService {
 
     const tempPath = file.path;
     const outputDir = join(process.cwd(), 'uploads/profile');
-    const finalFileName = `${userId}.webp`;
+    const timestamp = Date.now();
+    const finalFileName = `${userId}-${timestamp}.webp`;
     const finalPath = join(outputDir, finalFileName);
 
     // ensure output folder exists
@@ -330,7 +331,7 @@ export class ProfileService {
     const finalUrl = `/uploads/cover/${finalFileName}`;
     // insert into gallery
     await (this.prisma as any).coverPhoto.create({
-      data: { userId, url: finalUrl},
+      data: { userId, url: finalUrl },
     });
     return {
       message: 'Cover photo updated successfully',
@@ -484,5 +485,36 @@ export class ProfileService {
     });
 
     return { message: 'User unblocked successfully' };
+  }
+
+  // ----------------------------------
+  // SEARCH USER BY ID
+  // ----------------------------------
+
+  async searchUserById(search: string, includeQuery?: string) {
+    const includeList = includeQuery
+      ? includeQuery.split(',').map((i) => i.trim())
+      : [];
+
+    const include: any = {};
+
+    if (includeList.includes('agency')) include.agency = true;
+    if (includeList.includes('vip')) include.vip = true;
+    if (includeList.includes('charmLevel')) include.charmLevel = true;
+    if (includeList.includes('wealthLevel')) include.wealthLevel = true;
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: {
+          contains: search, // PARTIAL MATCH
+          mode: 'insensitive',
+        },
+      },
+      include: Object.keys(include).length ? include : undefined,
+      take: 20, // Prevent abuse
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return users.map(({ password, ...user }) => user);
   }
 }

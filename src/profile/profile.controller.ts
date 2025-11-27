@@ -17,7 +17,10 @@ import { UpdateMeDto } from './dto/update-me.dto';
 import { ProfileService } from './profile.service';
 import { BlockUserDto } from './dto/block.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { coverPicMulterConfig, profilePicMulterConfig } from 'src/common/multer.config';
+import {
+  coverPicMulterConfig,
+  profilePicMulterConfig,
+} from 'src/common/multer.config';
 
 @Controller('profile')
 export class ProfileController {
@@ -84,5 +87,17 @@ export class ProfileController {
   @UseGuards(JwtAuthGuard)
   async unblockUser(@Req() req: any, @Param('userId') userId: string) {
     return this.profileService.unblockUser(req.user.userId, userId);
+  }
+
+  @Get('users/search')
+  searchUser(
+    @Query('userId') query: string,
+    @Query('include') include?: string,
+  ) {
+    if (!query || query.trim() === '') {
+      return [];
+    }
+
+    return this.profileService.searchUserById(query, include);
   }
 }
