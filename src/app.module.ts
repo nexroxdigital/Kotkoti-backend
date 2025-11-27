@@ -11,6 +11,7 @@ import { ProfileModule } from './profile/profile.module';
 import { ImageValidationMiddleware } from './common/image-validation.middleware';
 import { UserSettingModule } from './user-setting/user-setting.module';
 import { StoreModule } from './store/store.module';
+import { BackpackModule } from './backpack/backpack.module';
 import { GalleryModule } from './profile/gallery/gallery.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { GalleryModule } from './profile/gallery/gallery.module';
     UserSettingModule,
     GalleryModule,
     StoreModule,
+    BackpackModule,
   ],
   controllers: [AppController],
   providers: [AppService],
