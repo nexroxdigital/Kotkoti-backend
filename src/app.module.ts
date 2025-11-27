@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { PostModule } from './post/post.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { SocialModule } from './social/social.module';
 import { UserModule } from './user/user.module';
@@ -11,6 +10,7 @@ import { ProfileModule } from './profile/profile.module';
 import { ImageValidationMiddleware } from './common/image-validation.middleware';
 import { UserSettingModule } from './user-setting/user-setting.module';
 import { StoreModule } from './store/store.module';
+import { BackpackModule } from './backpack/backpack.module';
 import { GalleryModule } from './profile/gallery/gallery.module';
 import { AdminModule } from './admin/admin.module';
 
@@ -21,7 +21,6 @@ import { AdminModule } from './admin/admin.module';
     }),
 
     PrismaModule,
-    PostModule,
     AuthModule,
     ProfileModule,
     UserModule,
@@ -30,6 +29,7 @@ import { AdminModule } from './admin/admin.module';
     GalleryModule,
     StoreModule,
     AdminModule,
+    BackpackModule,
   ],
   controllers: [AppController],
   providers: [AppService],

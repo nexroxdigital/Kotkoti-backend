@@ -68,7 +68,7 @@ export class GalleryController {
   }
 
   // reorder: client sends new ordered array of photo ids (index 0 first)
-  @Put('gallery/reorder/:photoId')
+  /*   @Put('gallery/reorder/:photoId')
   @UseGuards(JwtAuthGuard)
   async reorderOne(
     @Req() req: any,
@@ -81,6 +81,17 @@ export class GalleryController {
       dto.currentPhotoIndex,
     );
   }
+ */
+
+  @Post('gallery/reorder')
+  @UseGuards(JwtAuthGuard)
+  reorderGallery(
+    @Req() req,
+    @Body('orderedPhotoIds') orderedPhotoIds: string[],
+  ) {
+    return this.galleryService.reorderByList(req.user.userId, orderedPhotoIds);
+  }
+
 
   // delete photo
   @Delete('gallery/:id')

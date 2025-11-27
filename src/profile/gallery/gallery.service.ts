@@ -142,6 +142,7 @@ export class GalleryService {
   // ----------------------------------
 
   async reorderSingle(userId: string, photoId: string, newIndex: number) {
+  /*   async reorderSingle(userId: string, photoId: string, newIndex: number) {
     // 1. Load all photos of this user ordered by current index
     const photos = await this.prisma.coverPhoto.findMany({
       where: { userId },
@@ -184,6 +185,56 @@ export class GalleryService {
       message: 'Gallery order updated successfully',
       movedPhotoId: photoId,
       newIndex,
+    };
+  } */
+
+  async reorderByList(userId: string, orderedPhotoIds: string[]) {
+    if (!orderedPhotoIds || orderedPhotoIds.length === 0) {
+      throw new BadRequestException('Photo list is empty');
+    }
+
+    // 1. Load all photos of this user
+    const dbPhotos = await this.prisma.coverPhoto.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!dbPhotos.length) {
+      throw new BadRequestException('No photos found');
+    }
+
+    const dbIds = dbPhotos.map((p) => p.id);
+
+    // 2. Validate ownership (make sure incoming ids belong to user)
+    const invalid = orderedPhotoIds.filter((id) => !dbIds.includes(id));
+    if (invalid.length > 0) {
+      throw new BadRequestException(`Invalid photo ids: ${invalid.join(', ')}`);
+    }
+
+    // 3. Validate count
+    if (dbIds.length !== orderedPhotoIds.length) {
+      throw new BadRequestException('Photo list does not match database');
+    }
+
+    // 4. Transaction update (atomic)
+    const updates = orderedPhotoIds.map((id, index) =>
+      this.prisma.coverPhoto.update({
+        where: { id },
+        data: { orderIdx: index },
+      }),
+    );
+
+    await this.prisma.$transaction(updates);
+
+    // 5. Fetch updated list
+    const updatedGallery = await this.prisma.coverPhoto.findMany({
+      where: { userId },
+      orderBy: { orderIdx: 'asc' },
+    });
+
+    return {
+      message: 'Gallery reordered successfully',
+      gallery: updatedGallery,
     };
   }
 
