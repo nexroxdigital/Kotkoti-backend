@@ -1,6 +1,7 @@
-import { IsUUID } from 'class-validator';
+import { IsString } from "class-validator";
+
 
 export class FriendRequestDto {
-  @IsUUID()
+  @IsString()
   targetUserId: string;
 }
