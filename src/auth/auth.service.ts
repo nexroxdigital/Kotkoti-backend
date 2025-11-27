@@ -16,6 +16,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Request } from 'express';
+import { generateUniqueUserId } from 'src/common/utils/generateUnique.util';
 
 @Injectable()
 export class AuthService {
@@ -214,10 +215,16 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await this.prisma.user.create({
-      data: { email, password: hashedPassword },
-    });
+    //  generate unique 8-digit userId
+    const userId = await generateUniqueUserId();
 
+    const user = await this.prisma.user.create({
+      data: {
+        id: userId,
+        email,
+        password: hashedPassword,
+      },
+    });
     return { userId: user.id, message: 'Password set successfully' };
   }
 
