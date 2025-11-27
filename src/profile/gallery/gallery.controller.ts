@@ -66,23 +66,7 @@ export class GalleryController {
   async setActive(@Req() req: any, @Param('id') id: string) {
     return this.galleryService.setActiveCover(req.user.userId, id);
   }
-
-  // reorder: client sends new ordered array of photo ids (index 0 first)
-  /*   @Put('gallery/reorder/:photoId')
-  @UseGuards(JwtAuthGuard)
-  async reorderOne(
-    @Req() req: any,
-    @Param('photoId') photoId: string,
-    @Body() dto: ReorderGalleryDto,
-  ) {
-    return this.galleryService.reorderSingle(
-      req.user.userId,
-      photoId,
-      dto.currentPhotoIndex,
-    );
-  }
- */
-
+  // reorder gallery by list of photo IDs
   @Post('gallery/reorder')
   @UseGuards(JwtAuthGuard)
   reorderGallery(

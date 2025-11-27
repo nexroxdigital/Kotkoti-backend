@@ -141,53 +141,6 @@ export class GalleryService {
   // reorder gallery: orderedIds[0] -> orderIdx 0, etc.
   // ----------------------------------
 
-  async reorderSingle(userId: string, photoId: string, newIndex: number) {
-  /*   async reorderSingle(userId: string, photoId: string, newIndex: number) {
-    // 1. Load all photos of this user ordered by current index
-    const photos = await this.prisma.coverPhoto.findMany({
-      where: { userId },
-      orderBy: { orderIdx: 'asc' },
-    });
-
-    if (photos.length === 0) {
-      throw new BadRequestException('No photos found');
-    }
-
-    // 2. Find the photo being moved
-    const movingPhoto = photos.find((p) => p.id === photoId);
-
-    if (!movingPhoto) {
-      throw new BadRequestException('Photo not found');
-    }
-
-    // Clamp index (avoid out of bound)
-    if (newIndex < 0) newIndex = 0;
-    if (newIndex >= photos.length) newIndex = photos.length - 1;
-
-    // 3. Remove it from current list
-    const oldIndex = photos.indexOf(movingPhoto);
-    photos.splice(oldIndex, 1);
-
-    // 4. Insert it into new position
-    photos.splice(newIndex, 0, movingPhoto);
-
-    // 5. Reassign orderIdx based on new order
-    const updates = photos.map((photo, idx) =>
-      this.prisma.coverPhoto.update({
-        where: { id: photo.id },
-        data: { orderIdx: idx },
-      }),
-    );
-
-    await this.prisma.$transaction(updates);
-
-    return {
-      message: 'Gallery order updated successfully',
-      movedPhotoId: photoId,
-      newIndex,
-    };
-  } */
-
   async reorderByList(userId: string, orderedPhotoIds: string[]) {
     if (!orderedPhotoIds || orderedPhotoIds.length === 0) {
       throw new BadRequestException('Photo list is empty');
