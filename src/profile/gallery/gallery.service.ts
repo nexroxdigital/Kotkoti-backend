@@ -141,6 +141,7 @@ export class GalleryService {
   // reorder gallery: orderedIds[0] -> orderIdx 0, etc.
   // ----------------------------------
 
+  async reorderSingle(userId: string, photoId: string, newIndex: number) {
   /*   async reorderSingle(userId: string, photoId: string, newIndex: number) {
     // 1. Load all photos of this user ordered by current index
     const photos = await this.prisma.coverPhoto.findMany({

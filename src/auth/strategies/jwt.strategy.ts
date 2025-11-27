@@ -4,7 +4,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
-export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {   // <-- ADD 'jwt' HERE
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  // <-- ADD 'jwt' HERE
   constructor(private prisma: PrismaService) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -19,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {   // <-- AD
     }
 
     const session = await this.prisma.session.findUnique({
-      where: { id: sessionId }
+      where: { id: sessionId },
     });
 
     if (!session || session.userId !== userId) {
@@ -27,14 +28,18 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {   // <-- AD
     }
 
     if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
-      await this.prisma.session.delete({ where: { id: sessionId } }).catch(() => {});
+      await this.prisma.session
+        .delete({ where: { id: sessionId } })
+        .catch(() => {});
       throw new UnauthorizedException('Session expired');
     }
 
-    await this.prisma.session.update({
-      where: { id: sessionId },
-      data: { lastAccessed: new Date() }
-    }).catch(() => {});
+    await this.prisma.session
+      .update({
+        where: { id: sessionId },
+        data: { lastAccessed: new Date() },
+      })
+      .catch(() => {});
 
     return { userId, sessionId, email: payload.email };
   }

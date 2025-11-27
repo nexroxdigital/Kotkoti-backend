@@ -1,4 +1,8 @@
-import { Injectable, NestMiddleware, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  BadRequestException,
+} from '@nestjs/common';
 
 import * as fs from 'fs';
 import sharp from 'sharp';
@@ -29,7 +33,9 @@ export class ImageValidationMiddleware implements NestMiddleware {
       // Validate minimum dimensions
       if (meta.width < 200 || meta.height < 200) {
         fs.unlinkSync(file.path);
-        throw new BadRequestException('Image too small. Minimum 200x200 required.');
+        throw new BadRequestException(
+          'Image too small. Minimum 200x200 required.',
+        );
       }
 
       next();

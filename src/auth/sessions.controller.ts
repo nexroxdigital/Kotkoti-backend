@@ -27,6 +27,4 @@ export class SessionsController {
       isCurrent: s.id === currentId,
     }));
   }
-
-
 }
