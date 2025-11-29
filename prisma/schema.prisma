@@ -268,16 +268,17 @@ model StoreCategory {
 }
 
 model StoreItem {
-  id         String        @id @default(uuid())
-  category   StoreCategory @relation(fields: [categoryId], references: [id])
-  categoryId String
-  name       String
-  price      Int
-  icon       String
-  type       String
-  validity   DateTime?
-  createdAt  DateTime      @default(now())
-  backpacks  Backpack[]
+  id          String        @id @default(uuid())
+  category    StoreCategory @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  name        String
+  price       Int
+  icon        String
+  type        String
+  validity    DateTime?
+  createdAt   DateTime      @default(now())
+  backpacks   Backpack[]
+  activeUsers User[]        @relation("UserActiveItem")
 }
 
 model Backpack {
