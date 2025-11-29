@@ -187,11 +187,11 @@ export class BackpackService {
   /**
    * Remove a backpack item by its ID
    * 1. Check if backpack item exists for the user
-   * 2. Delete the item
+   * 2. remove the item from user
    * 3. Clear activeItemId if it was the active item
    */
   async removeItem(userId: string, backpackItemId: string) {
-    // Step 1: Find backpack item and its itemId
+    // Step 1: Ensure the backpack item exists for this user
     const backpackItem = await this.prisma.backpack.findFirst({
       where: {
         id: backpackItemId,
@@ -207,30 +207,29 @@ export class BackpackService {
       throw new NotFoundException('Backpack item not found');
     }
 
-    // Step 2: Delete backpack record
-    await this.prisma.backpack.delete({
-      where: { id: backpackItemId },
-    });
-
-    // Step 3: If this was the active item, reset user's activeItemId
+    // Step 2: Fetch user's currently active item ID
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { activeItemId: true },
     });
 
+    // Step 3: If this item is currently active → deactivate it
     if (user?.activeItemId === backpackItem.itemId) {
       await this.prisma.user.update({
         where: { id: userId },
         data: { activeItemId: null },
       });
+
+      return {
+        message: 'Active item removed successfully',
+        activeItemId: null,
+      };
     }
 
-    // Step 4: Return success response
+    // Step 4: The item was not active → nothing to change
     return {
-      message: 'Item removed from backpack successfully',
-      removedItemId: backpackItemId,
-      activeItemId:
-        user?.activeItemId === backpackItem.itemId ? null : user?.activeItemId,
+      message: 'Item is not active, nothing changed',
+      activeItemId: user?.activeItemId ?? null,
     };
   }
 }

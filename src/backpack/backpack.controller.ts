@@ -1,6 +1,5 @@
 import {
   Controller,
-  Delete,
   Get,
   Param,
   Post,
@@ -75,13 +74,12 @@ export class BackpackController {
   }
 
   // delete item from backpack
-  @Delete('remove-item/:backpackItemId')
+  @Patch('remove-item/:backpackItemId')
   async removeItem(
     @Param('backpackItemId') backpackItemId: string,
     @Req() req: RequestWithUser,
   ) {
     const userId = (req.user as any).userId;
-
     return this.backpackService.removeItem(userId, backpackItemId);
   }
 }
