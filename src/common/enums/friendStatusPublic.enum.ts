@@ -1,0 +1,6 @@
+export enum FriendPublicStatus {
+  FRIEND = 'FRIEND',
+  SENT_REQUEST = 'SENT_REQUEST',
+  RECEIVED_REQUEST = 'RECEIVED_REQUEST',
+  NONE = 'NONE',
+}
