@@ -5,6 +5,54 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class BackpackService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // get all backpack items grouped by category
+  async getAllItemsGrouped(userId: string) {
+    // Step 1: Fetch all backpack items with item + category info
+    const backpackItems = await this.prisma.backpack.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        acquiredAt: true,
+        item: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            price: true,
+            type: true,
+            category: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { acquiredAt: 'desc' },
+    });
+
+    // Step 2: Group items by category name
+    const grouped: Record<string, any[]> = {};
+
+    for (const bItem of backpackItems) {
+      const categoryName = bItem.item.category.name;
+
+      if (!grouped[categoryName]) {
+        grouped[categoryName] = [];
+      }
+
+      const { category, ...itemWithoutCategory } = bItem.item;
+
+      grouped[categoryName].push({
+        backpackItemId: bItem.id,
+        acquiredAt: bItem.acquiredAt,
+        ...itemWithoutCategory,
+      });
+    }
+
+    return grouped;
+  }
+
   async getItemsByCategory(userId: string, categoryId: string) {
     // Ensure category exists
     const category = await this.prisma.storeCategory.findUnique({

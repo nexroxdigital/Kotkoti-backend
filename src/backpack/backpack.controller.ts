@@ -22,6 +22,13 @@ export interface RequestWithUser extends Request {
 export class BackpackController {
   constructor(private readonly backpackService: BackpackService) {}
 
+  // GET all backpack items grouped by category
+  @Get('all-items')
+  async getAllItems(@Req() req: RequestWithUser) {
+    const userId = (req.user as any).userId;
+    return this.backpackService.getAllItemsGrouped(userId);
+  }
+
   // get backpack items by category id
   @Get('items-by-category/:categoryId')
   async getItemsByCategory(
