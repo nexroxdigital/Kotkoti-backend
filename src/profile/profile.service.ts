@@ -99,6 +99,8 @@ export class ProfileService {
       followingCount,
       friendsCount,
       visitorsCount,
+      giftReceviedCount: 0, // TODO: implement gift received count
+      giftSentCount: 0, // TODO: implement gift sent count
       agencyCount,
       countryFlag,
     };
@@ -108,77 +110,106 @@ export class ProfileService {
   // PUBLIC PROFILE
   // ----------------------------------
 
-  async getPublicProfile(userId: string) {
-    // 1. Find user with safe public fields
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        nickName: true,
-        profilePicture: true,
-        country: true,
-        bio: true,
-        isHost: true,
+async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: string) {
 
-        // levels & vip
-        charmLevel: {
-          select: { id: true, name: true, imageUrl: true, levelup_point: true },
-        },
-        wealthLevel: {
-          select: { id: true, name: true, imageUrl: true, levelup_point: true },
-        },
-        vip: {
-          select: { id: true, name: true, imageUrl: true },
-        },
+  const expand = expandQuery
+    ? expandQuery.split(',').map(x => x.trim())
+    : [];
 
-        // agency (public data only)
-        agency: {
-          select: {
-            id: true,
-            name: true,
-            logoUrl: true,
-            country: true,
-          },
-        },
-      },
-    });
+  // Fetch user
+  const user = await this.prisma.user.findUnique({
+    where: { id: profileUserId },
+    select: {
+      id: true,
+      nickName: true,
+      email: true,
+      phone: true,
+      profilePicture: true,
+      coverImage: true,
+      roleId: true,
+      dob: true,
+      bio: true,
+      gender: true,
+      country: true,
+      gold: true,
+      diamond: true,
+      isDiamondBlocked: true,
+      isGoldBlocked: true,
+      isAccountBlocked: true,
+      isHost: true,
+      isReseller: true,
+      agencyId: true,
+      vipId: true,
+      charmLevel: true,
+      wealthLevel: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 
-    if (!user) throw new NotFoundException('User not found');
+  if (!user) throw new NotFoundException('User not found');
 
-    // 2. Count followers
-    const followersCount = await (this.prisma as any).follow.count({
-      where: { userId },
-    });
+  // Relationship lookup
+  const relation = await this.prisma.friends.findFirst({
+    where: {
+      OR: [
+        { requesterId: viewerId, receiverId: profileUserId },
+        { requesterId: profileUserId, receiverId: viewerId },
+      ],
+    },
+  });
 
-    // 3. Count friends
-    const friendsCount = await (this.prisma as any).friends.count({
-      where: {
-        OR: [
-          { requesterId: userId, status: 'ACCEPTED' },
-          { receiverId: userId, status: 'ACCEPTED' },
-        ],
-      },
-    });
+  // Decide public status
+  let friendStatus = 'NONE';
 
-    // 4. Build final public profile
-    const publicProfile = {
-      id: user.id,
-      nickName: user.nickName,
-      avatar: user.profilePicture,
-      country: user.country,
-      bio: user.bio,
-      charmLevel: user.charmLevel,
-      wealthLevel: user.wealthLevel,
-      //vip: user.vip,
-      followersCount,
-      friendsCount,
-      // agency: user.agency,
-      isHost: user.isHost,
-      isLive: false,
-    };
-
-    return { publicProfile };
+  if (relation) {
+    if (relation.status === 'ACCEPTED') {
+      friendStatus = 'FRIEND';
+    } else if (relation.status === 'PENDING') {
+      if (relation.requesterId === viewerId) {
+        friendStatus = 'SENT_REQUEST';
+      } else {
+        friendStatus = 'RECEIVED_REQUEST';
+      }
+    }
   }
+
+  // Count data (parallel)
+  const [followersCount, followingCount, friendsCount] =
+    await Promise.all([
+      this.prisma.follow.count({ where: { userId: profileUserId } }),
+      this.prisma.follow.count({ where: { followerId: profileUserId } }),
+      this.prisma.friends.count({
+        where: {
+          OR: [
+            { requesterId: profileUserId, receiverId: viewerId, status: 'ACCEPTED' },
+            { requesterId: viewerId, receiverId: profileUserId, status: 'ACCEPTED' },
+          ],
+        },
+      }),
+    ]);
+
+  // Country flag
+  const countryCode = normalizeCountry(user.country);
+  const countryFlag = countryCodeToFlag(countryCode);
+
+  // Final response
+  return {
+    publicProfile: {
+      ...user,
+      followersCount,
+      followingCount,
+      friendsCount,
+      giftReceviedCount: 0, // TODO: implement gift received count
+      giftSentCount: 0,     // TODO: implement gift sent count
+      countryFlag,
+      friendStatus,
+      isLive: false,
+    },
+  };
+}
+
+
 
   // ----------------------------------
   // UPDATE MY PROFILE

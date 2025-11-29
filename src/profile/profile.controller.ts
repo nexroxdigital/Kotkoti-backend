@@ -32,9 +32,18 @@ export class ProfileController {
     return this.profileService.viewMe(req.user.userId, expand);
   }
 
-  @Get('user/:userId/public-profile')
-  async getPublicProfile(@Param('userId') userId: string) {
-    return this.profileService.getPublicProfile(userId);
+  @Get('user/:profileUserId/public-profile')
+  @UseGuards(JwtAuthGuard)
+  async getPublicProfile(
+    @Req() req,
+    @Param('profileUserId') profileUserId: string,
+    @Query('expand') expand?: string,
+  ) {
+    return this.profileService.getPublicProfile(
+      req.user.id,
+      profileUserId,
+      expand,
+    );
   }
 
   @Put('update/me')
