@@ -21,6 +21,7 @@ model User {
   gender           String?
   country          String?
   activeItemId     String?
+  activeItem       StoreItem?        @relation("UserActiveItem", fields: [activeItemId], references: [id])
   agencyId         String?
   vipId            String?
   agency           Agency?           @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
