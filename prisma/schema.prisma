@@ -8,51 +8,53 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  nickName         String            @default("Unknown")
-  email            String            @unique
-  phone            String?           @unique
-  profilePicture   String?
-  coverImage       String?
-  password         String
-  roleId           String?
-  dob              DateTime?
-  bio              String?
-  gender           String?
-  country          String?
-  activeItemId     String?
-  activeItem       StoreItem?        @relation("UserActiveItem", fields: [activeItemId], references: [id])
-  agencyId         String?
-  vipId            String?
-  agency           Agency?           @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
-  vip              Vip?              @relation(fields: [vipId], references: [id], map: "user_vip_fk")
-  gold             Int               @default(0)
-  diamond          Int               @default(0)
-  isDiamondBlocked Boolean           @default(false)
-  isGoldBlocked    Boolean           @default(false)
-  isAccountBlocked Boolean           @default(false)
-  isHost           Boolean           @default(false)
-  isReseller       Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  sessions         Session[]
-  refreshTokens    RefreshToken[]
-  followers        Follow[]          @relation("UserFollowers")
-  following        Follow[]          @relation("UserFollowing")
-  visitors         Visitors[]        @relation("UserVisitors")
-  activityLog      ActivityLog[]
-  blocking         Block[]           @relation("UserBlocking")
-  blockedBy        Block[]           @relation("UserBlocked")
-  requestedFriends Friends[]         @relation("RequestedFriends")
-  receivedFriends  Friends[]         @relation("ReceivedFriends")
-  charmLevelId     String?
-  wealthLevelId    String?
-  charmLevel       CharmLevel?       @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
-  wealthLevel      WealthLevel?      @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
-  loginHistory     LoginHistory[]
-  deactivation     UserDeactivation?
-  UserGallery      CoverPhoto[]
-  backpack         Backpack[]
+  id                    String                @id @default(uuid())
+  nickName              String                @default("Unknown")
+  email                 String                @unique
+  phone                 String?               @unique
+  profilePicture        String?
+  coverImage            String?
+  password              String
+  roleId                String?
+  dob                   DateTime?
+  bio                   String?
+  gender                String?
+  country               String?
+  activeItemId          String?
+  activeItem            StoreItem?            @relation("UserActiveItem", fields: [activeItemId], references: [id])
+  agencyId              String?
+  vipId                 String?
+  agency                Agency?               @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
+  vip                   Vip?                  @relation(fields: [vipId], references: [id], map: "user_vip_fk")
+  gold                  Int                   @default(0)
+  diamond               Int                   @default(0)
+  isDiamondBlocked      Boolean               @default(false)
+  isGoldBlocked         Boolean               @default(false)
+  isAccountBlocked      Boolean               @default(false)
+  isHost                Boolean               @default(false)
+  isReseller            Boolean               @default(false)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  sessions              Session[]
+  refreshTokens         RefreshToken[]
+  followers             Follow[]              @relation("UserFollowers")
+  following             Follow[]              @relation("UserFollowing")
+  visitors              Visitors[]            @relation("UserVisitors")
+  activityLog           ActivityLog[]
+  blocking              Block[]               @relation("UserBlocking")
+  blockedBy             Block[]               @relation("UserBlocked")
+  requestedFriends      Friends[]             @relation("RequestedFriends")
+  receivedFriends       Friends[]             @relation("ReceivedFriends")
+  charmLevelId          String?
+  wealthLevelId         String?
+  charmLevel            CharmLevel?           @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
+  wealthLevel           WealthLevel?          @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
+  loginHistory          LoginHistory[]
+  deactivation          UserDeactivation?
+  UserGallery           CoverPhoto[]
+  backpack              Backpack[]
+  coinSellers           CoinSeller[]
+  coinsSellingHistories CoinsSellingHistory[]
 }
 
 model Session {
@@ -308,4 +310,38 @@ model Employee {
   password       String
   profilePicture String?
   role           EmployeeRole @default(STAFF)
+}
+
+model CoinSeller {
+  id        String   @id @default(uuid())
+  userId    String
+  totalCoin Int
+  status    String
+  createdAt DateTime @default(now())
+
+  user           User                  @relation(fields: [userId], references: [id])
+  sellingHistory CoinsSellingHistory[]
+  buyingHistory  CoinsBuyingHistory[]
+}
+
+model CoinsSellingHistory {
+  id         String   @id @default(uuid())
+  sellerId   String
+  receiverId String
+  status     String
+  amount     Int
+  createdAt  DateTime @default(now())
+
+  seller   CoinSeller @relation(fields: [sellerId], references: [id])
+  receiver User       @relation(fields: [receiverId], references: [id])
+}
+
+model CoinsBuyingHistory {
+  id        String   @id @default(uuid())
+  sellerId  String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+
+  seller CoinSeller @relation(fields: [sellerId], references: [id])
 }
