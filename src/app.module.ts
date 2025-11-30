@@ -13,6 +13,7 @@ import { StoreModule } from './store/store.module';
 import { BackpackModule } from './backpack/backpack.module';
 import { GalleryModule } from './profile/gallery/gallery.module';
 import { AdminModule } from './admin/admin.module';
+import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AdminModule } from './admin/admin.module';
     StoreModule,
     AdminModule,
     BackpackModule,
+    CoinResellerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

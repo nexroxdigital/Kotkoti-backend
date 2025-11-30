@@ -4,68 +4,71 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // url      = env("DATABASE_URL")
 }
 
 model User {
-  id               String            @id @default(uuid())
-  nickName         String            @default("Unknown")
-  email            String            @unique
-  phone            String?           @unique
-  profilePicture   String?
-  coverImage       String?
-  password         String
-  roleId           String?
-  dob              DateTime?
-  bio              String?
-  gender           String?
-  country          String?
-  activeItemId     String?
-  activeItem       StoreItem?        @relation("UserActiveItem", fields: [activeItemId], references: [id])
-  agencyId         String?
-  vipId            String?
-  agency           Agency?           @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
-  vip              Vip?              @relation(fields: [vipId], references: [id], map: "user_vip_fk")
-  gold             Int               @default(0)
-  diamond          Int               @default(0)
-  isDiamondBlocked Boolean           @default(false)
-  isGoldBlocked    Boolean           @default(false)
-  isAccountBlocked Boolean           @default(false)
-  isHost           Boolean           @default(false)
-  isReseller       Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  sessions         Session[]
-  refreshTokens    RefreshToken[]
-  followers        Follow[]          @relation("UserFollowers")
-  following        Follow[]          @relation("UserFollowing")
-  visitors         Visitors[]        @relation("UserVisitors")
-  activityLog      ActivityLog[]
-  blocking         Block[]           @relation("UserBlocking")
-  blockedBy        Block[]           @relation("UserBlocked")
-  requestedFriends Friends[]         @relation("RequestedFriends")
-  receivedFriends  Friends[]         @relation("ReceivedFriends")
-  charmLevelId     String?
-  wealthLevelId    String?
-  charmLevel       CharmLevel?       @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
-  wealthLevel      WealthLevel?      @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
-  loginHistory     LoginHistory[]
-  deactivation     UserDeactivation?
-  UserGallery      CoverPhoto[]
-  backpack         Backpack[]
+  id                    String                @id @default(uuid())
+  email                 String                @unique
+  password              String
+  phone                 String?               @unique
+  dob                   DateTime?
+  bio                   String?
+  gender                String?
+  country               String?
+  profilePicture        String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  agencyId              String?
+  diamond               Int                   @default(0)
+  gold                  Int                   @default(0)
+  isAccountBlocked      Boolean               @default(false)
+  isDiamondBlocked      Boolean               @default(false)
+  isGoldBlocked         Boolean               @default(false)
+  isHost                Boolean               @default(false)
+  isReseller            Boolean               @default(false)
+  vipId                 String?
+  nickName              String                @default("Unknown")
+  roleId                String?
+  charmLevelId          String?
+  wealthLevelId         String?
+  coverImage            String?
+  activeItemId          String?
+  activityLog           ActivityLog[]
+  backpack              Backpack[]
+  blockedBy             Block[]               @relation("UserBlocked")
+  blocking              Block[]               @relation("UserBlocking")
+  UserGallery           CoverPhoto[]
+  following             Follow[]              @relation("UserFollowing")
+  followers             Follow[]              @relation("UserFollowers")
+  receivedFriends       Friends[]             @relation("ReceivedFriends")
+  requestedFriends      Friends[]             @relation("RequestedFriends")
+  loginHistory          LoginHistory[]
+  refreshTokens         RefreshToken[]
+  sessions              Session[]
+  activeItem            StoreItem?            @relation("UserActiveItem", fields: [activeItemId], references: [id])
+  charmLevel            CharmLevel?           @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
+  wealthLevel           WealthLevel?          @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
+  agency                Agency?               @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
+  vip                   Vip?                  @relation(fields: [vipId], references: [id], map: "user_vip_fk")
+  deactivation          UserDeactivation?
+  visitors              Visitors[]            @relation("UserVisitors")
+  VoiceRoom             VoiceRoom[]
+  coinSellers           CoinSeller[]
+  coinsSellingHistories CoinsSellingHistory[]
 }
 
 model Session {
   id           String    @id @default(uuid())
-  user         User      @relation(fields: [userId], references: [id])
   userId       String
   createdAt    DateTime  @default(now())
   expiresAt    DateTime?
   lastAccessed DateTime?
+  country      String?
   deviceId     String?
   ipAddress    String?
-  country      String?
   userAgent    String?
+  user         User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
@@ -85,7 +88,6 @@ model CoverPhoto {
   id        String   @id @default(uuid())
   userId    String
   url       String
-  // lower index -> shown first
   orderIdx  Int      @default(0)
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
@@ -133,7 +135,7 @@ model EmailOtp {
   id        String   @id @default(uuid())
   email     String
   otp       String
-  purpose   String // e.g. "register", "forgot_password"
+  purpose   String
   expiresAt DateTime
   consumed  Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -167,12 +169,12 @@ model WealthLevel {
 
 model Follow {
   id         String   @id @default(uuid())
-  user       User     @relation("UserFollowers", fields: [userId], references: [id])
   userId     String
-  follower   User     @relation("UserFollowing", fields: [followerId], references: [id])
   followerId String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  follower   User     @relation("UserFollowing", fields: [followerId], references: [id])
+  user       User     @relation("UserFollowers", fields: [userId], references: [id])
 
   @@unique([userId, followerId])
   @@index([userId])
@@ -181,24 +183,17 @@ model Follow {
 
 model Friends {
   id          String       @id @default(uuid())
-  requester   User         @relation("RequestedFriends", fields: [requesterId], references: [id])
   requesterId String
-  receiver    User         @relation("ReceivedFriends", fields: [receiverId], references: [id])
   receiverId  String
-  status      FriendStatus @default(PENDING)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  status      FriendStatus @default(PENDING)
+  receiver    User         @relation("ReceivedFriends", fields: [receiverId], references: [id])
+  requester   User         @relation("RequestedFriends", fields: [requesterId], references: [id])
 
   @@unique([requesterId, receiverId])
   @@index([requesterId])
   @@index([receiverId])
-}
-
-enum FriendStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  CANCELLED
 }
 
 model Visitors {
@@ -213,11 +208,11 @@ model Visitors {
 
 model Block {
   id        String   @id @default(uuid())
-  blocker   User     @relation("UserBlocking", fields: [blockerId], references: [id])
   blockerId String
-  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id])
   blockedId String
   createdAt DateTime @default(now())
+  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id])
+  blocker   User     @relation("UserBlocking", fields: [blockerId], references: [id])
 
   @@unique([blockerId, blockedId])
   @@index([blockerId])
@@ -226,7 +221,6 @@ model Block {
 
 model ActivityLog {
   id         String   @id @default(uuid())
-  user       User     @relation(fields: [userId], references: [id])
   userId     String
   action     String
   targetId   String?
@@ -234,6 +228,7 @@ model ActivityLog {
   metadata   Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([action])
@@ -241,14 +236,13 @@ model ActivityLog {
 
 model UserDeactivation {
   id            String    @id @default(uuid())
-  user          User      @relation(fields: [userId], references: [id])
-  userId        String    @unique // Each user can only have 1 active deactivation record
+  userId        String    @unique
   reason        String?
   feedback      String?
   deactivatedAt DateTime  @default(now())
   reactivatedAt DateTime?
+  user          User      @relation(fields: [userId], references: [id])
 
-  // use @@index() for reporting queries
   @@index([userId])
 }
 
@@ -269,7 +263,6 @@ model StoreCategory {
 
 model StoreItem {
   id          String        @id @default(uuid())
-  category    StoreCategory @relation(fields: [categoryId], references: [id])
   categoryId  String
   name        String
   price       Int
@@ -278,26 +271,21 @@ model StoreItem {
   validity    DateTime?
   createdAt   DateTime      @default(now())
   backpacks   Backpack[]
+  category    StoreCategory @relation(fields: [categoryId], references: [id])
   activeUsers User[]        @relation("UserActiveItem")
 }
 
 model Backpack {
   id         String    @id @default(uuid())
-  user       User      @relation(fields: [userId], references: [id])
   userId     String
-  item       StoreItem @relation(fields: [itemId], references: [id])
   itemId     String
   quantity   Int       @default(1)
   acquiredAt DateTime  @default(now())
+  item       StoreItem @relation(fields: [itemId], references: [id])
+  user       User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([itemId])
-}
-
-enum EmployeeRole {
-  ADMIN
-  MANAGER
-  STAFF
 }
 
 model Employee {
@@ -308,4 +296,135 @@ model Employee {
   password       String
   profilePicture String?
   role           EmployeeRole @default(STAFF)
+}
+
+model CoinSeller {
+  id        String   @id @default(uuid())
+  userId    String
+  totalCoin Int
+  status    String
+  createdAt DateTime @default(now())
+
+  user           User                  @relation(fields: [userId], references: [id])
+  sellingHistory CoinsSellingHistory[]
+  buyingHistory  CoinsBuyingHistory[]
+}
+
+model CoinsSellingHistory {
+  id         String   @id @default(uuid())
+  sellerId   String
+  receiverId String
+  status     String
+  amount     Int
+  createdAt  DateTime @default(now())
+
+  seller   CoinSeller @relation(fields: [sellerId], references: [id])
+  receiver User       @relation(fields: [receiverId], references: [id])
+}
+
+model CoinsBuyingHistory {
+  id        String   @id @default(uuid())
+  sellerId  String
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+
+  seller CoinSeller @relation(fields: [sellerId], references: [id])
+}
+
+model VoiceRoom {
+  id                   String                 @id
+  name                 String                 @unique
+  hostId               String
+  locked               Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  User                 User                   @relation(fields: [hostId], references: [id])
+  VoiceRoomBan         VoiceRoomBan[]
+  VoiceRoomEvent       VoiceRoomEvent[]
+  VoiceRoomParticipant VoiceRoomParticipant[]
+  VoiceRoomSeat        VoiceRoomSeat[]
+  VoiceRoomSeatRequest VoiceRoomSeatRequest[]
+  VoiceRoomTokenLog    VoiceRoomTokenLog[]
+}
+
+model VoiceRoomBan {
+  id        String    @id
+  roomId    String
+  userId    String
+  createdAt DateTime  @default(now())
+  VoiceRoom VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, userId])
+}
+
+model VoiceRoomEvent {
+  id        String    @id
+  roomId    String
+  userId    String?
+  action    String
+  createdAt DateTime  @default(now())
+  VoiceRoom VoiceRoom @relation(fields: [roomId], references: [id])
+}
+
+model VoiceRoomParticipant {
+  id        String    @id
+  roomId    String
+  userId    String
+  joinedAt  DateTime  @default(now())
+  micOn     Boolean   @default(false)
+  role      String    @default("LISTENER")
+  VoiceRoom VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+}
+
+model VoiceRoomSeat {
+  id         String    @id
+  roomId     String
+  seatNumber Int
+  userId     String?
+  micOn      Boolean   @default(false)
+  locked     Boolean   @default(false)
+  VoiceRoom  VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, seatNumber])
+  @@index([roomId])
+}
+
+model VoiceRoomSeatRequest {
+  id        String    @id
+  roomId    String
+  userId    String
+  status    String    @default("PENDING")
+  createdAt DateTime  @default(now())
+  VoiceRoom VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+}
+
+model VoiceRoomTokenLog {
+  id        String    @id
+  roomId    String
+  userId    String
+  provider  String
+  token     String
+  expireAt  DateTime
+  createdAt DateTime  @default(now())
+  VoiceRoom VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+}
+
+enum FriendStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum EmployeeRole {
+  ADMIN
+  MANAGER
+  STAFF
 }
