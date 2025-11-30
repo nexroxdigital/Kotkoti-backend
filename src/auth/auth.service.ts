@@ -216,7 +216,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     //  generate unique 8-digit userId
-    const userId = await generateUniqueUserId();
+    const userId = await generateUniqueUserId(this.prisma);
 
     const user = await this.prisma.user.create({
       data: {

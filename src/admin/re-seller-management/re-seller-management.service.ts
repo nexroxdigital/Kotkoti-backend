@@ -3,21 +3,24 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class ReSellerManagementService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // @desc    Add a user as a coin reseller
+  // Add a user as a coin reseller
   async addReseller(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.prisma.user.findFirst({ where: { id: userId } });
+
     if (!user) throw new NotFoundException('User not found');
 
     // Check if already a reseller
-    const existing = await this.prisma.coinSeller.findUnique({
+    const existing = await this.prisma.coinSeller.findFirst({
       where: { userId },
     });
+
     if (existing) throw new BadRequestException('User is already a reseller');
 
     const reseller = await this.prisma.coinSeller.create({
@@ -32,9 +35,9 @@ export class ReSellerManagementService {
     return { message: 'User added as coin reseller', reseller };
   }
 
-  // @desc    Remove a user from coin resellers
+  // Remove a user from coin resellers
   async removeReseller(userId: string) {
-    const reseller = await this.prisma.coinSeller.findUnique({
+    const reseller = await this.prisma.coinSeller.findFirst({
       where: { userId },
     });
     if (!reseller) throw new NotFoundException('Reseller not found');
@@ -43,7 +46,7 @@ export class ReSellerManagementService {
     return { message: 'User removed from coin resellers' };
   }
 
-  // @desc    Send coins to a reseller account
+  // Send coins to a reseller account
   async sendCoinsToReseller(sellerId: string, amount: number) {
     const reseller = await this.prisma.coinSeller.findUnique({
       where: { id: sellerId },
