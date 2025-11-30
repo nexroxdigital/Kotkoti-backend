@@ -83,6 +83,11 @@ export class AuthController {
     return this.authService.forgotPassword(body);
   }
 
+  @Post('forgot-password/resend-otp')
+  async resendForgot(@Body('email') email: string) {
+    return this.authService.resendForgotOtp(email);
+  }
+
   @Post('verify-forgot-otp')
   async verifyForgotOtp(@Body() dto: VerifyForgotOtpDto) {
     return this.authService.verifyForgotOtp(dto.email, dto.otp);
