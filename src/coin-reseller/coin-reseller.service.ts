@@ -7,7 +7,7 @@ export class CoinResellerService {
   constructor(private readonly prisma: PrismaService) {}
 
   // add coins to a user profile
-  async addCoins(dto: ReSellerDto) {
+  async sendCoins(dto: ReSellerDto) {
     // Find seller
     const seller = await this.prisma.coinSeller.findUnique({
       where: { id: dto.sellerId },

@@ -7,9 +7,9 @@ export class CoinResellerController {
   constructor(private readonly coinResellerService: CoinResellerService) {}
 
   // Add coins to a user profile
-  @Post('re-seller')
-  async addCoins(@Body() dto: ReSellerDto) {
-    return this.coinResellerService.addCoins(dto);
+  @Post('send-to-user')
+  async sendCoinsToUser(@Body() dto: ReSellerDto) {
+    return this.coinResellerService.sendCoins(dto);
   }
 
   // Get selling history for a seller
