@@ -293,3 +293,19 @@ model Backpack {
   @@index([userId])
   @@index([itemId])
 }
+
+enum EmployeeRole {
+  ADMIN
+  MANAGER
+  STAFF
+}
+
+model Employee {
+  id             String       @id @default(uuid())
+  name           String
+  email          String       @unique
+  phone          String?      @unique
+  password       String
+  profilePicture String?
+  role           EmployeeRole @default(STAFF)
+}
