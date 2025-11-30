@@ -110,106 +110,126 @@ export class ProfileService {
   // PUBLIC PROFILE
   // ----------------------------------
 
-async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: string) {
+  async getPublicProfile(
+    viewerId: string,
+    profileUserId: string,
+    expandQuery?: string,
+  ) {
+    const expand = expandQuery
+      ? expandQuery.split(',').map((x) => x.trim())
+      : [];
 
-  const expand = expandQuery
-    ? expandQuery.split(',').map(x => x.trim())
-    : [];
+    // Fetch user
+    const user = await this.prisma.user.findUnique({
+      where: { id: profileUserId },
+      select: {
+        id: true,
+        nickName: true,
+        email: true,
+        phone: true,
+        profilePicture: true,
+        coverImage: true,
+        roleId: true,
+        dob: true,
+        bio: true,
+        gender: true,
+        country: true,
+        gold: true,
+        diamond: true,
+        isDiamondBlocked: true,
+        isGoldBlocked: true,
+        isAccountBlocked: true,
+        isHost: true,
+        isReseller: true,
+        agencyId: true,
+        vipId: true,
+        charmLevel: true,
+        wealthLevel: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-  // Fetch user
-  const user = await this.prisma.user.findUnique({
-    where: { id: profileUserId },
-    select: {
-      id: true,
-      nickName: true,
-      email: true,
-      phone: true,
-      profilePicture: true,
-      coverImage: true,
-      roleId: true,
-      dob: true,
-      bio: true,
-      gender: true,
-      country: true,
-      gold: true,
-      diamond: true,
-      isDiamondBlocked: true,
-      isGoldBlocked: true,
-      isAccountBlocked: true,
-      isHost: true,
-      isReseller: true,
-      agencyId: true,
-      vipId: true,
-      charmLevel: true,
-      wealthLevel: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
+    if (!user) throw new NotFoundException('User not found');
 
-  if (!user) throw new NotFoundException('User not found');
+    // Relationship lookup
+    const relation = await this.prisma.friends.findFirst({
+      where: {
+        OR: [
+          { requesterId: viewerId, receiverId: profileUserId },
+          { requesterId: profileUserId, receiverId: viewerId },
+        ],
+      },
+    });
 
-  // Relationship lookup
-  const relation = await this.prisma.friends.findFirst({
-    where: {
-      OR: [
-        { requesterId: viewerId, receiverId: profileUserId },
-        { requesterId: profileUserId, receiverId: viewerId },
-      ],
-    },
-  });
-
-  // Decide public status
-  let friendStatus = 'NONE';
-
-  if (relation) {
-    if (relation.status === 'ACCEPTED') {
-      friendStatus = 'FRIEND';
-    } else if (relation.status === 'PENDING') {
-      if (relation.requesterId === viewerId) {
+    // Decide public status
+    let friendStatus: 'FRIEND' | 'SENT_REQUEST' | 'RECEIVED_REQUEST' | 'NONE' =
+      'NONE';
+    let friendRequestId: string | null = null;
+    console.log(
+      'relation',
+      relation,
+      'viewerId',
+      viewerId,
+      'profileUserId',
+      profileUserId,
+    );
+    if (relation) {
+      friendRequestId = relation.id;
+      if (relation.status === 'ACCEPTED') {
+        friendStatus = 'FRIEND';
+      } else if (
+        relation.status === 'PENDING' &&
+        relation.requesterId === viewerId
+      ) {
         friendStatus = 'SENT_REQUEST';
       } else {
         friendStatus = 'RECEIVED_REQUEST';
       }
     }
-  }
 
-  // Count data (parallel)
-  const [followersCount, followingCount, friendsCount] =
-    await Promise.all([
+    // Count data (parallel)
+    const [followersCount, followingCount, friendsCount] = await Promise.all([
       this.prisma.follow.count({ where: { userId: profileUserId } }),
       this.prisma.follow.count({ where: { followerId: profileUserId } }),
       this.prisma.friends.count({
         where: {
           OR: [
-            { requesterId: profileUserId, receiverId: viewerId, status: 'ACCEPTED' },
-            { requesterId: viewerId, receiverId: profileUserId, status: 'ACCEPTED' },
+            {
+              requesterId: profileUserId,
+              receiverId: viewerId,
+              status: 'ACCEPTED',
+            },
+            {
+              requesterId: viewerId,
+              receiverId: profileUserId,
+              status: 'ACCEPTED',
+            },
           ],
         },
       }),
     ]);
 
-  // Country flag
-  const countryCode = normalizeCountry(user.country);
-  const countryFlag = countryCodeToFlag(countryCode);
+    // Country flag
+    const countryCode = normalizeCountry(user.country);
+    const countryFlag = countryCodeToFlag(countryCode);
 
-  // Final response
-  return {
-    publicProfile: {
-      ...user,
-      followersCount,
-      followingCount,
-      friendsCount,
-      giftReceviedCount: 0, // TODO: implement gift received count
-      giftSentCount: 0,     // TODO: implement gift sent count
-      countryFlag,
-      friendStatus,
-      isLive: false,
-    },
-  };
-}
-
-
+    // Final response
+    return {
+      publicProfile: {
+        ...user,
+        followersCount,
+        followingCount,
+        friendsCount,
+        giftReceviedCount: 0, // TODO: implement gift received count
+        giftSentCount: 0, // TODO: implement gift sent count
+        countryFlag,
+        friendStatus,
+        friendRequestId,
+        isLive: false,
+      },
+    };
+  }
 
   // ----------------------------------
   // UPDATE MY PROFILE
@@ -266,7 +286,7 @@ async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: st
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // 🔥 1. Delete old image if exists (any format)
+    //  1. Delete old image if exists (any format)
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { profilePicture: true },
@@ -277,7 +297,7 @@ async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: st
       if (fs.existsSync(old)) fs.unlinkSync(old);
     }
 
-    // 🔥 2. Resize + crop + convert to WebP using Sharp
+    //  2. Resize + crop + convert to WebP using Sharp
     await sharp(tempPath)
       .resize(300, 300, {
         fit: 'cover',
@@ -289,7 +309,7 @@ async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: st
     // delete temp raw upload
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
-    // 🔥 3. Update user profile
+    // 3. Update user profile
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -326,7 +346,7 @@ async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: st
       fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // 🔥 Delete old cover photo
+    //  Delete old cover photo
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { coverImage: true },
@@ -337,7 +357,7 @@ async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: st
       if (fs.existsSync(old)) fs.unlinkSync(old);
     }
 
-    // 🔥 Resize & convert to WebP
+    // Resize & convert to WebP
     await sharp(tempPath)
       .resize(1200, 400, {
         // cover aspect ratio
@@ -350,7 +370,7 @@ async getPublicProfile(viewerId: string, profileUserId: string, expandQuery?: st
     // remove temp file
     if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
 
-    // 🔥 update DB
+    //  update DB
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
       data: { coverImage: `/uploads/cover/${finalFileName}` },

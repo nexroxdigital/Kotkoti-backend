@@ -571,6 +571,80 @@ export class AuthService {
   }
 
   // ----------------------------------
+  // RESEND FORGOT PASSWORD OTP
+  // ----------------------------------
+  async resendForgotOtp(email: string) {
+    // 1. Verify user exists
+    const user = await this.prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      // Anti-enumeration
+      return { message: 'If this account exists, a reset code has been sent.' };
+    }
+
+    // 2. Rate-limit resend (30 sec)
+    const lastOtp = await this.prisma.emailOtp.findFirst({
+      where: { email, purpose: 'forgot_password' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (lastOtp) {
+      const diff = Date.now() - new Date(lastOtp.createdAt).getTime();
+      if (diff < 30 * 1000) {
+        throw new BadRequestException(
+          `Wait ${Math.ceil((30_000 - diff) / 1000)} seconds before retry.`,
+        );
+      }
+    }
+
+    // 3. Invalidate old OTPs
+    await this.prisma.emailOtp.updateMany({
+      where: {
+        email,
+        purpose: 'forgot_password',
+        consumed: false,
+      },
+      data: { consumed: true },
+    });
+
+    // 4. Generate new OTP
+    const otp = this.generateOtp(6);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+
+    const hashedOtp = await bcrypt.hash(otp, 10);
+
+    // 5. Save new OTP
+    await this.prisma.emailOtp.create({
+      data: {
+        email,
+        otp: hashedOtp,
+        purpose: 'forgot_password',
+        expiresAt,
+      },
+    });
+
+    // 6. Send email
+    const html = `
+    <div style="font-family: monospace; font-size:16px;">
+      <p>Your NEW password reset code:</p>
+      <h2 style="letter-spacing:8px;">${otp}</h2>
+      <p>This code expires in 10 minutes.</p>
+    </div>
+  `;
+
+    await this.mailService.sendMail(
+      email,
+      'Password Reset Code (Resent)',
+      html,
+    );
+
+    return {
+      message: 'If this account exists, a new code has been sent.',
+      ...(process.env.NODE_ENV !== 'production' ? { otp } : {}),
+    };
+  }
+
+  // ----------------------------------
   // VERIFY FORGOT OTP
   // ----------------------------------
   async verifyForgotOtp(email: string, otp: string) {
