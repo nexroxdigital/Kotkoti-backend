@@ -69,6 +69,7 @@ export class StoreController {
   }
 
   // send store item to another user
+  @UseGuards(JwtAuthGuard)
   @Post('send-item/:itemId')
   async sendItem(
     @Param('itemId') itemId: string,

@@ -310,3 +310,95 @@ model Employee {
   profilePicture String?
   role           EmployeeRole @default(STAFF)
 }
+
+model VoiceRoom {
+  id        String   @id @default(uuid())
+  name      String
+  hostId    String
+  locked    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relations
+  host         User                   @relation(fields: [hostId], references: [id])
+  participants VoiceRoomParticipant[]
+  seats        VoiceRoomSeat[]
+  seatRequests VoiceRoomSeatRequest[]
+  tokenLogs    VoiceRoomTokenLog[]
+  events       VoiceRoomEvent[]
+  bans         VoiceRoomBan[]
+}
+
+model VoiceRoomParticipant {
+  id       String   @id @default(uuid())
+  roomId   String
+  userId   String
+  joinedAt DateTime @default(now())
+  micOn    Boolean  @default(false)
+  role     String   @default("LISTENER") // HOST, COHOST, LISTENER
+
+  room VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId])
+}
+
+model VoiceRoomSeat {
+  id         String  @id @default(uuid())
+  roomId     String
+  seatNumber Int
+  userId     String?
+  micOn      Boolean @default(false)
+  locked     Boolean @default(false)
+
+  room VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, seatNumber])
+  @@index([roomId])
+}
+
+model VoiceRoomSeatRequest {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  room VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+}
+
+model VoiceRoomEvent {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String?
+  action    String
+  createdAt DateTime @default(now())
+
+  room VoiceRoom @relation(fields: [roomId], references: [id])
+}
+
+model VoiceRoomBan {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  room VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@unique([roomId, userId])
+}
+
+model VoiceRoomTokenLog {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  provider  String
+  token     String
+  expireAt  DateTime
+  createdAt DateTime @default(now())
+
+  room VoiceRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+}
