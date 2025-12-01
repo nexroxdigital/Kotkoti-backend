@@ -29,14 +29,10 @@
     "@nestjs/platform-express": "^11.1.9",
     "@nestjs/platform-socket.io": "^11.1.9",
     "@nestjs/swagger": "^11.2.3",
-<<<<<<< HEAD
     "@nestjs/websockets": "^11.1.9",
-    "@prisma/client": "^6.19.0",
     "agora-access-token": "^2.0.4",
-=======
     "@prisma/adapter-pg": "^7.0.1",
     "@prisma/client": "^7.0.1",
->>>>>>> dc2306b2106cd86de8a54d4a24b5358ecb998490
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
