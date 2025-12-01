@@ -1,19 +1,25 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { AdminModule } from './admin/admin.module';
+import { AgoraModule } from './agora/agora.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
-import { PrismaModule } from './prisma/prisma.module';
-import { SocialModule } from './social/social.module';
-import { UserModule } from './user/user.module';
-import { ProfileModule } from './profile/profile.module';
-import { ImageValidationMiddleware } from './common/image-validation.middleware';
-import { UserSettingModule } from './user-setting/user-setting.module';
-import { StoreModule } from './store/store.module';
 import { BackpackModule } from './backpack/backpack.module';
+import { ImageValidationMiddleware } from './common/image-validation.middleware';
+import { PrismaModule } from './prisma/prisma.module';
 import { GalleryModule } from './profile/gallery/gallery.module';
+<<<<<<< HEAD
+import { ProfileModule } from './profile/profile.module';
+import { SocialModule } from './social/social.module';
+import { StoreModule } from './store/store.module';
+import { UserSettingModule } from './user-setting/user-setting.module';
+import { UserModule } from './user/user.module';
+import { VoiceRoomModule } from './voice-room/voice-room.module';
+=======
 import { AdminModule } from './admin/admin.module';
 import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
+>>>>>>> dc2306b2106cd86de8a54d4a24b5358ecb998490
 
 @Module({
   imports: [
@@ -31,7 +37,14 @@ import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
     StoreModule,
     AdminModule,
     BackpackModule,
+<<<<<<< HEAD
+
+    AgoraModule,
+
+    VoiceRoomModule,
+=======
     CoinResellerModule,
+>>>>>>> dc2306b2106cd86de8a54d4a24b5358ecb998490
   ],
   controllers: [AppController],
   providers: [AppService],

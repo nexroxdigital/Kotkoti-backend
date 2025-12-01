@@ -92,6 +92,18 @@ export class StoreService {
     const item = await this.prisma.storeItem.findUnique({
       where: { id: itemId },
     });
+
+    const existingBackpackItem = await this.prisma.backpack.findFirst({
+      where: {
+        userId,
+        itemId,
+      },
+    });
+
+    if (existingBackpackItem) {
+      throw new BadRequestException('You have already bought this item');
+    }
+
     if (!item) throw new NotFoundException('Store item not found');
 
     // Check if user has enough gold
