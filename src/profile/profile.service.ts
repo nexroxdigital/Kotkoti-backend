@@ -27,6 +27,7 @@ export class ProfileService {
   // ----------------------------------
 
   async viewMe(userId: string, expandQuery?: string) {
+    console.log(`View me called for userId: ${userId} with expand: ${expandQuery}`);
     const expand = expandQuery
       ? expandQuery.split(',').map((x) => x.trim())
       : [];
@@ -66,7 +67,7 @@ export class ProfileService {
     if (expand.includes('wealthLevel')) relationSelect.wealthLevel = true;
 
     // Run ALL queries at once
-    const [user, followersCount, followingCount, friendsCount, visitorsCount] =
+    const [user, followersCount, followingCount, friendsCount, visitorsCount, coverImages,] =
       await Promise.all([
         this.prisma.user.findUnique({
           where: { id: userId },
@@ -84,6 +85,16 @@ export class ProfileService {
           },
         }),
         this.prisma.visitors.count({ where: { userId } }),
+        //  Fetch user gallery
+        this.prisma.coverPhoto.findMany({
+          where: { userId },
+          orderBy: { orderIdx: 'asc' },
+          select: {
+            id: true,
+            url: true,
+            orderIdx: true,
+          },
+        }),
       ]);
 
     if (!user) throw new NotFoundException('User not found');
@@ -95,6 +106,7 @@ export class ProfileService {
 
     return {
       ...user,
+      coverImages,
       followersCount,
       followingCount,
       friendsCount,
