@@ -345,63 +345,61 @@ export class ProfileService {
   // UPLOAD COVER PICTURE
   // ----------------------------------
 
-  async uploadCoverPhoto(userId: string, file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('No file uploaded');
+async uploadCoverPhoto(userId: string, file: Express.Multer.File) {
+  if (!file) throw new BadRequestException('No file uploaded');
 
-    const tempPath = file.path;
-    const outputDir = join(process.cwd(), 'uploads/cover');
-    const timestamp = Date.now();
-    const finalFileName = `${userId}-${timestamp}.webp`;
-    const finalPath = join(outputDir, finalFileName);
+  const tempPath = file.path;
+  const outputDir = join(process.cwd(), 'uploads/cover');
+  const timestamp = Date.now();
+  const finalFileName = `${userId}-${timestamp}.webp`;
+  const finalPath = join(outputDir, finalFileName);
 
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    //  Delete old cover photo
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { coverImage: true },
-    });
-
-    if (user?.coverImage) {
-      const old = join(process.cwd(), user.coverImage);
-      if (fs.existsSync(old)) fs.unlinkSync(old);
-    }
-
-    // Resize & convert to WebP
-    await sharp(tempPath)
-      .resize(1200, 400, {
-        // cover aspect ratio
-        fit: 'cover',
-        position: 'center',
-      })
-      .webp({ quality: 80 })
-      .toFile(finalPath);
-
-    // remove temp file
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-    //  update DB
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: { coverImage: `/uploads/cover/${finalFileName}` },
-      select: {
-        id: true,
-        coverImage: true,
-        updatedAt: true,
-      },
-    });
-    const finalUrl = `/uploads/cover/${finalFileName}`;
-    // insert into gallery
-    await (this.prisma as any).coverPhoto.create({
-      data: { userId, url: finalUrl },
-    });
-    return {
-      message: 'Cover photo updated successfully',
-      user: updatedUser,
-    };
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
   }
+
+  // Resize & convert to WebP
+  await sharp(tempPath)
+    .resize(1200, 400, {
+      fit: 'cover',
+      position: 'center',
+    })
+    .webp({ quality: 80 })
+    .toFile(finalPath);
+
+  // remove temp file
+  if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+  const finalUrl = `/uploads/cover/${finalFileName}`;
+
+  // Update user's ACTIVE cover image ONLY
+  const updatedUser = await this.prisma.user.update({
+    where: { id: userId },
+    data: {
+      coverImage: finalUrl, 
+    },
+    select: {
+      id: true,
+      coverImage: true,
+      updatedAt: true,
+    },
+  });
+
+  // Insert new image into gallery (keep old records)
+  await this.prisma.coverPhoto.create({
+    data: {
+      userId,
+      url: finalUrl,
+      // orderIdx optional if using
+    },
+  });
+
+  return {
+    message: 'Cover photo uploaded successfully',
+    user: updatedUser,
+  };
+}
+
 
   // ----------------------------------
   // BLOCK USERS LIST
