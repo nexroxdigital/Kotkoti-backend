@@ -53,9 +53,14 @@ model User {
   vip                   Vip?                  @relation(fields: [vipId], references: [id], map: "user_vip_fk")
   deactivation          UserDeactivation?
   visitors              Visitors[]            @relation("UserVisitors")
-  VoiceRoom             VoiceRoom[]
   coinSellers           CoinSeller[]
   coinsSellingHistories CoinsSellingHistory[]
+  hostedRooms AudioRoom[]   @relation("UserHostedRooms")
+  participants RoomParticipant[]
+  seats       Seat[]
+  seatRequests SeatRequest[]
+  bans        AudioRoomBan[]
+  bannedBy    AudioRoomBan[] @relation("BannedByHost")
 }
 
 model Session {
@@ -332,96 +337,116 @@ model CoinsBuyingHistory {
   seller CoinSeller @relation(fields: [sellerId], references: [id])
 }
 
-model VoiceRoom {
+model AudioRoom {
   id        String   @id @default(uuid())
   name      String
   hostId    String
-  locked    Boolean  @default(false)
-  createdAt DateTime @default(now())
+  host      User     @relation("UserHostedRooms", fields: [hostId], references: [id])
 
-  // Relations
-  host         User                   @relation(fields: [hostId], references: [id])
-  participants VoiceRoomParticipant[]
-  seats        VoiceRoomSeat[]
-  seatRequests VoiceRoomSeatRequest[]
-  tokenLogs    VoiceRoomTokenLog[]
-  events       VoiceRoomEvent[]
-  bans         VoiceRoomBan[]
+  isLive    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  endedAt   DateTime?
+
+  seats         Seat[]
+  participants  RoomParticipant[]
+  bans          AudioRoomBan[]
+  seatRequests  SeatRequest[]        // ✅ MUST BE HERE
+  tokenLogs     ProviderTokenLog[]   // ✅ MUST BE HERE
 }
 
-model VoiceRoomParticipant {
+
+
+
+model Seat {
   id       String   @id @default(uuid())
-  roomId   String
-  userId   String
-  joinedAt DateTime @default(now())
-  micOn    Boolean  @default(false)
-  role     String   @default("LISTENER") // HOST, COHOST, LISTENER
+  roomId  String
+  index   Int
+  userId  String?
+  micOn   Boolean  @default(true)
+  locked  Boolean  @default(false)
 
-  room VoiceRoom @relation(fields: [roomId], references: [id])
+  room AudioRoom @relation(fields: [roomId], references: [id])
+  user User?     @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, index])
+}
+
+
+model RoomParticipant {
+  id             String   @id @default(uuid())
+  roomId         String
+  userId         String
+  rtcUid         String?
+  joinedAt       DateTime @default(now())
+  disconnectedAt DateTime?
+  isHost         Boolean  @default(false)
+  muted          Boolean  @default(false)
+  lastActiveAt   DateTime @default(now())
+
+  user User      @relation(fields: [userId], references: [id])
+  room AudioRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+  @@index([userId])
+}
+
+
+model SeatRequest {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  seatIndex Int?
+  status    RequestStatus @default(PENDING)
+  createdAt DateTime @default(now())
+
+  user User      @relation(fields: [userId], references: [id])
+  room AudioRoom @relation(fields: [roomId], references: [id])
+
+  @@index([roomId])
+}
+
+
+model AudioRoomBan {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  bannedBy  String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  room AudioRoom @relation(fields: [roomId], references: [id])
+  user User      @relation(fields: [userId], references: [id])
+  host User      @relation("BannedByHost", fields: [bannedBy], references: [id])
 
   @@unique([roomId, userId])
-  @@index([roomId])
 }
 
-model VoiceRoomSeat {
-  id         String  @id @default(uuid())
-  roomId     String
-  seatNumber Int
-  userId     String?
-  micOn      Boolean @default(false)
-  locked     Boolean @default(false)
 
-  room VoiceRoom @relation(fields: [roomId], references: [id])
-
-  @@unique([roomId, seatNumber])
-  @@index([roomId])
+model ProviderTokenLog {
+  id          String   @id @default(uuid())
+  roomId      String?
+  userId      String?
+  provider    Provider
+  token       String
+  issuedAt    DateTime @default(now())
+  expiresAt   DateTime?
+  room        AudioRoom? @relation(fields: [roomId], references: [id])
+  meta        Json?
 }
 
-model VoiceRoomSeatRequest {
-  id        String   @id @default(uuid())
-  roomId    String
-  userId    String
-  status    String   @default("PENDING")
-  createdAt DateTime @default(now())
 
-  room VoiceRoom @relation(fields: [roomId], references: [id])
 
-  @@index([roomId])
+
+enum Provider {
+  AGORA
+  ZEGO
 }
 
-model VoiceRoomEvent {
-  id        String   @id @default(uuid())
-  roomId    String
-  userId    String?
-  action    String
-  createdAt DateTime @default(now())
-
-  room VoiceRoom @relation(fields: [roomId], references: [id])
-}
-
-model VoiceRoomBan {
-  id        String   @id @default(uuid())
-  roomId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  room VoiceRoom @relation(fields: [roomId], references: [id])
-
-  @@unique([roomId, userId])
-}
-
-model VoiceRoomTokenLog {
-  id        String   @id @default(uuid())
-  roomId    String
-  userId    String
-  provider  String
-  token     String
-  expireAt  DateTime
-  createdAt DateTime @default(now())
-
-  room VoiceRoom @relation(fields: [roomId], references: [id])
-
-  @@index([roomId])
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  DENIED
+  CANCELLED
 }
 
 enum FriendStatus {

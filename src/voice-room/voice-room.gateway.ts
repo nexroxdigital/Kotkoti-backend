@@ -77,100 +77,100 @@ export class VoiceRoomGateway
   /**
    * User clicks "Join Room"
    */
-  @SubscribeMessage('room.join')
-  async handleJoin(
-    @MessageBody() data: { roomId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const userId = this.getUserIdFromSocket(client);
+  // @SubscribeMessage('room.join')
+  // async handleJoin(
+  //   @MessageBody() data: { roomId: string },
+  //   @ConnectedSocket() client: Socket,
+  // ) {
+  //   const userId = this.getUserIdFromSocket(client);
 
-    if (!userId) {
-      // Option 1: just return error
-      client.emit('error', { message: 'Unauthorized socket connection' });
-      return;
-    }
+  //   if (!userId) {
+  //     // Option 1: just return error
+  //     client.emit('error', { message: 'Unauthorized socket connection' });
+  //     return;
+  //   }
 
-    const result = await this.voiceRoomService.joinRoom(userId, data.roomId);
+  //   const result = await this.voiceRoomService.joinRoom(userId, data.roomId);
 
-    if (result.action === 'REQUEST_REQUIRED') {
-      // Notify the host of join request
-      const roomHostSocketId = this.getHostSocketId(data.roomId);
-      if (roomHostSocketId) {
-        this.server.to(roomHostSocketId).emit('room.join.request', {
-          requestId: result.requestId,
-          userId: userId,
-          roomId: data.roomId,
-        });
-      }
-    } else if (result.action === 'JOIN_ALLOWED') {
-      // Update all users in the room
-      client.join(data.roomId);
-      this.server.to(data.roomId).emit('room.user.joined', {
-        participant: result.participant,
-        token: result.token,
-      });
-    }
+  //   if (result.action === 'REQUEST_REQUIRED') {
+  //     // Notify the host of join request
+  //     const roomHostSocketId = this.getHostSocketId(data.roomId);
+  //     if (roomHostSocketId) {
+  //       this.server.to(roomHostSocketId).emit('room.join.request', {
+  //         requestId: result.requestId,
+  //         userId: userId,
+  //         roomId: data.roomId,
+  //       });
+  //     }
+  //   } else if (result.action === 'JOIN_ALLOWED') {
+  //     // Update all users in the room
+  //     client.join(data.roomId);
+  //     this.server.to(data.roomId).emit('room.user.joined', {
+  //       participant: result.participant,
+  //       token: result.token,
+  //     });
+  //   }
 
-    return result;
-  }
+  //   return result;
+  // }
 
-  /**
-   * Host approves a join request
-   */
-  @SubscribeMessage('room.join.approve')
-  async handleApprove(
-    @MessageBody() data: { requestId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const hostId = this.getUserIdFromSocket(client);
+  // /**
+  //  * Host approves a join request
+  //  */
+  // @SubscribeMessage('room.join.approve')
+  // async handleApprove(
+  //   @MessageBody() data: { requestId: string },
+  //   @ConnectedSocket() client: Socket,
+  // ) {
+  //   const hostId = this.getUserIdFromSocket(client);
 
-    if (!hostId) {
-      client.emit('error', { message: 'Unauthorized socket connection' });
-      return;
-    }
+  //   if (!hostId) {
+  //     client.emit('error', { message: 'Unauthorized socket connection' });
+  //     return;
+  //   }
 
-    const result = await this.voiceRoomService.approveJoinRequest(
-      data.requestId,
-      hostId,
-    );
+  //   const result = await this.voiceRoomService.approveJoinRequest(
+  //     data.requestId,
+  //     hostId,
+  //   );
 
-    // Notify the user who requested
-    const userSocketId = this.getUserSocketId(result.participant.userId);
-    if (userSocketId) {
-      this.server.to(userSocketId).emit('room.join.approved', result);
-    }
+  //   // Notify the user who requested
+  //   const userSocketId = this.getUserSocketId(result.participant.userId);
+  //   if (userSocketId) {
+  //     this.server.to(userSocketId).emit('room.join.approved', result);
+  //   }
 
-    // Notify all in room about seat update
-    this.server.to(result.participant.roomId).emit('room.user.joined', {
-      participant: result.participant,
-      token: result.token,
-    });
-  }
+  //   // Notify all in room about seat update
+  //   this.server.to(result.participant.roomId).emit('room.user.joined', {
+  //     participant: result.participant,
+  //     token: result.token,
+  //   });
+  // }
 
-  /**
-   * Host rejects a join request
-   */
-  @SubscribeMessage('room.join.reject')
-  async handleReject(
-    @MessageBody() data: { requestId: string; hostId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const hostId = this.getUserIdFromSocket(client);
+  // /**
+  //  * Host rejects a join request
+  //  */
+  // @SubscribeMessage('room.join.reject')
+  // async handleReject(
+  //   @MessageBody() data: { requestId: string; hostId: string },
+  //   @ConnectedSocket() client: Socket,
+  // ) {
+  //   const hostId = this.getUserIdFromSocket(client);
 
-    if (!hostId) {
-      client.emit('error', { message: 'Unauthorized socket connection' });
-      return;
-    }
+  //   if (!hostId) {
+  //     client.emit('error', { message: 'Unauthorized socket connection' });
+  //     return;
+  //   }
 
-    const result = await this.voiceRoomService.rejectJoinRequest(
-      data.requestId,
-      hostId,
-    );
+  //   const result = await this.voiceRoomService.rejectJoinRequest(
+  //     data.requestId,
+  //     hostId,
+  //   );
 
-    // Notify the user
-    const userSocketId = this.getUserSocketId(result.userId);
-    if (userSocketId) {
-      this.server.to(userSocketId).emit('room.join.rejected', result);
-    }
-  }
+  //   // Notify the user
+  //   const userSocketId = this.getUserSocketId(result.userId);
+  //   if (userSocketId) {
+  //     this.server.to(userSocketId).emit('room.join.rejected', result);
+  //   }
+  // }
 }

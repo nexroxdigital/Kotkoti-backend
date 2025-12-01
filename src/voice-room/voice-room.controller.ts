@@ -13,26 +13,26 @@ export interface RequestWithUser extends Request {
 export class VoiceRoomController {
   constructor(private readonly voiceRoomService: VoiceRoomService) {}
 
-  // create new room
-  @Post('create')
-  async createRoom(
-    @Req() req: RequestWithUser,
-    @Body('roomName') roomName: string,
-  ) {
-    // Get hostId from authenticated user
-    const hostId = (req.user as any).userId;
+  // // create new room
+  // @Post('create')
+  // async createRoom(
+  //   @Req() req: RequestWithUser,
+  //   @Body('roomName') roomName: string,
+  // ) {
+  //   // Get hostId from authenticated user
+  //   const hostId = (req.user as any).userId;
 
-    // console.log('hostId', hostId);
+  //   // console.log('hostId', hostId);
 
-    if (!roomName) {
-      throw new Error('Room name is required');
-    }
+  //   if (!roomName) {
+  //     throw new Error('Room name is required');
+  //   }
 
-    // Call service to create room
-    const roomData = await this.voiceRoomService.createRoom(hostId, roomName);
+  //   // Call service to create room
+  //   const roomData = await this.voiceRoomService.createRoom(hostId, roomName);
 
-    return roomData;
-  }
+  //   return roomData;
+  // }
 
   /**
    * User attempts to join a room
