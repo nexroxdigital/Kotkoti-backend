@@ -147,18 +147,18 @@ export class FriendsService {
       throw new BadRequestException('Request already processed');
 
     // OPTION A: Keep record and mark rejected
-    await this.prisma.friends.update({
-      where: { id: friendId },
-      data: { status: 'REJECTED' },
-    });
+    // await this.prisma.friends.update({
+    //   where: { id: friendId },
+    //   data: { status: 'REJECTED' },
+    // });
 
-    return { message: 'Friend request rejected' };
+    // return { message: 'Friend request rejected' };
 
     // ------------------------------------
     // OPTION B (alternative): delete record
     // ------------------------------------
-    // await this.prisma.friends.delete({ where: { id: friendId } });
-    // return { message: 'Friend request rejected' };
+    await this.prisma.friends.delete({ where: { id: friendId } });
+    return { message: 'Friend request rejected' };
   }
 
   async removeFriend(userId: string, friendId: string) {
@@ -188,37 +188,48 @@ export class FriendsService {
   async listFriends(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
+    const userSelect = {
+      id: true,
+      nickName: true,
+      email: true,
+      phone: true,
+      profilePicture: true,
+      coverImage: true,
+      roleId: true,
+      dob: true,
+      bio: true,
+      gender: true,
+      country: true,
+      gold: true,
+      diamond: true,
+      isDiamondBlocked: true,
+      isGoldBlocked: true,
+      isAccountBlocked: true,
+      isHost: true,
+      isReseller: true,
+      agencyId: true,
+      vipId: true,
+      charmLevel: true,
+      wealthLevel: true,
+      createdAt: true,
+      updatedAt: true,
+    };
+    // Fetch friends where user is either requester or receiver
     const [items, total] = await Promise.all([
-      // fetch accepted friendships
       this.prisma.friends.findMany({
         where: {
           status: 'ACCEPTED',
           OR: [{ requesterId: userId }, { receiverId: userId }],
         },
         include: {
-          requester: {
-            select: {
-              id: true,
-              nickName: true,
-              profilePicture: true,
-              country: true,
-            },
-          },
-          receiver: {
-            select: {
-              id: true,
-              nickName: true,
-              profilePicture: true,
-              country: true,
-            },
-          },
+          requester: { select: userSelect },
+          receiver: { select: userSelect },
         },
         skip,
         take: limit,
         orderBy: { updatedAt: 'desc' },
       }),
 
-      // count total
       this.prisma.friends.count({
         where: {
           status: 'ACCEPTED',
@@ -226,18 +237,14 @@ export class FriendsService {
         },
       }),
     ]);
-
-    // normalize output: always return "friend" as the other person
+    // Map to return friend user info only
     const friends = items.map((row) => {
       const friend = row.requesterId === userId ? row.receiver : row.requester;
 
       return {
-        id: row.id,
-        friendId: friend.id,
-        name: friend.nickName,
-        avatar: friend.profilePicture,
-        country: friend.country,
+        friendRequestId: row.id,
         since: row.updatedAt,
+        ...friend, // return ALL user fields directly
       };
     });
 
@@ -252,6 +259,33 @@ export class FriendsService {
   async listSentRequests(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
+    const userSelect = {
+      id: true,
+      nickName: true,
+      email: true,
+      phone: true,
+      profilePicture: true,
+      coverImage: true,
+      roleId: true,
+      dob: true,
+      bio: true,
+      gender: true,
+      country: true,
+      gold: true,
+      diamond: true,
+      isDiamondBlocked: true,
+      isGoldBlocked: true,
+      isAccountBlocked: true,
+      isHost: true,
+      isReseller: true,
+      agencyId: true,
+      vipId: true,
+      charmLevel: true,
+      wealthLevel: true,
+      createdAt: true,
+      updatedAt: true,
+    };
+
     const [items, total] = await Promise.all([
       this.prisma.friends.findMany({
         where: {
@@ -259,14 +293,7 @@ export class FriendsService {
           status: 'PENDING',
         },
         include: {
-          receiver: {
-            select: {
-              id: true,
-              nickName: true,
-              profilePicture: true,
-              country: true,
-            },
-          },
+          receiver: { select: userSelect }, // ✅ full target profile
         },
         skip,
         take: limit,
@@ -282,15 +309,10 @@ export class FriendsService {
     ]);
 
     const results = items.map((row) => ({
-      id: row.id,
-      targetUser: {
-        id: row.receiver.id,
-        name: row.receiver.nickName,
-        avatar: row.receiver.profilePicture,
-        country: row.receiver.country,
-      },
+      friendRequestId: row.id,
       status: row.status,
       sentAt: row.createdAt,
+      ...row.receiver, // flatten receiver fields
     }));
 
     return {
@@ -304,6 +326,33 @@ export class FriendsService {
   async listReceivedRequests(userId: string, page = 1, limit = 10) {
     const skip = (page - 1) * limit;
 
+    const userSelect = {
+      id: true,
+      nickName: true,
+      email: true,
+      phone: true,
+      profilePicture: true,
+      coverImage: true,
+      roleId: true,
+      dob: true,
+      bio: true,
+      gender: true,
+      country: true,
+      gold: true,
+      diamond: true,
+      isDiamondBlocked: true,
+      isGoldBlocked: true,
+      isAccountBlocked: true,
+      isHost: true,
+      isReseller: true,
+      agencyId: true,
+      vipId: true,
+      charmLevel: true,
+      wealthLevel: true,
+      createdAt: true,
+      updatedAt: true,
+    };
+
     const [items, total] = await Promise.all([
       this.prisma.friends.findMany({
         where: {
@@ -311,14 +360,7 @@ export class FriendsService {
           status: 'PENDING',
         },
         include: {
-          requester: {
-            select: {
-              id: true,
-              nickName: true,
-              profilePicture: true,
-              country: true,
-            },
-          },
+          requester: { select: userSelect }, // load full requester
         },
         skip,
         take: limit,
@@ -334,15 +376,10 @@ export class FriendsService {
     ]);
 
     const results = items.map((row) => ({
-      id: row.id,
-      fromUser: {
-        id: row.requester.id,
-        name: row.requester.nickName,
-        avatar: row.requester.profilePicture,
-        country: row.requester.country,
-      },
+      friendRequestId: row.id,
       status: row.status,
       receivedAt: row.createdAt,
+      ...row.requester, // flatten, return ALL requester fields
     }));
 
     return {
@@ -358,24 +395,62 @@ export class FriendsService {
       throw new BadRequestException('Cannot get mutual friends with yourself');
     }
 
+    const userSelect = {
+      id: true,
+      nickName: true,
+      email: true,
+      phone: true,
+      profilePicture: true,
+      coverImage: true,
+      roleId: true,
+      dob: true,
+      bio: true,
+      gender: true,
+      country: true,
+      gold: true,
+      diamond: true,
+      isDiamondBlocked: true,
+      isGoldBlocked: true,
+      isAccountBlocked: true,
+      isHost: true,
+      isReseller: true,
+      agencyId: true,
+      vipId: true,
+      charmLevel: true,
+      wealthLevel: true,
+      createdAt: true,
+      updatedAt: true,
+    };
+
     // 1. Fetch my friends
     const myFriends = await this.prisma.friends.findMany({
       where: {
         status: 'ACCEPTED',
         OR: [{ requesterId: myId }, { receiverId: myId }],
       },
+      select: {
+        requesterId: true,
+        receiverId: true,
+      },
     });
 
-    // Extract my friend IDs
     const myFriendIds = myFriends.map((f) =>
       f.requesterId === myId ? f.receiverId : f.requesterId,
     );
 
-    // 2. Fetch target user's friends
+    if (!myFriendIds.length) {
+      return { total: 0, items: [] };
+    }
+
+    // 2. Fetch other user's friends
     const otherFriends = await this.prisma.friends.findMany({
       where: {
         status: 'ACCEPTED',
         OR: [{ requesterId: otherUserId }, { receiverId: otherUserId }],
+      },
+      select: {
+        requesterId: true,
+        receiverId: true,
       },
     });
 
@@ -386,32 +461,19 @@ export class FriendsService {
     // 3. Find intersection
     const mutualIds = myFriendIds.filter((id) => otherFriendIds.includes(id));
 
-    if (mutualIds.length === 0) {
-      return {
-        total: 0,
-        items: [],
-      };
+    if (!mutualIds.length) {
+      return { total: 0, items: [] };
     }
 
-    // 4. Fetch public info of mutual friends
+    // 4. Fetch FULL mutual friend profiles
     const users = await this.prisma.user.findMany({
       where: { id: { in: mutualIds } },
-      select: {
-        id: true,
-        nickName: true,
-        profilePicture: true,
-        country: true,
-      },
+      select: userSelect,
     });
 
     return {
       total: users.length,
-      items: users.map((u) => ({
-        id: u.id,
-        name: u.nickName,
-        avatar: u.profilePicture,
-        country: u.country,
-      })),
+      items: users, // ✅ full objects returned
     };
   }
 

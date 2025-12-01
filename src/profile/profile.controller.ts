@@ -40,7 +40,7 @@ export class ProfileController {
     @Query('expand') expand?: string,
   ) {
     return this.profileService.getPublicProfile(
-      req.user.id,
+      req.user.userId,
       profileUserId,
       expand,
     );

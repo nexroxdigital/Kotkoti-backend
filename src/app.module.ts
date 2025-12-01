@@ -9,12 +9,17 @@ import { BackpackModule } from './backpack/backpack.module';
 import { ImageValidationMiddleware } from './common/image-validation.middleware';
 import { PrismaModule } from './prisma/prisma.module';
 import { GalleryModule } from './profile/gallery/gallery.module';
+<<<<<<< HEAD
 import { ProfileModule } from './profile/profile.module';
 import { SocialModule } from './social/social.module';
 import { StoreModule } from './store/store.module';
 import { UserSettingModule } from './user-setting/user-setting.module';
 import { UserModule } from './user/user.module';
 import { VoiceRoomModule } from './voice-room/voice-room.module';
+=======
+import { AdminModule } from './admin/admin.module';
+import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
+>>>>>>> dc2306b2106cd86de8a54d4a24b5358ecb998490
 
 @Module({
   imports: [
@@ -32,10 +37,14 @@ import { VoiceRoomModule } from './voice-room/voice-room.module';
     StoreModule,
     AdminModule,
     BackpackModule,
+<<<<<<< HEAD
 
     AgoraModule,
 
     VoiceRoomModule,
+=======
+    CoinResellerModule,
+>>>>>>> dc2306b2106cd86de8a54d4a24b5358ecb998490
   ],
   controllers: [AppController],
   providers: [AppService],
