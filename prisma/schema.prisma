@@ -55,12 +55,12 @@ model User {
   visitors              Visitors[]            @relation("UserVisitors")
   coinSellers           CoinSeller[]
   coinsSellingHistories CoinsSellingHistory[]
-  hostedRooms AudioRoom[]   @relation("UserHostedRooms")
-  participants RoomParticipant[]
-  seats       Seat[]
-  seatRequests SeatRequest[]
-  bans        AudioRoomBan[]
-  bannedBy    AudioRoomBan[] @relation("BannedByHost")
+  hostedRooms           AudioRoom[]           @relation("UserHostedRooms")
+  participants          RoomParticipant[]
+  seats                 Seat[]
+  seatRequests          SeatRequest[]
+  bans                  AudioRoomBan[]
+  bannedBy              AudioRoomBan[]        @relation("BannedByHost")
 }
 
 model Session {
@@ -338,32 +338,29 @@ model CoinsBuyingHistory {
 }
 
 model AudioRoom {
-  id        String   @id @default(uuid())
-  name      String
-  hostId    String
-  host      User     @relation("UserHostedRooms", fields: [hostId], references: [id])
+  id     String @id @default(uuid())
+  name   String
+  hostId String
+  host   User   @relation("UserHostedRooms", fields: [hostId], references: [id])
 
-  isLive    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  isLive    Boolean   @default(true)
+  createdAt DateTime  @default(now())
   endedAt   DateTime?
 
-  seats         Seat[]
-  participants  RoomParticipant[]
-  bans          AudioRoomBan[]
-  seatRequests  SeatRequest[]        // ✅ MUST BE HERE
-  tokenLogs     ProviderTokenLog[]   // ✅ MUST BE HERE
+  seats        Seat[]
+  participants RoomParticipant[]
+  bans         AudioRoomBan[]
+  seatRequests SeatRequest[] // ✅ MUST BE HERE
+  tokenLogs    ProviderTokenLog[] // ✅ MUST BE HERE
 }
 
-
-
-
 model Seat {
-  id       String   @id @default(uuid())
-  roomId  String
-  index   Int
-  userId  String?
-  micOn   Boolean  @default(true)
-  locked  Boolean  @default(false)
+  id     String  @id @default(uuid())
+  roomId String
+  index  Int
+  userId String?
+  micOn  Boolean @default(true)
+  locked Boolean @default(false)
 
   room AudioRoom @relation(fields: [roomId], references: [id])
   user User?     @relation(fields: [userId], references: [id])
@@ -371,17 +368,16 @@ model Seat {
   @@unique([roomId, index])
 }
 
-
 model RoomParticipant {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   roomId         String
   userId         String
   rtcUid         String?
-  joinedAt       DateTime @default(now())
+  joinedAt       DateTime  @default(now())
   disconnectedAt DateTime?
-  isHost         Boolean  @default(false)
-  muted          Boolean  @default(false)
-  lastActiveAt   DateTime @default(now())
+  isHost         Boolean   @default(false)
+  muted          Boolean   @default(false)
+  lastActiveAt   DateTime  @default(now())
 
   user User      @relation(fields: [userId], references: [id])
   room AudioRoom @relation(fields: [roomId], references: [id])
@@ -390,21 +386,19 @@ model RoomParticipant {
   @@index([userId])
 }
 
-
 model SeatRequest {
-  id        String   @id @default(uuid())
+  id        String        @id @default(uuid())
   roomId    String
   userId    String
   seatIndex Int?
   status    RequestStatus @default(PENDING)
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
 
   user User      @relation(fields: [userId], references: [id])
   room AudioRoom @relation(fields: [roomId], references: [id])
 
   @@index([roomId])
 }
-
 
 model AudioRoomBan {
   id        String   @id @default(uuid())
@@ -421,21 +415,17 @@ model AudioRoomBan {
   @@unique([roomId, userId])
 }
 
-
 model ProviderTokenLog {
-  id          String   @id @default(uuid())
-  roomId      String?
-  userId      String?
-  provider    Provider
-  token       String
-  issuedAt    DateTime @default(now())
-  expiresAt   DateTime?
-  room        AudioRoom? @relation(fields: [roomId], references: [id])
-  meta        Json?
+  id        String     @id @default(uuid())
+  roomId    String?
+  userId    String?
+  provider  Provider
+  token     String
+  issuedAt  DateTime   @default(now())
+  expiresAt DateTime?
+  room      AudioRoom? @relation(fields: [roomId], references: [id])
+  meta      Json?
 }
-
-
-
 
 enum Provider {
   AGORA
