@@ -14,24 +14,45 @@ export class RtcService {
 
 
   
-  async issueToken(
-    provider: Provider,
-    roomId: string,
-    userId: string,
-    role: 'publisher' | 'subscriber' = 'publisher',
-  ) {
-    const expire = 3600;
+async issueToken(
+  provider: Provider,
+  roomId: string,
+  role: 'publisher' | 'subscriber' = 'publisher',
+) {
+  const expire = 3600;
 
-    if (provider === 'AGORA') {
-      const channelName = `room_${roomId}`;
-      const uid = Number(userId.replace(/[^0-9]/g, '').slice(0, 9)) || 1;
-      const { token, expiresAt } = this.agora.generateToken(channelName, uid, role, expire);
-      return { provider, token, expiresAt };
-    } else {
-      const { token, expiresAt } = this.zego.generateToken(roomId, userId, expire);
-      return { provider, token, expiresAt };
-    }
+  // Generate ONE rtcUid on server
+  const rtcUid = Math.floor(Math.random() * 1_000_000_000);
+
+  if (provider === 'AGORA') {
+    const channelName = `room_${roomId}`;
+
+    const { token, expiresAt } = this.agora.generateToken(
+      channelName,
+      rtcUid,
+      role,
+      expire
+    );
+
+    return {
+      provider,
+      token,
+      expiresAt,
+      uid: rtcUid,  // SEND UID TO FRONTEND
+    };
   }
+
+  // Zego
+  const { token, expiresAt } = this.zego.generateToken(roomId, String(rtcUid), expire);
+
+  return {
+    provider,
+    token,
+    expiresAt,
+    uid: rtcUid,
+  };
+}
+
 
   async disconnectUser(provider: Provider, roomId: string, userId: string) {
     // Implement provider admin kick if desired

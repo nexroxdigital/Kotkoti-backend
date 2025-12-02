@@ -29,16 +29,54 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // cleanup if you want by tracking client id -> user id
   }
 
+  private async emitToHost(roomId: string, event: string, payload: any) {
+    const room = await this.participantsService.getRoomWithHost(roomId);
+
+    const userRoom = `user:${room.hostId}`;
+
+    const adapter = (this.server as any).adapter;
+    const roomsMap = adapter.rooms;
+    const hostSockets = roomsMap.get(userRoom);
+
+    console.log('🔔 EMIT TO HOST ROOM:', userRoom);
+    console.log(
+      '🎯 SOCKETS FOUND:',
+      hostSockets?.size || hostSockets?.length || 0,
+    );
+
+    if (!hostSockets) {
+      console.log('❌ NO HOST SOCKET FOUND');
+      return;
+    }
+
+    // SUPPORT SET OR ARRAY (DIFFERENT SOCKET.IO VERSIONS)
+    const socketIds = Array.isArray(hostSockets)
+      ? hostSockets
+      : Array.from(hostSockets);
+
+    for (const socketId of socketIds) {
+      this.server.to(socketId).emit(event, payload);
+    }
+  }
+
   @SubscribeMessage('room.join')
   async onRoomJoin(
     @MessageBody() payload: { roomId: string; userId: string },
     @ConnectedSocket() client: Socket,
   ) {
     const { roomId, userId } = payload;
+
     client.join(`room:${roomId}`);
-    await this.participantsService.add(roomId, userId, client.id);
+    client.join(`user:${userId}`);
+    console.log('ROOM:', roomId);
+    console.log('USER ROOM:', `user:${userId}`);
+    console.log('SOCKET ROOMS:', [...client.rooms]);
+
     const participants = await this.participantsService.getActive(roomId);
-    this.server.to(`room:${roomId}`).emit('room.join', { userId, participants });
+
+    this.server
+      .to(`room:${roomId}`)
+      .emit('room.join', { userId, participants });
   }
 
   @SubscribeMessage('room.leave')
@@ -50,41 +88,53 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.leave(`room:${roomId}`);
     await this.participantsService.remove(roomId, userId);
     const participants = await this.participantsService.getActive(roomId);
-    this.server.to(`room:${roomId}`).emit('room.leave', { userId, participants });
+    this.server
+      .to(`room:${roomId}`)
+      .emit('room.leave', { userId, participants });
   }
 
   @SubscribeMessage('seat.request')
   async onSeatRequest(
-    @MessageBody() payload: { roomId: string; userId: string; seatIndex?: number },
+    @MessageBody()
+    payload: { roomId: string; userId: string; seatIndex?: number },
+    @ConnectedSocket() client: Socket,
   ) {
-    const req = await this.seatsService.requestSeat(
-      payload.roomId,
-      payload.userId,
-      payload.seatIndex,
-    );
-    this.server.to(`room:${payload.roomId}`).emit('seat.request', { request: req });
+    console.log('WS seat.request received:', payload);
+
+    // Only broadcast – DB already done by REST
+    await this.emitToHost(payload.roomId, 'seat.request', {
+      request: payload,
+    });
   }
 
   @SubscribeMessage('seat.mute')
-  async onSeatMute(@MessageBody() payload: { roomId: string; seatIndex: number }) {
+  async onSeatMute(
+    @MessageBody() payload: { roomId: string; seatIndex: number },
+  ) {
     await this.seatsService.muteSeat(payload.roomId, payload.seatIndex);
     this.server.to(`room:${payload.roomId}`).emit('seat.mute', payload);
   }
 
   @SubscribeMessage('seat.kick')
-  async onSeatKick(@MessageBody() payload: { roomId: string; seatIndex: number }) {
+  async onSeatKick(
+    @MessageBody() payload: { roomId: string; seatIndex: number },
+  ) {
     await this.seatsService.kickSeat(payload.roomId, payload.seatIndex);
     this.server.to(`room:${payload.roomId}`).emit('seat.kick', payload);
   }
 
   @SubscribeMessage('seat.lock')
-  async onSeatLock(@MessageBody() payload: { roomId: string; seatIndex: number }) {
+  async onSeatLock(
+    @MessageBody() payload: { roomId: string; seatIndex: number },
+  ) {
     await this.seatsService.lockSeat(payload.roomId, payload.seatIndex, true);
     this.server.to(`room:${payload.roomId}`).emit('seat.lock', payload);
   }
 
   @SubscribeMessage('seat.unlock')
-  async onSeatUnlock(@MessageBody() payload: { roomId: string; seatIndex: number }) {
+  async onSeatUnlock(
+    @MessageBody() payload: { roomId: string; seatIndex: number },
+  ) {
     await this.seatsService.lockSeat(payload.roomId, payload.seatIndex, false);
     this.server.to(`room:${payload.roomId}`).emit('seat.unlock', payload);
   }

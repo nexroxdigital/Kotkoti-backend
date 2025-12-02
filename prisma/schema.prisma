@@ -386,6 +386,7 @@ model RoomParticipant {
 
   @@index([roomId])
   @@index([userId])
+  @@unique([roomId, userId])
 }
 
 model SeatRequest {
