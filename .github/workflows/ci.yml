@@ -34,17 +34,11 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # - name: Prisma Validate
-      #   run: npx prisma validate
+      - name: Prisma Validate
+        run: npx prisma generate
 
-      # - name: Prisma Format
-      #   run: npx prisma format
-
-      # - name: Prisma Migrate Check
-      #   run: npx prisma migrate dev --create-only
-
-      # - name: Prisma Migrate Deploy Test
-      #   run: npx prisma migrate deploy
+      - name: Prisma Migrate Check
+        run: npx prisma migrate dev --create-only
 
       - name: NestJS Build
         run: npm run build
