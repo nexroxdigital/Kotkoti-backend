@@ -61,6 +61,8 @@ model User {
   seatRequests          SeatRequest[]
   bans                  AudioRoomBan[]
   bannedBy              AudioRoomBan[]        @relation("BannedByHost")
+  sentGifts             GiftTransaction[]     @relation("SenderRelation")
+  receivedGifts         GiftTransaction[]     @relation("ReceiverRelation")
 }
 
 model Session {
@@ -343,15 +345,15 @@ model AudioRoom {
   hostId String
   host   User   @relation("UserHostedRooms", fields: [hostId], references: [id])
 
-  isLive    Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  endedAt   DateTime?
-  provider    Provider @default(AGORA) 
+  isLive       Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  endedAt      DateTime?
+  provider     Provider           @default(AGORA)
   seats        Seat[]
   participants RoomParticipant[]
   bans         AudioRoomBan[]
-  seatRequests SeatRequest[] 
-  tokenLogs    ProviderTokenLog[] 
+  seatRequests SeatRequest[]
+  tokenLogs    ProviderTokenLog[]
 }
 
 model Seat {
@@ -425,6 +427,45 @@ model ProviderTokenLog {
   expiresAt DateTime?
   room      AudioRoom? @relation(fields: [roomId], references: [id])
   meta      Json?
+}
+
+model GiftCategory {
+  id   String @id @default(uuid())
+  name String
+  icon String
+
+  gifts Gift[]
+}
+
+model Gift {
+  id         String  @id @default(uuid())
+  categoryId String
+  name       String
+  type       String
+  needCoin   Int
+  giftIcon   String
+  swf        String
+  swfTime    String
+  worldMsg   Boolean
+  isSound    Boolean
+
+  category     GiftCategory      @relation(fields: [categoryId], references: [id])
+  transactions GiftTransaction[]
+}
+
+model GiftTransaction {
+  id         String   @id @default(uuid())
+  streamId   String
+  senderId   String
+  receiverId String
+  giftId     String
+  quantity   Int
+  totalCoins Int
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("SenderRelation", fields: [senderId], references: [id])
+  receiver User @relation("ReceiverRelation", fields: [receiverId], references: [id])
+  gift     Gift @relation(fields: [giftId], references: [id])
 }
 
 enum Provider {
