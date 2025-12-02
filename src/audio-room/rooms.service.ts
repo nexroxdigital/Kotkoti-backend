@@ -62,6 +62,23 @@ export class RoomsService {
     return room;
   }
 
+  async updateRtcUid(userId: string, roomId: string, rtcUid: number) {
+    return this.prisma.roomParticipant.upsert({
+      where: {
+        roomId_userId: { roomId, userId },
+      },
+      create: {
+        roomId,
+        userId,
+        rtcUid: String(rtcUid),
+      },
+      update: {
+        rtcUid: String(rtcUid),
+        lastActiveAt: new Date(),
+      },
+    });
+  }
+
   async createRoom(name: string, hostId: string, provider: Provider) {
     const roomId = uuidv4();
     const room = await this.prisma.audioRoom.create({
@@ -132,10 +149,18 @@ export class RoomsService {
     });
     if (banned) throw new BadRequestException('You are banned from this room');
 
-    await this.prisma.roomParticipant.create({
-      data: {
+    await this.prisma.roomParticipant.upsert({
+      where: {
+        roomId_userId: { roomId, userId },
+      },
+      create: {
         roomId,
         userId,
+        isHost: room.hostId === userId,
+      },
+      update: {
+        disconnectedAt: null,
+        lastActiveAt: new Date(),
         isHost: room.hostId === userId,
       },
     });
@@ -143,9 +168,17 @@ export class RoomsService {
     const tokenInfo = await this.rtc.issueToken(
       room.provider,
       roomId,
-      userId,
       'publisher',
     );
+
+    await this.prisma.roomParticipant.update({
+      where: {
+        roomId_userId: { roomId, userId },
+      },
+      data: {
+        rtcUid: String(tokenInfo.uid),
+      },
+    });
 
     return { room, token: tokenInfo };
   }

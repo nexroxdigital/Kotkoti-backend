@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
   Request,
+  Req,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { RoomBanService } from './room-ban.service';
@@ -41,6 +42,16 @@ export class RoomsController {
   @Get(':id')
   async getRoomDetail(@Param('id') id: string) {
     return this.roomsService.getRoomDetail(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/rtc-uid')
+  async updateRtcUid(
+    @Req() req,
+    @Param('id') roomId: string,
+    @Body() body: { rtcUid: number },
+  ) {
+    return this.roomsService.updateRtcUid(req.user.id, roomId, body.rtcUid);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -141,12 +152,7 @@ export class RoomsController {
   @Post(':id/rtc/refresh')
   async refreshToken(@Param('id') id: string, @Request() req) {
     const room = await this.roomsService.getRoom(id);
-    return this.rtcService.issueToken(
-      room.provider,
-      id,
-      req.user.userId,
-      'publisher',
-    );
+    return this.rtcService.issueToken(room.provider, id, 'publisher');
   }
 
   @UseGuards(JwtAuthGuard)
