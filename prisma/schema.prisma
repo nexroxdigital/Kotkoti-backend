@@ -34,6 +34,8 @@ model User {
   wealthLevelId         String?
   coverImage            String?
   activeItemId          String?
+  wealthPoint           Int?
+  charmPoint            Int?
   activityLog           ActivityLog[]
   backpack              Backpack[]
   blockedBy             Block[]               @relation("UserBlocked")
@@ -161,6 +163,7 @@ model RefreshToken {
 model CharmLevel {
   id            String @id @default(uuid())
   name          String
+  levelNo       Int
   imageUrl      String
   levelup_point Int
   users         User[] @relation("UserCharmLevel")
@@ -169,9 +172,32 @@ model CharmLevel {
 model WealthLevel {
   id            String @id @default(uuid())
   name          String
+  levelNo       Int
   imageUrl      String
   levelup_point Int
   users         User[] @relation("UserWealthLevel")
+}
+
+model Category_Level_privileges {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  privileges Level_privileges_Gift[]
+}
+
+model Level_privileges_Gift {
+  id          Int       @id @default(autoincrement())
+  name        String
+  categoryId  Int
+  expiredDate DateTime?
+  image       String
+  swf         String
+  swfTime     String?
+  isCharm     Boolean?
+  isWealth    Boolean?
+  levelNo     Int?
+
+  category Category_Level_privileges @relation(fields: [categoryId], references: [id])
 }
 
 model Follow {
@@ -384,9 +410,9 @@ model RoomParticipant {
   user User      @relation(fields: [userId], references: [id])
   room AudioRoom @relation(fields: [roomId], references: [id])
 
+  @@unique([roomId, userId])
   @@index([roomId])
   @@index([userId])
-  @@unique([roomId, userId])
 }
 
 model SeatRequest {
