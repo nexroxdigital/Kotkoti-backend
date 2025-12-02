@@ -1,35 +1,31 @@
-import { MiddlewareConsumer, Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { AdminModule } from './admin/admin.module';
-import { AgoraModule } from './agora/agora.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { AuthModule } from './auth/auth.module';
-import { BackpackModule } from './backpack/backpack.module';
-import { ImageValidationMiddleware } from './common/image-validation.middleware';
-import { PrismaModule } from './prisma/prisma.module';
-import { GalleryModule } from './profile/gallery/gallery.module';
+import { MiddlewareConsumer, Module } from "@nestjs/common";
+import { ConfigModule } from "@nestjs/config";
 
-import { ProfileModule } from './profile/profile.module';
-import { SocialModule } from './social/social.module';
-import { StoreModule } from './store/store.module';
-import { UserSettingModule } from './user-setting/user-setting.module';
-import { UserModule } from './user/user.module';
-import { VoiceRoomModule } from './voice-room/voice-room.module';
+import { AdminModule } from "./admin/admin.module";
+import { AppController } from "./app.controller";
+import { AppService } from "./app.service";
+import { AuthModule } from "./auth/auth.module";
+import { BackpackModule } from "./backpack/backpack.module";
+import { CoinResellerModule } from "./coin-reseller/coin-reseller.module";
+import { GalleryModule } from "./profile/gallery/gallery.module";
+import { PrismaModule } from "./prisma/prisma.module";
+import { ProfileModule } from "./profile/profile.module";
+import { SocialModule } from "./social/social.module";
+import { StoreModule } from "./store/store.module";
+import { UserSettingModule } from "./user-setting/user-setting.module";
+import { UserModule } from "./user/user.module";
+import { RtcModule } from "./rtc/rtc.module";
 
-import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
-import { RtcModule } from './rtc/rtc.module';
-import { RoomsModule } from './audio-room/rooms.module';
-import { SeatsModule } from './seats/seats.module';
-import { ParticipantsModule } from './participants/participants.module';
-import { GatewayModule } from './gateway/gateway.module';
-import { GiftModule } from './gift/gift.module';
+import { SeatsModule } from "./seats/seats.module";
+import { ParticipantsModule } from "./participants/participants.module";
+import { RoomGateway } from "./gateway/room.gateway";
+import { ImageValidationMiddleware } from "./common/image-validation.middleware";
+import { RoomsModule } from "./audio-room/rooms.module";
+import { GatewayModule } from "./gateway/gateway.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
 
     PrismaModule,
     AuthModule,
@@ -41,23 +37,27 @@ import { GiftModule } from './gift/gift.module';
     StoreModule,
     AdminModule,
     BackpackModule,
-    AgoraModule,
-    VoiceRoomModule,
     CoinResellerModule,
-        RtcModule,
-    RoomsModule,
-    SeatsModule,
-    ParticipantsModule,
+    RtcModule,
     GatewayModule,
-    GiftModule,
+    RoomsModule,   
+    SeatsModule,  
+    ParticipantsModule, 
   ],
+
   controllers: [AppController],
-  providers: [AppService],
+
+  providers: [
+    AppService,
+    RoomGateway, 
+  ],
+
+  exports: [RoomGateway], 
 })
 export class AppModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(ImageValidationMiddleware)
-      .forRoutes('profile/upload/profile-picture');
+      .forRoutes("profile/upload/profile-picture");
   }
 }
