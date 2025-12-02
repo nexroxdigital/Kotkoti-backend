@@ -23,6 +23,7 @@ import { RoomsModule } from './audio-room/rooms.module';
 import { SeatsModule } from './seats/seats.module';
 import { ParticipantsModule } from './participants/participants.module';
 import { GatewayModule } from './gateway/gateway.module';
+import { GiftModule } from './gift/gift.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { GatewayModule } from './gateway/gateway.module';
     SeatsModule,
     ParticipantsModule,
     GatewayModule,
+    GiftModule,
   ],
   controllers: [AppController],
   providers: [AppService],
