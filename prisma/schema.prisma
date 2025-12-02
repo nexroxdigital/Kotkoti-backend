@@ -346,12 +346,12 @@ model AudioRoom {
   isLive    Boolean   @default(true)
   createdAt DateTime  @default(now())
   endedAt   DateTime?
-
+  provider    Provider @default(AGORA) 
   seats        Seat[]
   participants RoomParticipant[]
   bans         AudioRoomBan[]
-  seatRequests SeatRequest[] // ✅ MUST BE HERE
-  tokenLogs    ProviderTokenLog[] // ✅ MUST BE HERE
+  seatRequests SeatRequest[] 
+  tokenLogs    ProviderTokenLog[] 
 }
 
 model Seat {

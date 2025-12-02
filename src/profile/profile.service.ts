@@ -27,7 +27,9 @@ export class ProfileService {
   // ----------------------------------
 
   async viewMe(userId: string, expandQuery?: string) {
-    console.log(`View me called for userId: ${userId} with expand: ${expandQuery}`);
+    console.log(
+      `View me called for userId: ${userId} with expand: ${expandQuery}`,
+    );
     const expand = expandQuery
       ? expandQuery.split(',').map((x) => x.trim())
       : [];
@@ -67,35 +69,41 @@ export class ProfileService {
     if (expand.includes('wealthLevel')) relationSelect.wealthLevel = true;
 
     // Run ALL queries at once
-    const [user, followersCount, followingCount, friendsCount, visitorsCount, coverImages,] =
-      await Promise.all([
-        this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { ...baseSelect, ...relationSelect },
-        }),
+    const [
+      user,
+      followersCount,
+      followingCount,
+      friendsCount,
+      visitorsCount,
+      coverImages,
+    ] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { ...baseSelect, ...relationSelect },
+      }),
 
-        this.prisma.follow.count({ where: { userId } }),
-        this.prisma.follow.count({ where: { followerId: userId } }),
-        this.prisma.friends.count({
-          where: {
-            OR: [
-              { requesterId: userId, status: 'ACCEPTED' },
-              { receiverId: userId, status: 'ACCEPTED' },
-            ],
-          },
-        }),
-        this.prisma.visitors.count({ where: { userId } }),
-        //  Fetch user gallery
-        this.prisma.coverPhoto.findMany({
-          where: { userId },
-          orderBy: { orderIdx: 'asc' },
-          select: {
-            id: true,
-            url: true,
-            orderIdx: true,
-          },
-        }),
-      ]);
+      this.prisma.follow.count({ where: { userId } }),
+      this.prisma.follow.count({ where: { followerId: userId } }),
+      this.prisma.friends.count({
+        where: {
+          OR: [
+            { requesterId: userId, status: 'ACCEPTED' },
+            { receiverId: userId, status: 'ACCEPTED' },
+          ],
+        },
+      }),
+      this.prisma.visitors.count({ where: { userId } }),
+      //  Fetch user gallery
+      this.prisma.coverPhoto.findMany({
+        where: { userId },
+        orderBy: { orderIdx: 'asc' },
+        select: {
+          id: true,
+          url: true,
+          orderIdx: true,
+        },
+      }),
+    ]);
 
     if (!user) throw new NotFoundException('User not found');
 
@@ -345,61 +353,67 @@ export class ProfileService {
   // UPLOAD COVER PICTURE
   // ----------------------------------
 
-async uploadCoverPhoto(userId: string, file: Express.Multer.File) {
-  if (!file) throw new BadRequestException('No file uploaded');
+  async uploadCoverPhoto(userId: string, file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('No file uploaded');
 
-  const tempPath = file.path;
-  const outputDir = join(process.cwd(), 'uploads/cover');
-  const timestamp = Date.now();
-  const finalFileName = `${userId}-${timestamp}.webp`;
-  const finalPath = join(outputDir, finalFileName);
+    // 1. Enforce 10-photo limit
+    const galleryCount = await this.prisma.coverPhoto.count({
+      where: { userId },
+    });
 
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
+    if (galleryCount >= 10) {
+      throw new BadRequestException(
+        'Cover gallery limit reached. Please delete one photo before uploading.',
+      );
+    }
+
+    const tempPath = file.path;
+    const outputDir = join(process.cwd(), 'uploads/cover');
+    const timestamp = Date.now();
+    const finalFileName = `${userId}-${timestamp}.webp`;
+    const finalPath = join(outputDir, finalFileName);
+
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // 2. Convert & optimize
+    await sharp(tempPath)
+      .resize(1200, 400, {
+        fit: 'cover',
+        position: 'center',
+      })
+      .webp({ quality: 80 })
+      .toFile(finalPath);
+
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+    const finalUrl = `/uploads/cover/${finalFileName}`;
+
+    // 3. Save as active
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { coverImage: finalUrl },
+      select: {
+        id: true,
+        coverImage: true,
+        updatedAt: true,
+      },
+    });
+
+    // 4. Insert into gallery
+    await this.prisma.coverPhoto.create({
+      data: {
+        userId,
+        url: finalUrl,
+      },
+    });
+
+    return {
+      message: 'Cover photo uploaded successfully',
+      user: updatedUser,
+    };
   }
-
-  // Resize & convert to WebP
-  await sharp(tempPath)
-    .resize(1200, 400, {
-      fit: 'cover',
-      position: 'center',
-    })
-    .webp({ quality: 80 })
-    .toFile(finalPath);
-
-  // remove temp file
-  if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-  const finalUrl = `/uploads/cover/${finalFileName}`;
-
-  // Update user's ACTIVE cover image ONLY
-  const updatedUser = await this.prisma.user.update({
-    where: { id: userId },
-    data: {
-      coverImage: finalUrl, 
-    },
-    select: {
-      id: true,
-      coverImage: true,
-      updatedAt: true,
-    },
-  });
-
-  // Insert new image into gallery (keep old records)
-  await this.prisma.coverPhoto.create({
-    data: {
-      userId,
-      url: finalUrl,
-      // orderIdx optional if using
-    },
-  });
-
-  return {
-    message: 'Cover photo uploaded successfully',
-    user: updatedUser,
-  };
-}
-
 
   // ----------------------------------
   // BLOCK USERS LIST

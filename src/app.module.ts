@@ -18,6 +18,11 @@ import { UserModule } from './user/user.module';
 import { VoiceRoomModule } from './voice-room/voice-room.module';
 
 import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
+import { RtcModule } from './rtc/rtc.module';
+import { RoomsModule } from './audio-room/rooms.module';
+import { SeatsModule } from './seats/seats.module';
+import { ParticipantsModule } from './participants/participants.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
   imports: [
@@ -38,6 +43,11 @@ import { CoinResellerModule } from './coin-reseller/coin-reseller.module';
     AgoraModule,
     VoiceRoomModule,
     CoinResellerModule,
+        RtcModule,
+    RoomsModule,
+    SeatsModule,
+    ParticipantsModule,
+    GatewayModule,
   ],
   controllers: [AppController],
   providers: [AppService],
