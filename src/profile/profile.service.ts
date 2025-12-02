@@ -668,11 +668,8 @@ export class ProfileService {
   async getVisitors(userId: string) {
     const visitors = await this.prisma.visitors.findMany({
       where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 20,
       include: {
-        user: {
-          // visitor user info
+        visitor: {
           select: {
             id: true,
             nickName: true,
@@ -701,13 +698,14 @@ export class ProfileService {
           },
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     return visitors.map((v) => ({
       id: v.id,
       visitorId: v.visitorId,
       visitedAt: v.createdAt,
-      user: v.user,
+      user: v.visitor,
     }));
   }
 }
