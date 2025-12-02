@@ -109,4 +109,10 @@ export class ProfileController {
 
     return this.profileService.searchUserById(query, include);
   }
+
+  @Get('visitors')
+  @UseGuards(JwtAuthGuard)
+  getMyVisitors(@Req() req) {
+    return this.profileService.getVisitors(req.user.id);
+  }
 }

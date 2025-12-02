@@ -54,7 +54,8 @@ model User {
   agency                Agency?               @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
   vip                   Vip?                  @relation(fields: [vipId], references: [id], map: "user_vip_fk")
   deactivation          UserDeactivation?
-  visitors              Visitors[]            @relation("UserVisitors")
+  visitors      Visitors[] @relation("UserVisitors")
+  visitedUsers  Visitors[] @relation("UserVisitorsBy")
   coinSellers           CoinSeller[]
   coinsSellingHistories CoinsSellingHistory[]
   hostedRooms           AudioRoom[]           @relation("UserHostedRooms")
@@ -230,14 +231,20 @@ model Friends {
 }
 
 model Visitors {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
+
   userId    String
   visitorId String
+
   createdAt DateTime @default(now())
-  user      User     @relation("UserVisitors", fields: [userId], references: [id])
+
+  user    User @relation("UserVisitors", fields: [userId], references: [id])
+  visitor User @relation("UserVisitorsBy", fields: [visitorId], references: [id])
 
   @@index([userId])
+  @@index([visitorId])
 }
+
 
 model Block {
   id        String   @id @default(uuid())

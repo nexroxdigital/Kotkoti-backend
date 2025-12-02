@@ -172,6 +172,8 @@ export class ProfileService {
 
     if (!user) throw new NotFoundException('User not found');
 
+    await this.trackVisitor(viewerId, profileUserId);
+
     // Relationship lookup
     const relation = await this.prisma.friends.findFirst({
       where: {
@@ -230,6 +232,47 @@ export class ProfileService {
       }),
     ]);
 
+    const [iFollowHim, heFollowsMe] = await Promise.all([
+      this.prisma.follow.findFirst({
+        where: {
+          userId: profileUserId,
+          followerId: viewerId,
+        },
+      }),
+      this.prisma.follow.findFirst({
+        where: {
+          userId: viewerId,
+          followerId: profileUserId,
+        },
+      }),
+    ]);
+
+    const [iBlocked, heBlocked] = await Promise.all([
+      this.prisma.block.findFirst({
+        where: {
+          blockerId: viewerId,
+          blockedId: profileUserId,
+        },
+      }),
+      this.prisma.block.findFirst({
+        where: {
+          blockerId: profileUserId,
+          blockedId: viewerId,
+        },
+      }),
+    ]);
+
+    let blockStatus: 'BLOCKED_BY_ME' | 'BLOCKED_ME' | 'NONE' = 'NONE';
+
+    if (iBlocked) blockStatus = 'BLOCKED_BY_ME';
+    else if (heBlocked) blockStatus = 'BLOCKED_ME';
+
+    let followStatus: 'FOLLOWING' | 'FOLLOWED_BY' | 'MUTUAL' | 'NONE' = 'NONE';
+
+    if (iFollowHim && heFollowsMe) followStatus = 'MUTUAL';
+    else if (iFollowHim) followStatus = 'FOLLOWING';
+    else if (heFollowsMe) followStatus = 'FOLLOWED_BY';
+
     // Country flag
     const countryCode = normalizeCountry(user.country);
     const countryFlag = countryCodeToFlag(countryCode);
@@ -245,6 +288,8 @@ export class ProfileService {
         giftSentCount: 0, // TODO: implement gift sent count
         countryFlag,
         friendStatus,
+        followStatus,
+        blockStatus,
         friendRequestId,
         isLive: false,
       },
@@ -592,5 +637,75 @@ export class ProfileService {
     });
 
     return users.map(({ password, ...user }) => user);
+  }
+
+  async trackVisitor(viewerId: string, profileUserId: string) {
+    // Ignore self visit
+    if (viewerId === profileUserId) return;
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+    // Check if already visited recently
+    const recentVisit = await this.prisma.visitors.findFirst({
+      where: {
+        userId: profileUserId, // whose profile
+        visitorId: viewerId, // who visited
+        createdAt: { gte: oneHourAgo },
+      },
+    });
+
+    // If not visited in last hour → insert
+    if (!recentVisit) {
+      await this.prisma.visitors.create({
+        data: {
+          userId: profileUserId,
+          visitorId: viewerId,
+        },
+      });
+    }
+  }
+
+  async getVisitors(userId: string) {
+    const visitors = await this.prisma.visitors.findMany({
+      where: { userId },
+      include: {
+        visitor: {
+          select: {
+            id: true,
+            nickName: true,
+            email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
+            dob: true,
+            bio: true,
+            gender: true,
+            country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
+            charmLevel: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return visitors.map((v) => ({
+      id: v.id,
+      visitorId: v.visitorId,
+      visitedAt: v.createdAt,
+      user: v.visitor,
+    }));
   }
 }
