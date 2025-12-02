@@ -10,7 +10,10 @@ import { Seat } from '@prisma/client';
 
 @Injectable()
 export class SeatsService {
-  constructor(private prisma: PrismaService, private seatsRepo: SeatsRepository) {}
+  constructor(
+    private prisma: PrismaService,
+    private seatsRepo: SeatsRepository,
+  ) {}
 
   async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     return this.prisma.seatRequest.create({
@@ -25,12 +28,17 @@ export class SeatsService {
   }
 
   async approveSeatRequest(requestId: string, hostId: string, accept: boolean) {
-    const req = await this.prisma.seatRequest.findUnique({ where: { id: requestId } });
+    const req = await this.prisma.seatRequest.findUnique({
+      where: { id: requestId },
+    });
     if (!req) throw new NotFoundException('Seat request not found');
 
-    const room = await this.prisma.audioRoom.findUnique({ where: { id: req.roomId } });
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: req.roomId },
+    });
     if (!room) throw new NotFoundException('Room not found');
-    if (room.hostId !== hostId) throw new BadRequestException('Only host can approve');
+    if (room.hostId !== hostId)
+      throw new BadRequestException('Only host can approve');
 
     if (!accept) {
       await this.prisma.seatRequest.update({
@@ -63,11 +71,22 @@ export class SeatsService {
       data: { status: 'ACCEPTED' },
     });
 
-    return { ok: true, seatIndex: seat.index };
+    const updatedSeats = await this.prisma.seat.findMany({
+      where: { roomId: req.roomId },
+      orderBy: { index: 'asc' },
+    });
+
+    return {
+      ok: true,
+      seatIndex: seat.index,
+      seats: updatedSeats,
+    };
   }
 
   async leaveSeat(roomId: string, userId: string) {
-    const seat = await this.prisma.seat.findFirst({ where: { roomId, userId } });
+    const seat = await this.prisma.seat.findFirst({
+      where: { roomId, userId },
+    });
     if (!seat) throw new NotFoundException('User not on seat');
     await this.prisma.seat.update({
       where: { id: seat.id },
@@ -77,7 +96,9 @@ export class SeatsService {
   }
 
   async toggleMic(roomId: string, userId: string, micOn: boolean) {
-    const seat = await this.prisma.seat.findFirst({ where: { roomId, userId } });
+    const seat = await this.prisma.seat.findFirst({
+      where: { roomId, userId },
+    });
     if (!seat) throw new NotFoundException('User not on seat');
     await this.prisma.seat.update({
       where: { id: seat.id },

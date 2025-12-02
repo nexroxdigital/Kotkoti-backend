@@ -19,7 +19,9 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private seatsService: SeatsService,
     private participantsService: ParticipantsService,
-  ) {}
+  ) {
+    console.log('✅ RoomGateway initialized');
+  }
 
   async handleConnection(client: Socket) {
     // Optional auth here using query or headers
@@ -31,25 +33,24 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private async emitToHost(roomId: string, event: string, payload: any) {
     const room = await this.participantsService.getRoomWithHost(roomId);
+    if (!room) return;
 
     const userRoom = `user:${room.hostId}`;
+    const adapter = (this.server as any)?.adapter;
+    const roomsMap = adapter?.rooms;
 
-    const adapter = (this.server as any).adapter;
-    const roomsMap = adapter.rooms;
-    const hostSockets = roomsMap.get(userRoom);
-
-    console.log('🔔 EMIT TO HOST ROOM:', userRoom);
-    console.log(
-      '🎯 SOCKETS FOUND:',
-      hostSockets?.size || hostSockets?.length || 0,
-    );
-
-    if (!hostSockets) {
-      console.log('❌ NO HOST SOCKET FOUND');
+    if (!roomsMap) {
+      console.log('❌ No socket adapter');
       return;
     }
 
-    // SUPPORT SET OR ARRAY (DIFFERENT SOCKET.IO VERSIONS)
+    const hostSockets = roomsMap.get(userRoom);
+
+    if (!hostSockets || hostSockets.length === 0) {
+      console.log('❌ No host socket found');
+      return;
+    }
+
     const socketIds = Array.isArray(hostSockets)
       ? hostSockets
       : Array.from(hostSockets);
@@ -68,6 +69,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     client.join(`room:${roomId}`);
     client.join(`user:${userId}`);
+
     console.log('ROOM:', roomId);
     console.log('USER ROOM:', `user:${userId}`);
     console.log('SOCKET ROOMS:', [...client.rooms]);
@@ -96,15 +98,30 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('seat.request')
   async onSeatRequest(
     @MessageBody()
-    payload: { roomId: string; userId: string; seatIndex?: number },
-    @ConnectedSocket() client: Socket,
+    payload: {
+      roomId: string;
+      userId: string;
+      seatIndex?: number;
+    },
   ) {
-    console.log('WS seat.request received:', payload);
-
-    // Only broadcast – DB already done by REST
-    await this.emitToHost(payload.roomId, 'seat.request', {
-      request: payload,
+    // ✅ fetch latest DB record instead of creating
+    const dbRequest = await this.seatsService['prisma'].seatRequest.findFirst({
+      where: {
+        roomId: payload.roomId,
+        userId: payload.userId,
+        status: 'PENDING',
+      },
+      orderBy: { createdAt: 'desc' },
     });
+
+    if (!dbRequest) return;
+
+    await this.emitToHost(payload.roomId, 'seat.request', {
+      request: dbRequest,
+    });
+  }
+  async emitSeatRequestToHost(roomId: string, request: any) {
+    await this.emitToHost(roomId, 'seat.request', { request });
   }
 
   @SubscribeMessage('seat.mute')
@@ -140,14 +157,12 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('user.micOn')
-  async onMicOn(@MessageBody() payload: { roomId: string; userId: string }) {
-    await this.seatsService.toggleMic(payload.roomId, payload.userId, true);
+  onMicOn(@MessageBody() payload) {
     this.server.to(`room:${payload.roomId}`).emit('user.micOn', payload);
   }
 
   @SubscribeMessage('user.micOff')
-  async onMicOff(@MessageBody() payload: { roomId: string; userId: string }) {
-    await this.seatsService.toggleMic(payload.roomId, payload.userId, false);
+  onMicOff(@MessageBody() payload) {
     this.server.to(`room:${payload.roomId}`).emit('user.micOff', payload);
   }
 }

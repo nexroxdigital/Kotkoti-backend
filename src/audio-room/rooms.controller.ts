@@ -17,6 +17,7 @@ import { ApproveSeatDto } from '../seats/dto/approve-seat.dto';
 import { Provider } from '@prisma/client';
 import { RtcService } from '../rtc/rtc.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RoomGateway } from 'src/gateway/room.gateway';
 
 class CreateRoomDto {
   name: string;
@@ -30,6 +31,7 @@ export class RoomsController {
     private roomBanService: RoomBanService,
     private seatsService: SeatsService,
     private rtcService: RtcService,
+    private roomGateway: RoomGateway,
   ) {}
 
   @UseGuards(JwtAuthGuard)
@@ -104,15 +106,26 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/seat/approve')
   async approveSeat(
-    @Param('id') id: string,
+    @Param('id') roomId: string,
     @Body() dto: ApproveSeatDto,
     @Request() req,
   ) {
-    return this.seatsService.approveSeatRequest(
+    const result = await this.seatsService.approveSeatRequest(
       dto.requestId,
       req.user.userId,
       dto.accept,
     );
+
+    // FETCH UPDATED SEATS
+    const seats = await this.seatsService['prisma'].seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+    });
+
+    // BROADCAST TO ROOM
+    this.roomGateway.server.to(`room:${roomId}`).emit('seat.update', { seats });
+
+    return result;
   }
 
   @UseGuards(JwtAuthGuard)
