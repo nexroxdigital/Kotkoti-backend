@@ -22,13 +22,13 @@ export interface RequestWithUser extends Request {
 export class GiftController {
   constructor(private giftService: GiftService) {}
 
-  // 1. all categories
+  // all categories
   @Get('all-categories')
   getAllCategories() {
     return this.giftService.getAllCategories();
   }
 
-  // 2. items by category
+  // items by category
   @Get('by-category/:categoryId')
   getGiftsByCategory(@Param('categoryId', ParseUUIDPipe) categoryId: string) {
     return this.giftService.getGiftsByCategory(categoryId);
