@@ -93,6 +93,13 @@ export class RoomsController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post(':id/rtc/publisher')
+  async getPublisherToken(@Param('id') roomId: string, @Request() req) {
+    const userId = req.user.userId;
+    return this.roomsService.issuePublisherTokenForUser(roomId, userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Post(':id/join')
   async joinRoom(@Param('id') id: string, @Request() req) {
     const result = await this.roomsService.joinRoom(id, req.user.userId);
@@ -157,6 +164,10 @@ export class RoomsController {
       orderBy: { index: 'asc' },
     });
 
+    this.roomGateway.server.to(`room:${roomId}`).emit('seat.update', {
+      seats,
+    });
+
     // Fail-safe socket emit
     try {
       await this.roomGateway.broadcastSeatUpdate(roomId, seats);
@@ -214,7 +225,11 @@ export class RoomsController {
       throw new ForbiddenException('Only host can unban users');
     }
 
-    const result = await this.roomBanService.unbanUser(id, req.user.userId, userId);
+    const result = await this.roomBanService.unbanUser(
+      id,
+      req.user.userId,
+      userId,
+    );
     return { success: true, data: result };
   }
 
@@ -226,7 +241,11 @@ export class RoomsController {
   @Post(':id/rtc/refresh')
   async refreshToken(@Param('id') id: string) {
     const room = await this.roomsService.getRoom(id);
-    const token = await this.rtcService.issueToken(room.provider, id, 'publisher');
+    const token = await this.rtcService.issueToken(
+      room.provider,
+      id,
+      'publisher',
+    );
     return { success: true, token };
   }
 

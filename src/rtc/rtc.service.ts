@@ -17,12 +17,13 @@ export class RtcService {
 async issueToken(
   provider: Provider,
   roomId: string,
-  role: 'publisher' | 'subscriber' = 'publisher',
+  role: 'publisher' | 'subscriber',
+   existingUid?: number, 
 ) {
   const expire = 3600;
-
+  console.log('ISSUING RTC TOKEN', { provider, roomId, role });
   // Generate ONE rtcUid on server
-  const rtcUid = Math.floor(Math.random() * 1_000_000_000);
+  const rtcUid = existingUid?? Math.floor(Math.random() * 1_000_000_000);
 
   if (provider === 'AGORA') {
     const channelName = `room_${roomId}`;

@@ -27,6 +27,15 @@ export class SeatsService {
     });
   }
 
+  async userHasSeat(roomId: string, userId: string): Promise<boolean> {
+  const seat = await this.prisma.seat.findFirst({
+    where: { roomId, userId },
+  });
+
+  return !!seat;
+}
+
+
   async approveSeatRequest(requestId: string, hostId: string, accept: boolean) {
     const req = await this.prisma.seatRequest.findUnique({
       where: { id: requestId },
