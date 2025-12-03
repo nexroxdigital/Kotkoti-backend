@@ -89,7 +89,7 @@ export class LuckyPackService {
     const goldClaimed = Math.floor(Math.random() * maxGoldForThisUser) + 1;
 
     // Update receiver diamond (1 diamond per 10 gold)
-    const diamondReceived = Math.floor(goldClaimed / 10);
+    const diamondReceived = goldClaimed;
     await this.prisma.user.update({
       where: { id: userId },
       data: { diamond: { increment: diamondReceived } },
