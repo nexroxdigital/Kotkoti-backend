@@ -9,13 +9,17 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { ParticipantsService } from '../participants/participants.service';
+import { SeatsService } from 'src/seats/seats.service';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/' })
 export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private participantsService: ParticipantsService) {
+  constructor(
+    private participantsService: ParticipantsService,
+    private seatsService: SeatsService,
+  ) {
     console.log('✅ RoomGateway initialized');
   }
 
@@ -36,6 +40,12 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Optional: cleanup if needed
     // Example: remove participant if you store mapping socket -> user
+  }
+
+  private async userHasSeat(roomId: string, userId: string) {
+    return !!(await this.seatsService['prisma'].seat.findFirst({
+      where: { roomId, userId },
+    }));
   }
 
   // =====================================================
@@ -85,12 +95,22 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
 
   @SubscribeMessage('user.micOn')
-  onMicOn(@MessageBody() payload: { roomId: string; userId: string }) {
+  async onMicOn(@MessageBody() payload: { roomId: string; userId: string }) {
+    const allowed = await this.userHasSeat(payload.roomId, payload.userId);
+    if (!allowed) {
+      console.log('micOn blocked, user has no seat', payload);
+      return;
+    }
     this.server.to(`room:${payload.roomId}`).emit('user.micOn', payload);
   }
 
   @SubscribeMessage('user.micOff')
-  onMicOff(@MessageBody() payload: { roomId: string; userId: string }) {
+  async onMicOff(@MessageBody() payload: { roomId: string; userId: string }) {
+    const allowed = await this.userHasSeat(payload.roomId, payload.userId);
+    if (!allowed) {
+      console.log('micOff blocked, user has no seat', payload);
+      return;
+    }
     this.server.to(`room:${payload.roomId}`).emit('user.micOff', payload);
   }
 
