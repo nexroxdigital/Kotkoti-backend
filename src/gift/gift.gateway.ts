@@ -9,10 +9,7 @@ export class GiftGateway {
   @WebSocketServer()
   server: Server;
 
-  /**
-   * Emit gift event to a single user
-   * Assumes user joined a personal room named `user:<userId>` on connect
-   */
+  // Emit gift event to a single user
   async sendGiftToUser(userId: string, payload: any) {
     this.server.to(`user:${userId}`).emit('GIFT_RECEIVED', payload);
   }

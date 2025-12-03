@@ -16,7 +16,7 @@ export class GiftService {
     private readonly gateway: GiftGateway,
   ) {}
 
-  // 1. Get all gift categories
+  // Get all gift categories
   async getAllCategories() {
     const items = await this.prisma.giftCategory.findMany({
       orderBy: { name: 'asc' },
@@ -26,7 +26,7 @@ export class GiftService {
     return result;
   }
 
-  // 2. Get gifts by category
+  // Get gifts by category
   async getGiftsByCategory(categoryId: string) {
     // category must exist
     const category = await this.prisma.giftCategory.findUnique({
@@ -43,9 +43,7 @@ export class GiftService {
     return result;
   }
 
-  /**
-   * Send a single gift from sender to receiver
-   */
+  // Send a single gift from sender to receiver
   async sendGift(giftId: string, senderId: string, receiverId: string) {
     // 1Fetch gift
     const gift = await this.prisma.gift.findUnique({ where: { id: giftId } });
@@ -140,6 +138,7 @@ export class GiftService {
     await this.gateway.sendGiftToUser(result.receiverId, {
       giftId: result.giftId,
       senderId: result.senderId,
+      receiverId: result.receiverId,
       totalCoins: result.totalCoins,
     });
 

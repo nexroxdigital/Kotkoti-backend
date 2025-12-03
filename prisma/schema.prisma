@@ -54,8 +54,8 @@ model User {
   agency                Agency?               @relation(fields: [agencyId], references: [id], map: "user_agency_fk")
   vip                   Vip?                  @relation(fields: [vipId], references: [id], map: "user_vip_fk")
   deactivation          UserDeactivation?
-  visitors      Visitors[] @relation("UserVisitors")
-  visitedUsers  Visitors[] @relation("UserVisitorsBy")
+  visitors              Visitors[]            @relation("UserVisitors")
+  visitedUsers          Visitors[]            @relation("UserVisitorsBy")
   coinSellers           CoinSeller[]
   coinsSellingHistories CoinsSellingHistory[]
   hostedRooms           AudioRoom[]           @relation("UserHostedRooms")
@@ -66,6 +66,9 @@ model User {
   bannedBy              AudioRoomBan[]        @relation("BannedByHost")
   sentGifts             GiftTransaction[]     @relation("SenderRelation")
   receivedGifts         GiftTransaction[]     @relation("ReceiverRelation")
+
+  createdLuckyPacks LuckyPack[]      @relation("UserCreatedLuckyPacks")
+  claimedLuckyPacks LuckyPackClaim[] @relation("UserClaimedLuckyPacks")
 }
 
 model Session {
@@ -244,7 +247,6 @@ model Visitors {
   @@index([userId])
   @@index([visitorId])
 }
-
 
 model Block {
   id        String   @id @default(uuid())
@@ -500,6 +502,35 @@ model GiftTransaction {
   sender   User @relation("SenderRelation", fields: [senderId], references: [id])
   receiver User @relation("ReceiverRelation", fields: [receiverId], references: [id])
   gift     Gift @relation(fields: [giftId], references: [id])
+}
+
+model LuckyPack {
+  id            String   @id @default(uuid())
+  creatorId     String
+  roomId        String
+  totalGold     Int
+  totalClaimers Int
+  claimedCount  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  creator User             @relation("UserCreatedLuckyPacks", fields: [creatorId], references: [id])
+  claims  LuckyPackClaim[]
+}
+
+model LuckyPackClaim {
+  id          String   @id @default(uuid())
+  luckyPackId String
+  userId      String
+  goldClaimed Int
+  diamondGot  Int
+  createdAt   DateTime @default(now())
+
+  luckyPack LuckyPack @relation(fields: [luckyPackId], references: [id])
+  user      User      @relation("UserClaimedLuckyPacks", fields: [userId], references: [id])
+
+  @@unique([luckyPackId, userId])
+  @@index([luckyPackId])
+  @@index([userId])
 }
 
 enum Provider {
