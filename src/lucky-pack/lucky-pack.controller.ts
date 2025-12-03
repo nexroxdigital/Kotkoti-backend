@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { User } from '@prisma/client';
 import type { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { LuckyPackService } from './lucky-pack.service';
@@ -18,7 +19,7 @@ export class LuckyPackController {
     @Body() body: { roomId: string; totalGold: number; totalClaimers: number },
     @Req() req: RequestWithUser,
   ) {
-    const creatorId = (req.user as any)?.userId; // authenticated user
+    const creatorId = (req.user as any)?.userId;
     const { roomId, totalGold, totalClaimers } = body;
 
     return this.luckyPackService.createLuckyPack(

@@ -21,9 +21,9 @@ import { ImageValidationMiddleware } from './common/image-validation.middleware'
 import { GatewayModule } from './gateway/gateway.module';
 import { RoomGateway } from './gateway/room.gateway';
 import { GiftModule } from './gift/gift.module';
+import { LuckyPackModule } from './lucky-pack/lucky-pack.module';
 import { ParticipantsModule } from './participants/participants.module';
 import { SeatsModule } from './seats/seats.module';
-import { LuckyBagModule } from './lucky-bag/lucky-bag.module';
 
 @Module({
   imports: [
@@ -46,7 +46,7 @@ import { LuckyBagModule } from './lucky-bag/lucky-bag.module';
     SeatsModule,
     ParticipantsModule,
     GiftModule,
-    LuckyBagModule,
+    LuckyPackModule,
   ],
 
   controllers: [AppController],

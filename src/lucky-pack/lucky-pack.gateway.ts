@@ -1,3 +1,4 @@
+import { forwardRef, Inject } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -6,14 +7,17 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { LuckyPackService } from './lucky-bag.service';
+import { LuckyPackService } from './lucky-pack.service';
 
 @WebSocketGateway({ cors: true })
 export class LuckyPackGateway {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly luckyPackService: LuckyPackService) {}
+  constructor(
+    @Inject(forwardRef(() => LuckyPackService))
+    private readonly luckyPackService: LuckyPackService,
+  ) {}
 
   // Notify room of a new lucky pack
   async notifyRoomLuckyPack(roomId: string, packData: any) {
