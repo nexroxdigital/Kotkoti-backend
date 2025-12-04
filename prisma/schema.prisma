@@ -558,7 +558,7 @@ model MomentLike {
   userId    String
   createdAt DateTime @default(now())
 
-  moment Moment @relation(fields: [momentId], references: [id])
+  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id])
 
   @@unique([momentId, userId])
@@ -571,7 +571,7 @@ model MomentComment {
   content   String
   createdAt DateTime @default(now())
 
-  moment Moment @relation(fields: [momentId], references: [id])
+  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id])
 }
 
