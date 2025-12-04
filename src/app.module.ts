@@ -24,6 +24,7 @@ import { GiftModule } from './gift/gift.module';
 import { LuckyPackModule } from './lucky-pack/lucky-pack.module';
 import { ParticipantsModule } from './participants/participants.module';
 import { SeatsModule } from './seats/seats.module';
+import { MomentsModule } from './moments/moments.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { SeatsModule } from './seats/seats.module';
     ParticipantsModule,
     GiftModule,
     LuckyPackModule,
+    MomentsModule,
   ],
 
   controllers: [AppController],
