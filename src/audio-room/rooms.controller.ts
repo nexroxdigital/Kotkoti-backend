@@ -116,6 +116,24 @@ export class RoomsController {
   // ============================
   // SEATS
   // ============================
+@UseGuards(JwtAuthGuard)
+@Post(':id/seat/host')
+async hostTakeSeat(
+  @Param('id') roomId: string,
+  @Body() body: { seatIndex: number },
+  @Request() req
+) {
+  const seats = await this.seatsService.hostTakeSeat(
+    roomId,
+    req.user.userId,
+    body.seatIndex
+  );
+
+  // broadcast update
+  this.roomGateway.broadcastSeatUpdate(roomId, seats);
+
+  return { ok: true, seats };
+}
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/seat/request')

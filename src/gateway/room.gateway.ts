@@ -35,12 +35,31 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log('🔌 Socket connected:', client.id);
   }
 
-  async handleDisconnect(client: Socket) {
-    console.log('❌ Socket disconnected:', client.id);
+async handleDisconnect(client: Socket) {
+  const { userId, roomId } = client.handshake.query as any;
 
-    // Optional: cleanup if needed
-    // Example: remove participant if you store mapping socket -> user
+  console.log('❌ Socket disconnected:', client.id, userId, roomId);
+
+  if (!userId || !roomId) return;
+
+  // ✅ remove from seat
+  const result = await this.seatsService.leaveSeatSilent(roomId, userId);
+
+  // ✅ remove from participants
+  await this.participantsService.remove(roomId, userId);
+
+  // ✅ broadcast updates
+  if (result?.seats) {
+    this.server.to(`room:${roomId}`).emit('seat.update', { seats: result.seats });
   }
+
+  const participants = await this.participantsService.getActive(roomId);
+  this.server.to(`room:${roomId}`).emit('room.leave', {
+    userId,
+    participants,
+  });
+}
+
 
   private async userHasSeat(roomId: string, userId: string) {
     return !!(await this.seatsService['prisma'].seat.findFirst({
