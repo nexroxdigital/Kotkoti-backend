@@ -345,7 +345,7 @@ model Employee {
 
 model CoinSeller {
   id        String   @id @default(uuid())
-  userId    String
+  userId    String   @unique
   totalCoin Int
   status    String
   createdAt DateTime @default(now())
