@@ -44,19 +44,19 @@ export class LevelManagementService {
     });
   }
 
-  // create level
+  // create  Level Gift
   async createLevel(dto: CreateLevelGiftDto) {
     return this.prisma.level_privileges_Gift.create({ data: dto });
   }
 
-  // find all level
+  // find all Level Gift
   async findAllLevel() {
     return this.prisma.level_privileges_Gift.findMany({
       include: { category: true },
     });
   }
 
-  // find one level
+  // find one Level Gift
   async findOneLevel(id: number) {
     const gift = await this.prisma.level_privileges_Gift.findUnique({
       where: { id },
@@ -66,7 +66,7 @@ export class LevelManagementService {
     return gift;
   }
 
-  //  update level
+  //  update Level Gift
   async updateLevel(id: number, dto: UpdateLevelGiftDto) {
     await this.findOneLevel(id); // check if exists
     return this.prisma.level_privileges_Gift.update({
