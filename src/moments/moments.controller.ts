@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -23,7 +24,7 @@ export interface RequestWithUser extends Request {
 @Controller('moment')
 @UseGuards(JwtAuthGuard)
 export class MomentsController {
-  constructor(private readonly momentService: MomentsService) {}
+  constructor(private readonly momentsService: MomentsService) {}
 
   @Post('create')
   async createMoment(
@@ -32,7 +33,7 @@ export class MomentsController {
   ) {
     const userId = (req.user as any)?.userId;
 
-    return this.momentService.createMoment({ ...dto, userId });
+    return this.momentsService.createMoment({ ...dto, userId });
   }
 
   // get all moments with infinite scroll
@@ -43,8 +44,14 @@ export class MomentsController {
   ) {
     const limitNumber = parseInt(limit || '10');
 
-    const result = await this.momentService.getMomentsInfinite(
-      lastId,
+    console.log('lastid', lastId);
+
+    const cleanLastId = lastId === '' ? undefined : lastId;
+
+    console.log('clentlastId', cleanLastId);
+
+    const result = await this.momentsService.getMomentsInfinite(
+      cleanLastId,
       limitNumber,
     );
     return result;
@@ -53,7 +60,7 @@ export class MomentsController {
   // get single moment by id
   @Get('details/:id')
   async getMomentById(@Param('id') id: string) {
-    const result = await this.momentService.getMomentById(id);
+    const result = await this.momentsService.getMomentById(id);
     return result;
   }
 
@@ -66,10 +73,12 @@ export class MomentsController {
   ) {
     const limitNumber = parseInt(limit || '10');
 
-    const result = await this.momentService.getMomentsByUser(
+    const cleanLastId = lastId === '' ? undefined : lastId;
+
+    const result = await this.momentsService.getMomentsByUser(
       userId,
       limitNumber,
-      lastId,
+      cleanLastId,
     );
 
     return result; // { data: [...], hasMore: true/false }
@@ -84,7 +93,34 @@ export class MomentsController {
     @Req() req: RequestWithUser,
   ) {
     const userId = (req.user as any)?.userId;
-    const result = await this.momentService.updateMoment(momentId, userId, dto);
+    const result = await this.momentsService.updateMoment(
+      momentId,
+      userId,
+      dto,
+    );
     return result;
+  }
+
+  // delete moment
+  // DELETE /moment/:momentId
+  @Delete('delete/:momentId')
+  async deleteMoment(
+    @Param('momentId') momentId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    const userId = (req.user as any)?.userId;
+
+    return this.momentsService.deleteMoment(momentId, userId);
+  }
+
+  // like a moment
+  @Post(':momentId/like')
+  async likeMoment(
+    @Param('momentId') momentId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    const userId = (req.user as any)?.userId;
+
+    return this.momentsService.likeMoment(momentId, userId);
   }
 }
