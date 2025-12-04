@@ -41,6 +41,7 @@ export class RoomsService {
             id: true,
             userId: true,
             isHost: true,
+            rtcUid: true, 
             muted: true,
             joinedAt: true,
           },
