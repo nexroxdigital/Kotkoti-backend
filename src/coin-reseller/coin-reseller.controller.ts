@@ -6,6 +6,11 @@ import { ReSellerDto } from './dto/re-seller.dto';
 export class CoinResellerController {
   constructor(private readonly coinResellerService: CoinResellerService) {}
 
+  @Get('/profile/:userId')
+  async getOwnCoinSellerInfo(@Param('userId') userId: string) {
+    return this.coinResellerService.getOwnCoinSellerInfo(userId);
+  }
+
   // Add coins to a user profile
   @Post('send-to-user')
   async sendCoinsToUser(@Body() dto: ReSellerDto) {

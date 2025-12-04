@@ -6,6 +6,26 @@ import { ReSellerDto } from './dto/re-seller.dto';
 export class CoinResellerService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Get coin reseller's own profile
+  async getOwnCoinSellerInfo(userId: string) {
+    const reseller = await this.prisma.coinSeller.findUnique({
+      where: { userId }, // userId is unique
+    });
+
+    if (!reseller) throw new NotFoundException('Reseller not found');
+
+    return {
+      message: 'Reseller info fetched successfully',
+      coinSeller: {
+        id: reseller.id,
+        userId: reseller.userId,
+        totalCoin: reseller.totalCoin,
+        status: reseller.status,
+        createdAt: reseller.createdAt,
+      },
+    };
+  }
+
   // add coins to a user profile
   async sendCoins(dto: ReSellerDto) {
     // Find seller
