@@ -80,6 +80,8 @@ export class MomentsService {
           nickName: m.user.nickName,
           profilePicture: m.user.profilePicture,
         },
+        likes: m.likes,
+        comments: m.comments,
         likesCount: m.likes.length,
         commentsCount: m.comments.length,
       }));
@@ -181,5 +183,87 @@ export class MomentsService {
     });
 
     return result;
+  }
+
+  // delete a moment
+  async deleteMoment(momentId: string, userId: string) {
+    // 1. Check if moment exists
+    const moment = await this.prisma.moment.findUnique({
+      where: { id: momentId },
+    });
+
+    if (!moment) {
+      throw new NotFoundException('Moment not found');
+    }
+
+    // 2. Check ownership
+    if (moment.userId !== userId) {
+      throw new ForbiddenException('You cannot delete this moment');
+    }
+
+    // 3. Delete moment (likes + comments auto-delete due to cascade)
+    const deleted = await this.prisma.moment.delete({
+      where: { id: momentId },
+    });
+
+    return {
+      message: 'Moment deleted successfully',
+      deleted,
+    };
+  }
+
+  // like a moment
+  async likeMoment(momentId: string, userId: string) {
+    // Check if moment exists
+    const moment = await this.prisma.moment.findUnique({
+      where: { id: momentId },
+    });
+
+    if (!moment) {
+      throw new NotFoundException('Moment not found');
+    }
+
+    // Check if already liked
+    const existingLike = await this.prisma.momentLike.findUnique({
+      where: {
+        momentId_userId: { momentId, userId },
+      },
+    });
+
+    // ---------- UNLIKE ----------
+    if (existingLike) {
+      await this.prisma.momentLike.delete({
+        where: { id: existingLike.id },
+      });
+
+      const likeCount = await this.prisma.momentLike.count({
+        where: { momentId },
+      });
+
+      return {
+        message: 'Moment unliked successfully',
+        likeCount,
+        liked: false,
+      };
+    }
+
+    // ---------- LIKE ----------
+    const like = await this.prisma.momentLike.create({
+      data: {
+        momentId,
+        userId,
+      },
+    });
+
+    const likeCount = await this.prisma.momentLike.count({
+      where: { momentId },
+    });
+
+    return {
+      message: 'Moment liked successfully',
+      likeCount,
+      liked: true,
+      like,
+    };
   }
 }
