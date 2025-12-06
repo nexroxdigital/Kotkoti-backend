@@ -131,26 +131,6 @@ async changeSeatMode(
    return { ok: true, seats };
 }
 
-
-@UseGuards(JwtAuthGuard)
-@Post(':id/seat/host')
-async hostTakeSeat(
-  @Param('id') roomId: string,
-  @Body() body: { seatIndex: number },
-  @Request() req
-) {
-  const seats = await this.seatsService.hostTakeSeat(
-    roomId,
-    req.user.userId,
-    body.seatIndex
-  );
-
-  // broadcast update
-  this.roomGateway.broadcastSeatUpdate(roomId, seats);
-
-  return { ok: true, seats };
-}
-
 @Post(':id/seat/take')
 @UseGuards(JwtAuthGuard)
 async takeSeat(
@@ -223,6 +203,34 @@ async approveSeat(
   }
 
   return { success: true, result, seats };
+}
+
+
+@UseGuards(JwtAuthGuard)
+@Post(':id/seat/mute')
+async hostMuteSeat(
+  @Param('id') roomId: string,
+  @Body() dto: { seatIndex: number; mute: boolean },
+  @Request() req,
+) {
+  const room = await this.roomsService.getRoom(roomId);
+
+  if (room.hostId !== req.user.userId) {
+    throw new ForbiddenException('Only host can mute users');
+  }
+
+  const { seatIndex, mute } = dto;
+
+  const result = await this.seatsService.hostMuteSeat(roomId, seatIndex, mute);
+
+  // Broadcast to all clients
+  this.roomGateway.server.to(`room:${roomId}`).emit('seat.mute', {
+    seatIndex,
+    mute,
+    userId: result.userId,
+  });
+
+  return { success: true };
 }
 
 
