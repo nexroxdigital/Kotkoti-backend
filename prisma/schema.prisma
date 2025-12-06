@@ -67,12 +67,14 @@ model User {
   sentGifts             GiftTransaction[]     @relation("SenderRelation")
   receivedGifts         GiftTransaction[]     @relation("ReceiverRelation")
 
-  createdLuckyPacks LuckyPack[]      @relation("UserCreatedLuckyPacks")
-  claimedLuckyPacks LuckyPackClaim[] @relation("UserClaimedLuckyPacks")
-  moments           Moment[]
-  momentLikes       MomentLike[]
-  momentComments    MomentComment[]
-  svipLogs          SvipLog[]
+  createdLuckyPacks    LuckyPack[]          @relation("UserCreatedLuckyPacks")
+  claimedLuckyPacks    LuckyPackClaim[]     @relation("UserClaimedLuckyPacks")
+  moments              Moment[]
+  momentLikes          MomentLike[]
+  momentComments       MomentComment[]
+  svipLogs             SvipLog[]
+  momentCommentLikes   MomentCommentLike[]
+  momentCommentReplies MomentCommentReply[]
 }
 
 model Session {
@@ -540,17 +542,16 @@ model LuckyPackClaim {
 }
 
 model Moment {
-  id        String   @id @default(uuid())
+  id        String          @id @default(uuid())
   userId    String
   caption   String?
   image     String?
   video     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user     User            @relation(fields: [userId], references: [id])
-  likes    MomentLike[]
-  comments MomentComment[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  user      User            @relation(fields: [userId], references: [id])
+  likes     MomentLike[]
+  comments  MomentComment[]
 }
 
 model MomentLike {
@@ -558,22 +559,44 @@ model MomentLike {
   momentId  String
   userId    String
   createdAt DateTime @default(now())
-
-  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id])
+  moment    Moment   @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 
   @@unique([momentId, userId])
 }
 
 model MomentComment {
-  id        String   @id @default(uuid())
-  momentId  String
+  id                   String               @id @default(uuid())
+  momentId             String
+  userId               String
+  content              String
+  createdAt            DateTime             @default(now())
+  moment               Moment               @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  user                 User                 @relation(fields: [userId], references: [id])
+  momentCommentLikes   MomentCommentLike[]
+  momentCommentReplies MomentCommentReply[]
+}
+
+model MomentCommentLike {
+  id        String        @id @default(uuid())
+  commentId String
+  userId    String
+  createdAt DateTime      @default(now())
+  comment   MomentComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id])
+
+  @@unique([commentId, userId])
+}
+
+model MomentCommentReply {
+  id        String        @id @default(uuid())
+  commentId String
   userId    String
   content   String
-  createdAt DateTime @default(now())
-
-  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  comment   MomentComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id])
 }
 
 //

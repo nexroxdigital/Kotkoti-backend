@@ -1,11 +1,14 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateMomentDto } from './dto/moment.dto';
+import { UpdateMomentCommentDto } from './dto/update-moment-comment.dto';
 import { MomentCreateInput } from './types/moment.types';
 
 type UserMoment = Prisma.MomentGetPayload<{
@@ -47,7 +50,7 @@ export class MomentsService {
       include: {
         user: { select: { id: true, nickName: true, profilePicture: true } },
         likes: { select: { userId: true } },
-        comments: { select: { id: true } },
+        comments: { select: { userId: true } },
       },
       cursor: lastId ? { id: lastId } : undefined,
       skip: lastId ? 1 : 0, // skip the cursor itself
@@ -61,7 +64,7 @@ export class MomentsService {
       include: {
         user: { select: { id: true; nickName: true; profilePicture: true } };
         likes: { select: { userId: true } };
-        comments: { select: { id: true } };
+        comments: { select: { userId: true } };
       };
     }>;
 
@@ -80,8 +83,8 @@ export class MomentsService {
           nickName: m.user.nickName,
           profilePicture: m.user.profilePicture,
         },
-        likes: m.likes,
-        comments: m.comments,
+        // likes: m.likes,
+        // comments: m.comments,
         likesCount: m.likes.length,
         commentsCount: m.comments.length,
       }));
@@ -264,6 +267,164 @@ export class MomentsService {
       likeCount,
       liked: true,
       like,
+    };
+  }
+
+  // Add a comment to a moment
+  async addComment(momentId: string, userId: string, dto: CreateCommentDto) {
+    // ensure required parameters exist server-side
+    if (!userId) {
+      throw new BadRequestException('User not authenticated');
+    }
+
+    // verify the target moment exists before creating the comment
+    const moment = await this.prisma.moment.findUnique({
+      where: { id: momentId },
+      select: { id: true }, // only need to check existence
+    });
+
+    // if moment doesn't exist, respond with 404
+    if (!moment) {
+      throw new NotFoundException('Moment not found');
+    }
+
+    // create the comment record
+    const comment = await this.prisma.momentComment.create({
+      data: {
+        momentId,
+        userId,
+        content: dto.content,
+      },
+      include: {
+        // include the user relation so frontend can show commenter info immediately
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
+    });
+
+    // get updated comment count for this moment
+    const commentsCount = await this.prisma.momentComment.count({
+      where: { momentId },
+    });
+
+    // prepare result following your pattern
+    const result = {
+      message: 'Comment added successfully',
+      comment,
+      commentsCount,
+    };
+
+    return result;
+  }
+
+  // update previous comment
+  async updateComment(commentId: string, dto: UpdateMomentCommentDto) {
+    // first check if comment exists
+    const existing = await this.prisma.momentComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // update comment
+    const updatedComment = await this.prisma.momentComment.update({
+      where: { id: commentId },
+      data: {
+        content: dto.content,
+      },
+    });
+
+    return updatedComment;
+  }
+
+  // Get all comments of a moment
+  async getCommentsInfinite(momentId: string, lastId?: string, limit = 10) {
+    // Infinite scroll with cursor pagination
+    const queryOptions: Prisma.MomentCommentFindManyArgs = {
+      where: { momentId },
+
+      orderBy: { createdAt: 'desc' },
+
+      take: limit + 1, // fetch extra to detect hasMore
+
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
+
+      cursor: lastId ? { id: lastId } : undefined,
+      skip: lastId ? 1 : 0,
+    };
+
+    // Fetch comments
+    const result = await this.prisma.momentComment.findMany(queryOptions);
+
+    // Cast type-safe
+    type CommentWithUser = Prisma.MomentCommentGetPayload<{
+      include: {
+        user: {
+          select: { id: true; nickName: true; profilePicture: true };
+        };
+      };
+    }>;
+
+    const comments = (result as CommentWithUser[]).slice(0, limit).map((c) => ({
+      id: c.id,
+      momentId: c.momentId,
+      userId: c.userId,
+      content: c.content,
+      createdAt: c.createdAt,
+      user: {
+        id: c.user.id,
+        nickName: c.user.nickName,
+        profilePicture: c.user.profilePicture,
+      },
+    }));
+
+    const hasMore = result.length > limit;
+
+    return { data: comments, hasMore };
+  }
+
+  // delete a comment
+  async deleteComment(commentId: string, userId: string) {
+    // find the comment first
+    const comment = await this.prisma.momentComment.findUnique({
+      where: { id: commentId },
+    });
+
+    // if comment not found → throw error
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // only owner can delete
+    if (comment.userId !== userId) {
+      throw new ForbiddenException('You cannot delete this comment');
+    }
+
+    // delete the comment
+    const deletedComment = await this.prisma.momentComment.delete({
+      where: { id: commentId },
+    });
+
+    // cascade: if reply table exists later with `onDelete: Cascade`, replies auto-delete
+
+    return {
+      message: 'Comment deleted successfully',
+      deletedComment,
     };
   }
 }

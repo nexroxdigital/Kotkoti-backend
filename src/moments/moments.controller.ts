@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -13,7 +14,9 @@ import {
 import { User } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { CreateCommentDto } from './dto/create-comment.dto';
 import { CreateMomentDto, UpdateMomentDto } from './dto/moment.dto';
+import { UpdateMomentCommentDto } from './dto/update-moment-comment.dto';
 import { MomentsService } from './moments.service';
 
 export interface RequestWithUser extends Request {
@@ -42,7 +45,7 @@ export class MomentsController {
     @Query('lastId') lastId?: string,
     @Query('limit') limit?: string,
   ) {
-    const limitNumber = parseInt(limit || '10');
+    const limitNumber = parseInt(limit || '20');
 
     console.log('lastid', lastId);
 
@@ -122,5 +125,59 @@ export class MomentsController {
     const userId = (req.user as any)?.userId;
 
     return this.momentsService.likeMoment(momentId, userId);
+  }
+
+  // POST /moment/:momentId/comment
+  @Post(':momentId/add-comment')
+  async addComment(
+    @Param('momentId') momentId: string,
+    @Body() dto: CreateCommentDto,
+    @Req() req: RequestWithUser,
+  ) {
+    // get current user id from JWT
+    const userId = (req.user as any)?.userId;
+
+    // forward to service - service expects validated content + server-derived userId + momentId
+    return this.momentsService.addComment(momentId, userId, dto);
+  }
+
+  // PUT /moment/:commentId/update-comment
+  @Put(':commentId/update-comment')
+  async updateComment(
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateMomentCommentDto,
+  ) {
+    const result = await this.momentsService.updateComment(commentId, dto);
+
+    return result;
+  }
+
+  // GET /moment/:momentId/all-comments
+  @Get(':momentId/all-comments')
+  async getCommentsInfinite(
+    @Param('momentId') momentId: string,
+    @Query('lastId') lastId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const limitNumber = parseInt(limit || '20');
+
+    const result = await this.momentsService.getCommentsInfinite(
+      momentId,
+      lastId,
+      limitNumber,
+    );
+
+    return result;
+  }
+
+  // DELETE /moment/:commentId/delete
+  @Delete(':commentId/delete-comment')
+  async deleteComment(
+    @Param('commentId') commentId: string,
+    @Req() req: RequestWithUser,
+  ) {
+    const userId = (req.user as any)?.userId;
+
+    return this.momentsService.deleteComment(commentId, userId);
   }
 }
