@@ -5,3 +5,15 @@ export class CreateCommentDto {
   @IsNotEmpty()
   content: string;
 }
+
+export class CreateCommentReplyDto {
+  @IsNotEmpty()
+  @IsString()
+  content: string;
+}
+
+export class UpdateCommentReplyDto {
+  @IsNotEmpty()
+  @IsString()
+  content: string;
+}

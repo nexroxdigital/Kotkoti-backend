@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateCommentDto } from './dto/create-comment.dto';
+import {
+  CreateCommentDto,
+  CreateCommentReplyDto,
+  UpdateCommentReplyDto,
+} from './dto/create-comment.dto';
 import { UpdateMomentDto } from './dto/moment.dto';
 import { UpdateMomentCommentDto } from './dto/update-moment-comment.dto';
 import { MomentCreateInput } from './types/moment.types';
@@ -42,7 +46,11 @@ export class MomentsService {
   }
 
   // Get moments with cursor-based pagination + hasMore
-  async getMomentsInfinite(lastId?: string, limit = 10) {
+  async getMomentsInfinite(
+    lastId?: string,
+    limit = 10,
+    currentUserId?: string,
+  ) {
     // Prisma query with cursor + skip for infinite scroll
     const queryOptions: Prisma.MomentFindManyArgs = {
       take: limit + 1, // fetch one extra to determine hasMore
@@ -87,6 +95,9 @@ export class MomentsService {
         // comments: m.comments,
         likesCount: m.likes.length,
         commentsCount: m.comments.length,
+        likedByCurrentUser: currentUserId
+          ? m.likes.some((like) => like.userId === currentUserId)
+          : false,
       }));
 
     // Determine if there are more moments
@@ -345,7 +356,12 @@ export class MomentsService {
   }
 
   // Get all comments of a moment
-  async getCommentsInfinite(momentId: string, lastId?: string, limit = 10) {
+  async getCommentsInfinite(
+    momentId: string,
+    lastId?: string,
+    limit = 10,
+    currentUserId?: string,
+  ) {
     // Infinite scroll with cursor pagination
     const queryOptions: Prisma.MomentCommentFindManyArgs = {
       where: { momentId },
@@ -362,6 +378,18 @@ export class MomentsService {
             profilePicture: true,
           },
         },
+        momentCommentLikes: true,
+        momentCommentReplies: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
       },
 
       cursor: lastId ? { id: lastId } : undefined,
@@ -372,26 +400,44 @@ export class MomentsService {
     const result = await this.prisma.momentComment.findMany(queryOptions);
 
     // Cast type-safe
-    type CommentWithUser = Prisma.MomentCommentGetPayload<{
+    type CommentWithUserAndLikes = Prisma.MomentCommentGetPayload<{
       include: {
-        user: {
-          select: { id: true; nickName: true; profilePicture: true };
+        user: { select: { id: true; nickName: true; profilePicture: true } };
+        momentCommentLikes: true;
+        momentCommentReplies: {
+          include: {
+            user: {
+              select: {
+                id: true;
+                nickName: true;
+                profilePicture: true;
+              };
+            };
+          };
         };
       };
     }>;
 
-    const comments = (result as CommentWithUser[]).slice(0, limit).map((c) => ({
-      id: c.id,
-      momentId: c.momentId,
-      userId: c.userId,
-      content: c.content,
-      createdAt: c.createdAt,
-      user: {
-        id: c.user.id,
-        nickName: c.user.nickName,
-        profilePicture: c.user.profilePicture,
-      },
-    }));
+    const comments = (result as CommentWithUserAndLikes[])
+      .slice(0, limit)
+      .map((c) => ({
+        id: c.id,
+        momentId: c.momentId,
+        userId: c.userId,
+        content: c.content,
+        createdAt: c.createdAt,
+        user: {
+          id: c.user.id,
+          nickName: c.user.nickName,
+          profilePicture: c.user.profilePicture,
+        },
+        likeCount: c.momentCommentLikes.length,
+        likedByCurrentUser: currentUserId
+          ? c.momentCommentLikes.some((like) => like.userId === currentUserId)
+          : false,
+        repliesCount: c.momentCommentReplies.length,
+        replies: c.momentCommentReplies,
+      }));
 
     const hasMore = result.length > limit;
 
@@ -426,5 +472,198 @@ export class MomentsService {
       message: 'Comment deleted successfully',
       deletedComment,
     };
+  }
+
+  // like/unlike a comment
+  async toggleCommentLike(commentId: string, userId: string) {
+    // check if comment exists first
+    const comment = await this.prisma.momentComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    // check if user already liked the comment
+    const existingLike = await this.prisma.momentCommentLike.findUnique({
+      where: {
+        commentId_userId: { commentId, userId },
+      },
+    });
+
+    if (existingLike) {
+      // user already liked → unlike
+      await this.prisma.momentCommentLike.delete({
+        where: { commentId_userId: { commentId, userId } },
+      });
+
+      const likeCount = await this.prisma.momentCommentLike.count({
+        where: { commentId },
+      });
+
+      return {
+        message: 'Comment unliked successfully',
+        likeCount,
+      };
+    } else {
+      // user has not liked → create like
+      await this.prisma.momentCommentLike.create({
+        data: { commentId, userId },
+      });
+
+      const likeCount = await this.prisma.momentCommentLike.count({
+        where: { commentId },
+      });
+
+      return {
+        message: 'Comment liked successfully',
+        likeCount,
+      };
+    }
+  }
+
+  // add reply to a comment
+  async addReply(
+    commentId: string,
+    userId: string,
+    dto: CreateCommentReplyDto,
+  ) {
+    // Check if parent comment exists
+    const comment = await this.prisma.momentComment.findUnique({
+      where: { id: commentId },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('Parent comment not found');
+    }
+
+    // Create the reply
+    const reply = await this.prisma.momentCommentReply.create({
+      data: {
+        commentId,
+        userId,
+        content: dto.content,
+      },
+      include: {
+        user: { select: { id: true, nickName: true, profilePicture: true } },
+      },
+    });
+
+    return {
+      message: 'Reply added successfully',
+      reply,
+    };
+  }
+
+  // update previous reply
+  async updateReply(
+    replyId: string,
+    userId: string,
+    dto: UpdateCommentReplyDto,
+  ) {
+    // Find the reply first
+    const reply = await this.prisma.momentCommentReply.findUnique({
+      where: { id: replyId },
+    });
+
+    if (!reply) {
+      throw new NotFoundException('Reply not found');
+    }
+
+    // Ensure the logged-in user is the owner of the reply
+    if (reply.userId !== userId) {
+      throw new ForbiddenException('You are not allowed to update this reply');
+    }
+
+    // Update the reply content
+    const updatedReply = await this.prisma.momentCommentReply.update({
+      where: { id: replyId },
+      data: { content: dto.content },
+      include: {
+        user: { select: { id: true, nickName: true, profilePicture: true } },
+      },
+    });
+
+    return {
+      message: 'Reply updated successfully',
+      reply: updatedReply,
+    };
+  }
+
+  // delete a reply
+  async deleteReply(replyId: string, userId: string) {
+    // Find the reply first
+    const reply = await this.prisma.momentCommentReply.findUnique({
+      where: { id: replyId },
+    });
+
+    if (!reply) {
+      throw new NotFoundException('Reply not found');
+    }
+
+    // Ensure the logged-in user is the owner of the reply
+    if (reply.userId !== userId) {
+      throw new ForbiddenException('You are not allowed to delete this reply');
+    }
+
+    // Delete the reply
+    await this.prisma.momentCommentReply.delete({
+      where: { id: replyId },
+    });
+
+    return { message: 'Reply deleted successfully' };
+  }
+
+  // get all replies of a comment with infinity scrolling
+  async getRepliesInfinite(commentId: string, lastId?: string, limit = 10) {
+    // Prisma query with cursor for infinite scrolling
+    const queryOptions: Prisma.MomentCommentReplyFindManyArgs = {
+      where: { commentId },
+      orderBy: { createdAt: 'desc' },
+      take: limit + 1, // Fetch one extra to detect hasMore
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
+      cursor: lastId ? { id: lastId } : undefined,
+      skip: lastId ? 1 : 0, // Skip the cursor itself
+    };
+
+    // Fetch replies
+    const result = await this.prisma.momentCommentReply.findMany(queryOptions);
+
+    // Cast type-safe
+    type ReplyWithUser = Prisma.MomentCommentReplyGetPayload<{
+      include: {
+        user: { select: { id: true; nickName: true; profilePicture: true } };
+      };
+    }>;
+
+    const replies = (result as ReplyWithUser[])
+      .slice(0, limit) // Slice extra record
+      .map((r) => ({
+        id: r.id,
+        commentId: r.commentId,
+        userId: r.userId,
+        content: r.content,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        user: {
+          id: r.user.id,
+          nickName: r.user.nickName,
+          profilePicture: r.user.profilePicture,
+        },
+      }));
+
+    // Determine if there are more replies
+    const hasMore = result.length > limit;
+
+    return { data: replies, hasMore };
   }
 }
