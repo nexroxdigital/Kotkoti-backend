@@ -72,6 +72,7 @@ model User {
   moments           Moment[]
   momentLikes       MomentLike[]
   momentComments    MomentComment[]
+  svipLogs          SvipLog[]
 }
 
 model Session {
@@ -395,12 +396,12 @@ model AudioRoom {
 }
 
 model Seat {
-  id     String  @id @default(uuid())
+  id     String   @id @default(uuid())
   roomId String
   index  Int
   userId String?
-  micOn  Boolean @default(true)
-  mode      SeatMode @default(REQUEST) 
+  micOn  Boolean  @default(true)
+  mode   SeatMode @default(REQUEST)
 
   room AudioRoom @relation(fields: [roomId], references: [id])
   user User?     @relation(fields: [userId], references: [id])
@@ -573,6 +574,54 @@ model MomentComment {
 
   moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id])
+}
+
+//
+// SVIP
+//
+model Svip {
+  id             Int     @id @default(autoincrement())
+  levelName      String
+  levelNo        String
+  needPoint      Int
+  expireDuration Int
+  img            String?
+
+  // Relations
+  powerPrivileges SvipPowerPrivilege[]
+  mediaPrivileges SvipMediaPrivilege[]
+  logs            SvipLog[]
+}
+
+model SvipPowerPrivilege {
+  id        Int    @id @default(autoincrement())
+  svipId    Int
+  powerName String
+
+  // Relation
+  svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
+}
+
+model SvipMediaPrivilege {
+  id      Int     @id @default(autoincrement())
+  svipId  Int
+  swf     String?
+  swftime String?
+
+  // Relation
+  svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
+}
+
+model SvipLog {
+  id     Int    @id @default(autoincrement())
+  svipId Int
+  userId String
+
+  // Relation
+  svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
+
+  // If you have a User model, link it like this:
+  user User @relation(fields: [userId], references: [id])
 }
 
 enum Provider {
