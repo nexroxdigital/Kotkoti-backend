@@ -1,6 +1,6 @@
+import { BadRequestException } from '@nestjs/common';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { BadRequestException } from '@nestjs/common';
 
 export const profilePicMulterConfig = {
   storage: diskStorage({
@@ -58,5 +58,88 @@ export const galleryMulterConfig = {
       return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
     }
     cb(null, true);
+  },
+};
+
+// for just images
+// export const momentMulterConfig = {
+//   storage: diskStorage({
+//     destination: './uploads/moments',
+//     filename: (req, file, cb) => {
+//       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+//       cb(null, unique);
+//     },
+//   }),
+//   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB per image
+//   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+//     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+//     if (!allowed.includes(file.mimetype)) {
+//       return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
+//     }
+//     cb(null, true);
+//   },
+// };
+
+// for just video
+// export const momentVideoMulterConfig = {
+//   storage: diskStorage({
+//     destination: './uploads/moments/videos',
+//     filename: (req, file, cb) => {
+//       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+//       cb(null, unique);
+//     },
+//   }),
+//   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max per video
+//   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+//     const allowed = ['video/mp4', 'video/mkv', 'video/webm'];
+//     if (!allowed.includes(file.mimetype)) {
+//       return cb(new BadRequestException('Only MP4/MKV/WEBM allowed'), false);
+//     }
+//     cb(null, true);
+//   },
+// };
+
+export const momentFilesInterceptorConfig = {
+  storage: diskStorage({
+    destination: (req, file, cb) => {
+      if (file.fieldname === 'images')
+        cb(null, './uploads/moments'); // images folder
+      else if (file.fieldname === 'video')
+        cb(null, './uploads/moments/videos'); // video folder
+      else cb(new BadRequestException('Unknown fieldname'), '');
+    },
+    filename: (req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+      cb(null, unique);
+    },
+  }),
+  fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+    // Allowed file types same as your old configs
+    const allowedImages = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/jpg',
+    ];
+    const allowedVideos = ['video/mp4', 'video/mkv', 'video/webm'];
+
+    if (file.fieldname === 'images' && !allowedImages.includes(file.mimetype)) {
+      return cb(
+        new BadRequestException('Only JPG/PNG/WEBP allowed for images'),
+        false,
+      );
+    }
+
+    if (file.fieldname === 'video' && !allowedVideos.includes(file.mimetype)) {
+      return cb(
+        new BadRequestException('Only MP4/MKV/WEBM allowed for video'),
+        false,
+      );
+    }
+
+    cb(null, true); // allow file
+  },
+  limits: {
+    fileSize: 50 * 1024 * 1024, // max 50MB per file (matches video limit)
   },
 };

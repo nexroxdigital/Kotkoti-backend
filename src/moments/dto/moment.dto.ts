@@ -6,11 +6,9 @@ export class CreateMomentDto {
   caption?: string;
 
   @IsOptional()
-  @IsString()
-  image?: string;
+  images?: string[];
 
   @IsOptional()
-  @IsString()
   video?: string;
 }
 

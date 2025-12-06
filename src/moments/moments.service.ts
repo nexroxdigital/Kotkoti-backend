@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateCommentDto,
@@ -27,22 +29,54 @@ export class MomentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // create new moment
-  async createMoment(dto: MomentCreateInput) {
-    const { userId, caption, image, video } = dto;
+  async createMoment(
+    dto: MomentCreateInput & { files?: Express.Multer.File[] },
+  ) {
+    const { userId, caption, files, videoFile } = dto;
 
-    const result = await this.prisma.moment.create({
+    // console.log('redeived files', files);
+
+    let videoUrl: string | undefined;
+    if (videoFile) {
+      videoUrl = `/uploads/moments/videos/${videoFile.filename}`;
+    }
+
+    // Create the moment first
+    const newMoment = await this.prisma.moment.create({
       data: {
         userId,
         caption,
-        image,
-        video,
+        video: videoUrl,
       },
-      //   include: {
-      //     user: true,
-      //   },
     });
 
-    return result;
+    // If no files, return moment only
+    if (!files || files.length === 0) {
+      return newMoment;
+    }
+
+    const momentDir = path.join('uploads', 'moments', newMoment.id);
+    if (!fs.existsSync(momentDir)) {
+      fs.mkdirSync(momentDir, { recursive: true });
+    }
+
+    //  Prepare DB entries for all images
+    const imageRecords = files.map((file) => ({
+      momentId: newMoment.id,
+      url: `/uploads/moments/${newMoment.id}/${file.filename}`, // URL to access later
+    }));
+
+    // Insert all images at once
+    await this.prisma.momentImage.createMany({
+      data: imageRecords,
+    });
+
+    const fullMoment = await this.prisma.moment.findUnique({
+      where: { id: newMoment.id },
+      include: { momentImages: true },
+    });
+
+    return fullMoment;
   }
 
   // Get moments with cursor-based pagination + hasMore
@@ -59,6 +93,7 @@ export class MomentsService {
         user: { select: { id: true, nickName: true, profilePicture: true } },
         likes: { select: { userId: true } },
         comments: { select: { userId: true } },
+        momentImages: true,
       },
       cursor: lastId ? { id: lastId } : undefined,
       skip: lastId ? 1 : 0, // skip the cursor itself
@@ -73,6 +108,7 @@ export class MomentsService {
         user: { select: { id: true; nickName: true; profilePicture: true } };
         likes: { select: { userId: true } };
         comments: { select: { userId: true } };
+        momentImages: true;
       };
     }>;
 
@@ -82,7 +118,7 @@ export class MomentsService {
       .map((m) => ({
         id: m.id,
         caption: m.caption,
-        image: m.image,
+        momentImages: m.momentImages.map((i) => i.url),
         video: m.video,
         createdAt: m.createdAt,
         updatedAt: m.updatedAt,
@@ -124,6 +160,7 @@ export class MomentsService {
         comments: {
           select: { id: true },
         },
+        momentImages: true,
       },
     });
 
@@ -134,7 +171,7 @@ export class MomentsService {
     return {
       id: moment.id,
       caption: moment.caption,
-      image: moment.image,
+      momentImages: moment.momentImages.map((i) => i.url),
       video: moment.video,
       createdAt: moment.createdAt,
       updatedAt: moment.updatedAt,
