@@ -126,7 +126,9 @@ async changeSeatMode(
   @Request() req,
 ) {
   const userId = req.user.userId;
-  return this.seatsService.changeSeatMode(roomId, userId, body.seatIndex, body.mode);
+  const seats = await this.seatsService.changeSeatMode(roomId, userId, body.seatIndex, body.mode);
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+   return { ok: true, seats };
 }
 
 
@@ -156,7 +158,9 @@ async takeSeat(
   @Body() dto: { seatIndex: number },
   @Request() req,
 ) {
-  return this.seatsService.takeSeat(roomId, dto.seatIndex, req.user.userId);
+  const seats = await this.seatsService.takeSeat(roomId, dto.seatIndex, req.user.userId);
+  this.roomGateway.broadcastSeatUpdate(roomId, seats);
+   return { ok: true, seats };
 }
 
 
