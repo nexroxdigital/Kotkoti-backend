@@ -400,7 +400,7 @@ model Seat {
   index  Int
   userId String?
   micOn  Boolean @default(true)
-  locked Boolean @default(false)
+  mode      SeatMode @default(REQUEST) 
 
   room AudioRoom @relation(fields: [roomId], references: [id])
   user User?     @relation(fields: [userId], references: [id])
@@ -578,6 +578,12 @@ model MomentComment {
 enum Provider {
   AGORA
   ZEGO
+}
+
+enum SeatMode {
+  FREE
+  REQUEST
+  LOCKED
 }
 
 enum RequestStatus {
