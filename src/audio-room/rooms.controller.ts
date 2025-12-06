@@ -9,6 +9,7 @@ import {
   Request,
   Req,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { RoomBanService } from './room-ban.service';
@@ -116,6 +117,19 @@ export class RoomsController {
   // ============================
   // SEATS
   // ============================
+
+  @UseGuards(JwtAuthGuard)
+@Post(':id/seat/mode')
+async changeSeatMode(
+  @Param('id') roomId: string,
+  @Body() body: { seatIndex: number; mode: 'FREE' | 'REQUEST' | 'LOCKED' },
+  @Request() req,
+) {
+  const userId = req.user.userId;
+  return this.seatsService.changeSeatMode(roomId, userId, body.seatIndex, body.mode);
+}
+
+
 @UseGuards(JwtAuthGuard)
 @Post(':id/seat/host')
 async hostTakeSeat(
@@ -134,6 +148,17 @@ async hostTakeSeat(
 
   return { ok: true, seats };
 }
+
+@Post(':id/seat/take')
+@UseGuards(JwtAuthGuard)
+async takeSeat(
+  @Param('id') roomId: string,
+  @Body() dto: { seatIndex: number },
+  @Request() req,
+) {
+  return this.seatsService.takeSeat(roomId, dto.seatIndex, req.user.userId);
+}
+
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/seat/request')
@@ -158,43 +183,44 @@ async hostTakeSeat(
     return { success: true, request };
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/seat/approve')
-  async approveSeat(
-    @Param('id') roomId: string,
-    @Body() dto: ApproveSeatDto,
-    @Request() req,
-  ) {
-    const room = await this.roomsService.getRoom(roomId);
+@UseGuards(JwtAuthGuard)
+@Post(':roomId/seat/approve')
+async approveSeat(
+  @Param('roomId') roomId: string,
+  @Body() dto: ApproveSeatDto,
+  @Request() req,
+) {
+  const hostId = req.user.userId;
 
-    if (room.hostId !== req.user.userId) {
-      throw new ForbiddenException('Only host can approve or deny seats');
-    }
+  const room = await this.roomsService.getRoom(roomId);
+  if (!room) throw new NotFoundException("Room not found");
 
-    const result = await this.seatsService.approveSeatRequest(
-      dto.requestId,
-      req.user.userId,
-      dto.accept,
-    );
+  if (room.hostId !== hostId)
+    throw new ForbiddenException("Only host can approve or deny seats");
 
-    const seats = await this.seatsService['prisma'].seat.findMany({
-      where: { roomId },
-      orderBy: { index: 'asc' },
-    });
+  // Perform seat switch / approval
+  const result = await this.seatsService.approveSeatRequest(
+    dto.requestId,
+    hostId,
+    dto.accept,
+  );
 
-    this.roomGateway.server.to(`room:${roomId}`).emit('seat.update', {
-      seats,
-    });
+  // Always reload seats
+  const seats = await this.seatsService['prisma'].seat.findMany({
+    where: { roomId },
+    orderBy: { index: 'asc' },
+  });
 
-    // Fail-safe socket emit
-    try {
-      await this.roomGateway.broadcastSeatUpdate(roomId, seats);
-    } catch (e) {
-      console.warn('⚠️ Failed to emit seat.update', e);
-    }
-
-    return { success: true, result, seats };
+  // Emit update
+  try {
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+  } catch (e) {
+    console.warn("⚠️ Failed to emit seat.update", e);
   }
+
+  return { success: true, result, seats };
+}
+
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/seat/leave')
