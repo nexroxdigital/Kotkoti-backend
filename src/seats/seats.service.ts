@@ -14,7 +14,6 @@ export class SeatsService {
   constructor(
     private prisma: PrismaService,
     private seatsRepo: SeatsRepository,
-    //private roomGateway: RoomGateway,
   ) {}
 
   async changeSeatMode(
@@ -46,7 +45,7 @@ export class SeatsService {
     // Send update to all users
     //this.roomGateway.broadcastSeatUpdate(roomId, seats);
 
-    return { ok: true };
+    return seats;
   }
 
   async requestSeat(roomId: string, userId: string, seatIndex?: number) {
@@ -183,7 +182,7 @@ export class SeatsService {
     // Broadcast seat update
     //this.roomGateway.broadcastSeatUpdate(roomId, updatedSeats);
 
-    return { ok: true, seats: updatedSeats };
+    return updatedSeats;
   }
 
   async approveSeatRequest(requestId: string, hostId: string, accept: boolean) {
