@@ -9,11 +9,15 @@ import {
   Put,
   Query,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { User } from '@prisma/client';
 import { Request } from 'express';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { momentFilesInterceptorConfig } from 'src/common/multer.config';
 import {
   CreateCommentDto,
   CreateCommentReplyDto,
@@ -34,13 +38,34 @@ export class MomentsController {
   constructor(private readonly momentsService: MomentsService) {}
 
   @Post('create')
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'images', maxCount: 10 },
+        { name: 'video', maxCount: 1 },
+      ],
+      momentFilesInterceptorConfig,
+    ),
+  )
   async createMoment(
-    @Body() dto: CreateMomentDto,
     @Req() req: RequestWithUser,
+    @UploadedFiles()
+    files: { images?: Express.Multer.File[]; video?: Express.Multer.File[] },
+    @Body() dto: CreateMomentDto,
   ) {
     const userId = (req.user as any)?.userId;
 
-    return this.momentsService.createMoment({ ...dto, userId });
+    const images = files.images || [];
+    const videoFile = files.video ? files.video[0] : undefined;
+
+    // console.log('Received images:', images);
+
+    return this.momentsService.createMoment({
+      ...dto,
+      userId,
+      files: images,
+      videoFile,
+    });
   }
 
   // get all moments with infinite scroll
