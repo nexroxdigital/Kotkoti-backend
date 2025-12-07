@@ -7,6 +7,7 @@ import {
 import { Prisma } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateCommentDto,
@@ -60,11 +61,40 @@ export class MomentsService {
       fs.mkdirSync(momentDir, { recursive: true });
     }
 
+    const imageRecords: { momentId: string; url: string }[] = [];
+
+    for (const file of files) {
+      const tempPath = file.path;
+      const outputDir = path.join('uploads', 'moments', newMoment.id);
+
+      // ensure folder exists
+      if (!fs.existsSync(outputDir))
+        fs.mkdirSync(outputDir, { recursive: true });
+
+      const finalFileName = `img-${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+      const finalPath = path.join(outputDir, finalFileName);
+
+      // Resize + convert to WebP
+      await sharp(tempPath)
+        .resize(1080, 1080, { fit: 'inside' })
+        .webp({ quality: 80 })
+        .toFile(finalPath);
+
+      // delete temp file
+      if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+      // Add to DB records
+      imageRecords.push({
+        momentId: newMoment.id,
+        url: `/uploads/moments/${newMoment.id}/${finalFileName}`,
+      });
+    }
+
     //  Prepare DB entries for all images
-    const imageRecords = files.map((file) => ({
-      momentId: newMoment.id,
-      url: `/uploads/moments/${newMoment.id}/${file.filename}`, // URL to access later
-    }));
+    // const imageRecords = files.map((file) => ({
+    //   momentId: newMoment.id,
+    //   url: `/uploads/moments/${newMoment.id}/${file.filename}`, // URL to access later
+    // }));
 
     // Insert all images at once
     await this.prisma.momentImage.createMany({
@@ -90,10 +120,30 @@ export class MomentsService {
       take: limit + 1, // fetch one extra to determine hasMore
       orderBy: { createdAt: 'desc' },
       include: {
-        user: { select: { id: true, nickName: true, profilePicture: true } },
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            dob: true,
+            charmLevel: {
+              select: {
+                levelNo: true,
+                imageUrl: true,
+              },
+            },
+            wealthLevel: {
+              select: {
+                levelNo: true,
+                imageUrl: true,
+              },
+            },
+          },
+        },
         likes: { select: { userId: true } },
         comments: { select: { userId: true } },
         momentImages: true,
+        momentShares: true,
       },
       cursor: lastId ? { id: lastId } : undefined,
       skip: lastId ? 1 : 0, // skip the cursor itself
@@ -105,36 +155,60 @@ export class MomentsService {
     // Use Prisma.MomentGetPayload to get type-safe results with included relations
     type MomentWithRelations = Prisma.MomentGetPayload<{
       include: {
-        user: { select: { id: true; nickName: true; profilePicture: true } };
+        user: {
+          select: {
+            id: true;
+            nickName: true;
+            profilePicture: true;
+            dob: true;
+            charmLevel: { select: { levelNo: true; imageUrl: true } };
+            wealthLevel: { select: { levelNo: true; imageUrl: true } };
+          };
+        };
         likes: { select: { userId: true } };
         comments: { select: { userId: true } };
         momentImages: true;
+        momentShares: true;
       };
     }>;
 
-    // Cast to type-safe array
-    const moments = (result as MomentWithRelations[])
-      .slice(0, limit) // slice extra record for hasMore
-      .map((m) => ({
-        id: m.id,
-        caption: m.caption,
-        momentImages: m.momentImages.map((i) => i.url),
-        video: m.video,
-        createdAt: m.createdAt,
-        updatedAt: m.updatedAt,
-        user: {
-          id: m.user.id,
-          nickName: m.user.nickName,
-          profilePicture: m.user.profilePicture,
-        },
-        // likes: m.likes,
-        // comments: m.comments,
-        likesCount: m.likes.length,
-        commentsCount: m.comments.length,
-        likedByCurrentUser: currentUserId
-          ? m.likes.some((like) => like.userId === currentUserId)
-          : false,
-      }));
+    // Transform results into API-ready structure
+    const moments = await Promise.all(
+      (result as MomentWithRelations[])
+        .slice(0, limit) // slice extra record for hasMore
+        .map(async (m) => ({
+          id: m.id,
+          caption: m.caption,
+          momentImages: m.momentImages.map((i) => i.url),
+          video: m.video,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+          user: {
+            id: m.user.id,
+            nickName: m.user.nickName,
+            profilePicture: m.user.profilePicture,
+            dob: m.user.dob,
+            charmLevel: m.user.charmLevel,
+            wealthLevel: m.user.wealthLevel,
+            isFollowing: currentUserId
+              ? !!(await this.prisma.follow.findUnique({
+                  where: {
+                    userId_followerId: {
+                      userId: m.user.id,
+                      followerId: currentUserId,
+                    },
+                  },
+                }))
+              : false,
+          },
+          likesCount: m.likes.length, // total likes
+          commentsCount: m.comments.length, // total comments
+          sharesCount: m.momentShares.length,
+          likedByCurrentUser: currentUserId
+            ? m.likes.some((like) => like.userId === currentUserId)
+            : false, // if current user liked this moment
+        })),
+    );
 
     // Determine if there are more moments
     const hasMore = result.length > limit;
