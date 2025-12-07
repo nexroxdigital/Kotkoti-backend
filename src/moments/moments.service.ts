@@ -90,12 +90,6 @@ export class MomentsService {
       });
     }
 
-    //  Prepare DB entries for all images
-    // const imageRecords = files.map((file) => ({
-    //   momentId: newMoment.id,
-    //   url: `/uploads/moments/${newMoment.id}/${file.filename}`, // URL to access later
-    // }));
-
     // Insert all images at once
     await this.prisma.momentImage.createMany({
       data: imageRecords,
