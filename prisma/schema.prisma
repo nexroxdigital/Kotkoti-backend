@@ -62,6 +62,7 @@ model User {
   participants          RoomParticipant[]
   seats                 Seat[]
   seatRequests          SeatRequest[]
+  kickedRooms AudioRoomKick[]   @relation("UserKicks")
   bans                  AudioRoomBan[]
   bannedBy              AudioRoomBan[]        @relation("BannedByHost")
   sentGifts             GiftTransaction[]     @relation("SenderRelation")
@@ -393,6 +394,7 @@ model AudioRoom {
   seats        Seat[]
   participants RoomParticipant[]
   bans         AudioRoomBan[]
+  kicks        AudioRoomKick[]
   seatRequests SeatRequest[]
   tokenLogs    ProviderTokenLog[]
 }
@@ -443,6 +445,22 @@ model SeatRequest {
 
   @@index([roomId])
 }
+
+
+model AudioRoomKick {
+  id        String   @id @default(uuid())
+  roomId    String
+  userId    String
+  bannedBy  String
+  reason    String?
+  expiresAt DateTime  // ban end time
+
+  room AudioRoom @relation(fields: [roomId], references: [id])
+  user User      @relation("UserKicks", fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+}
+
 
 model AudioRoomBan {
   id        String   @id @default(uuid())

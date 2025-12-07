@@ -20,6 +20,7 @@ import { Provider } from '@prisma/client';
 import { RtcService } from '../rtc/rtc.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RoomGateway } from 'src/gateway/room.gateway';
+import { KickService } from './kick.service';
 
 class CreateRoomDto {
   name: string;
@@ -32,6 +33,7 @@ export class RoomsController {
     private roomsService: RoomsService,
     private roomBanService: RoomBanService,
     private seatsService: SeatsService,
+    private kickService: KickService,
     private rtcService: RtcService,
     private roomGateway: RoomGateway,
   ) {}
@@ -103,6 +105,7 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
   async joinRoom(@Param('id') id: string, @Request() req) {
+    
     const result = await this.roomsService.joinRoom(id, req.user.userId);
     return { success: true, data: result };
   }
@@ -244,6 +247,17 @@ async hostMuteSeat(
   // ============================
   // BAN CONTROL (HOST ONLY)
   // ============================
+
+  @Post(':id/kick')
+@UseGuards(JwtAuthGuard)
+async kickUser(
+  @Param('id') roomId: string,
+  @Body() dto: { userId: string },
+  @Request() req,
+) {
+  return this.kickService.kickUser(roomId, dto.userId, req.user.userId);
+}
+
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/ban')
