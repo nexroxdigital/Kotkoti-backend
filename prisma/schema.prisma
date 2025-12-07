@@ -77,6 +77,7 @@ model User {
   momentCommentLikes   MomentCommentLike[]
   momentCommentReplies MomentCommentReply[]
   momentShares         MomentShare[]
+  rechargeLogs         RechargeLog[]
 }
 
 model Session {
@@ -358,6 +359,7 @@ model CoinSeller {
   user           User                  @relation(fields: [userId], references: [id])
   sellingHistory CoinsSellingHistory[]
   buyingHistory  CoinsBuyingHistory[]
+  rechargeLogs   RechargeLog[]
 }
 
 model CoinsSellingHistory {
@@ -379,6 +381,18 @@ model CoinsBuyingHistory {
   status    String
   createdAt DateTime @default(now())
 
+  seller CoinSeller @relation(fields: [sellerId], references: [id])
+}
+
+model RechargeLog {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  sellerId  Int
+  amount    Int
+  status    String
+  createdAt DateTime @default(now())
+
+  user   User       @relation(fields: [userId], references: [id])
   seller CoinSeller @relation(fields: [sellerId], references: [id])
 }
 

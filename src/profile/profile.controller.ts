@@ -115,4 +115,10 @@ export class ProfileController {
   getMyVisitors(@Req() req) {
     return this.profileService.getVisitors(req.user.id);
   }
+
+  // user recharge log
+  @Get('/recharge-log/:userId')
+  getUserById(@Param('userId') userId: string) {
+    return this.profileService.getUserRechargeLogs(userId);
+  }
 }
