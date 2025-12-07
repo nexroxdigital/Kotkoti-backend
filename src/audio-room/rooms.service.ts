@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RtcService } from '../rtc/rtc.service';
@@ -41,7 +42,7 @@ export class RoomsService {
             id: true,
             userId: true,
             isHost: true,
-            rtcUid: true, 
+            rtcUid: true,
             muted: true,
             joinedAt: true,
           },
@@ -185,6 +186,27 @@ export class RoomsService {
   }
 
   async joinRoom(roomId: string, userId: string) {
+    // rooms.service.ts or controller
+
+    // Check ban
+    const ban = await this.prisma.audioRoomKick.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+
+    if (ban) {
+      if (ban.expiresAt > new Date()) {
+        const hours = Math.ceil(
+          (ban.expiresAt.getTime() - Date.now()) / 3600000,
+        );
+        throw new ForbiddenException(`You are banned for ${hours} more hours`);
+      }
+
+      // Remove expired ban
+      await this.prisma.audioRoomKick.delete({
+        where: { roomId_userId: { roomId, userId } },
+      });
+    }
+
     const room = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
     });
@@ -236,6 +258,4 @@ export class RoomsService {
     });
     return { ok: true };
   }
-
-  
 }
