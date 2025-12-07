@@ -78,21 +78,14 @@ export class CoinResellerService {
       return { message: 'Coins transferred successfully' };
     });
   }
+
   // Get selling history for a seller
   async getSellingHistory(sellerId: number) {
-    return this.prisma.coinsSellingHistory.findMany({
+    const history = await this.prisma.coinsSellingHistory.findMany({
       where: { sellerId },
       include: {
         seller: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                nickName: true,
-                profilePicture: true,
-              },
-            },
-          },
+          select: { id: true },
         },
         receiver: {
           select: {
@@ -104,25 +97,27 @@ export class CoinResellerService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    if (history.length === 0) {
+      return { seller: null, receivers: [] };
+    }
+
+    return {
+      seller: history[0].seller,
+      receivers: history.map((item) => ({
+        id: item.receiver.id,
+        nickName: item.receiver.nickName,
+        amount: item.amount,
+        status: item.status,
+        createdAt: item.createdAt,
+      })),
+    };
   }
 
   // Get buying history for a seller
   async getBuyingHistory(sellerId: number) {
     return this.prisma.coinsBuyingHistory.findMany({
       where: { sellerId },
-      include: {
-        seller: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                nickName: true,
-                profilePicture: true,
-              },
-            },
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
   }
