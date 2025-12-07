@@ -247,6 +247,15 @@ async hostMuteSeat(
   // ============================
   // BAN CONTROL (HOST ONLY)
   // ============================
+@Get(':id/kick/all')
+@UseGuards(JwtAuthGuard)
+async getKickList(@Param('id') roomId: string, @Request() req) {
+  const room = await this.roomsService.getRoom(roomId);
+  if (room.hostId !== req.user.userId)
+    throw new ForbiddenException('Only host can view kicked list');
+
+  return this.kickService.getKickList(roomId);
+}
 
   @Post(':id/kick')
 @UseGuards(JwtAuthGuard)
@@ -257,6 +266,21 @@ async kickUser(
 ) {
   return this.kickService.kickUser(roomId, dto.userId, req.user.userId);
 }
+
+@Delete(':id/unkick/:userId')
+@UseGuards(JwtAuthGuard)
+async unkickUser(
+  @Param('id') roomId: string,
+  @Param('userId') targetId: string,
+  @Request() req,
+) {
+  const room = await this.roomsService.getRoom(roomId);
+  if (room.hostId !== req.user.userId)
+    throw new ForbiddenException('Only host can unkick users');
+
+  return this.kickService.removeKick(roomId, targetId);
+}
+
 
 
   @UseGuards(JwtAuthGuard)
