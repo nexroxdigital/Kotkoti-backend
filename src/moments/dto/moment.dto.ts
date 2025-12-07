@@ -16,12 +16,10 @@ export class UpdateMomentDto {
   @IsOptional()
   @IsString()
   caption?: string;
+}
 
+export class ShareMomentDto {
   @IsOptional()
   @IsString()
-  image?: string;
-
-  @IsOptional()
-  @IsString()
-  video?: string;
+  caption?: string;
 }

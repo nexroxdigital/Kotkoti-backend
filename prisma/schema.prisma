@@ -76,6 +76,7 @@ model User {
   svipLogs             SvipLog[]
   momentCommentLikes   MomentCommentLike[]
   momentCommentReplies MomentCommentReply[]
+  momentShares         MomentShare[]
 }
 
 model Session {
@@ -568,6 +569,7 @@ model Moment {
   likes        MomentLike[]
   comments     MomentComment[]
   momentImages MomentImage[]
+  momentShares MomentShare[]
 }
 
 model MomentImage {
@@ -622,6 +624,17 @@ model MomentCommentReply {
   updatedAt DateTime      @updatedAt
   comment   MomentComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   user      User          @relation(fields: [userId], references: [id])
+}
+
+model MomentShare {
+  id        String   @id @default(uuid())
+  momentId  String
+  userId    String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 //
