@@ -96,7 +96,6 @@ export class SvipManagementController {
   }
 
   // Delete Media Privilege
-
   @Delete('/media-privilege/delete/:privId')
   deleteMediaPrivilege(@Param('privId', ParseIntPipe) privId: number) {
     return this.svipManagementService.deleteMediaPrivilege(privId);
