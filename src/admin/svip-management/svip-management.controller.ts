@@ -31,7 +31,7 @@ export class SvipManagementController {
     @Body() dto: CreateSvipDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (file) dto.img = file.filename;
+    if (file) dto.img = file.path;
 
     return this.svipManagementService.create(dto);
   }
@@ -91,7 +91,6 @@ export class SvipManagementController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (file) dto.swf = file.path;
-    console.log(file);
 
     return this.svipManagementService.addMediaPrivilege(svipId, dto);
   }
