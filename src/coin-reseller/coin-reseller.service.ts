@@ -30,50 +30,55 @@ export class CoinResellerService {
     };
   }
 
-  // Add coins with full transaction (deduct from seller, add to receiver)
   async sendCoins(dto: ReSellerDto) {
+    const { sellerId, receiverId, amount } = dto;
+
     return this.prisma.$transaction(async (tx) => {
-      // Find seller
       const seller = await tx.coinSeller.findUnique({
-        where: { userId: dto.sellerId },
+        where: { userId: sellerId },
       });
 
       if (!seller) throw new NotFoundException('Seller not found');
 
-      // Check if seller has enough balance
-      if (seller.totalCoin < dto.amount) {
+      if (seller.totalCoin < amount) {
         throw new BadRequestException('Seller does not have enough coins');
       }
 
-      // Deduct coins from seller
-      await tx.coinSeller.update({
-        where: { id: seller.id },
-        data: {
-          totalCoin: {
-            decrement: dto.amount,
-          },
-        },
-      });
+      const operations = [
+        // Deduct coins
+        tx.coinSeller.update({
+          where: { id: seller.id },
+          data: { totalCoin: { decrement: amount } },
+        }),
 
-      // Add coins to receiver
-      await tx.user.update({
-        where: { id: dto.receiverId },
-        data: {
-          gold: {
-            increment: dto.amount,
-          },
-        },
-      });
+        // Add coins to receiver
+        tx.user.update({
+          where: { id: receiverId },
+          data: { gold: { increment: amount } },
+        }),
 
-      // Create selling history
-      await tx.coinsSellingHistory.create({
-        data: {
-          sellerId: seller.id,
-          receiverId: dto.receiverId,
-          amount: dto.amount,
-          status: 'COMPLETED',
-        },
-      });
+        // Save selling history
+        tx.coinsSellingHistory.create({
+          data: {
+            sellerId: seller.id,
+            receiverId,
+            amount,
+            status: 'COMPLETED',
+          },
+        }),
+
+        // Save recharge log
+        tx.rechargeLog.create({
+          data: {
+            userId: receiverId,
+            sellerId: seller.id,
+            amount,
+            status: 'COMPLETED',
+          },
+        }),
+      ];
+
+      await Promise.all(operations);
 
       return { message: 'Coins transferred successfully' };
     });

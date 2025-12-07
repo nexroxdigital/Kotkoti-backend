@@ -708,4 +708,30 @@ export class ProfileService {
       user: v.visitor,
     }));
   }
+
+  //  Get recharge logs for a user with seller name
+  async getUserRechargeLogs(userId: string) {
+    const logs = await this.prisma.rechargeLog.findMany({
+      where: { userId },
+      include: {
+        seller: {
+          include: {
+            user: true, // fetch user of seller
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Map to flatten seller info
+    return logs.map((log) => ({
+      id: log.id,
+      userId: log.userId,
+      amount: log.amount,
+      status: log.status,
+      createdAt: log.createdAt,
+      sellerId: log.sellerId,
+      sellerName: log.seller.user?.nickName || 'Unknown', // seller name from User
+    }));
+  }
 }

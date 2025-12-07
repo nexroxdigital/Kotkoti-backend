@@ -3,7 +3,6 @@ import * as os from 'os';
 
 @Injectable()
 export class AppService {
-  
   getHello() {
     console.log('JWT_SECRET:', process.env.JWT_SECRET);
 
