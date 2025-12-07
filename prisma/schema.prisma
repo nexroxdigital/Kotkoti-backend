@@ -402,7 +402,7 @@ model Seat {
   roomId String
   index  Int
   userId String?
-  micOn  Boolean  @default(true)
+  micOn  Boolean  @default(false)
   mode   SeatMode @default(REQUEST)
 
   room AudioRoom @relation(fields: [roomId], references: [id])
@@ -419,7 +419,7 @@ model RoomParticipant {
   joinedAt       DateTime  @default(now())
   disconnectedAt DateTime?
   isHost         Boolean   @default(false)
-  muted          Boolean   @default(false)
+  muted          Boolean   @default(true)
   lastActiveAt   DateTime  @default(now())
 
   user User      @relation(fields: [userId], references: [id])
