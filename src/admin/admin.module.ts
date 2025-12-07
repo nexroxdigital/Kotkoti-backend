@@ -3,8 +3,9 @@ import { StoreManagementModule } from './store-management/store-management.modul
 import { ReSellerManagementModule } from './re-seller-management/re-seller-management.module';
 import { LevelManagementModule } from './level-management/level-management.module';
 import { GiftManagementModule } from './gift-management/gift-management.module';
+import { SvipManagementModule } from './svip-management/svip-management.module';
 
 @Module({
-  imports: [StoreManagementModule, ReSellerManagementModule, LevelManagementModule, GiftManagementModule],
+  imports: [StoreManagementModule, ReSellerManagementModule, LevelManagementModule, GiftManagementModule, SvipManagementModule],
 })
 export class AdminModule {}
