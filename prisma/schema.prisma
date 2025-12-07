@@ -62,7 +62,7 @@ model User {
   participants          RoomParticipant[]
   seats                 Seat[]
   seatRequests          SeatRequest[]
-  kickedRooms AudioRoomKick[]   @relation("UserKicks")
+  kickedRooms           AudioRoomKick[]       @relation("UserKicks")
   bans                  AudioRoomBan[]
   bannedBy              AudioRoomBan[]        @relation("BannedByHost")
   sentGifts             GiftTransaction[]     @relation("SenderRelation")
@@ -446,21 +446,19 @@ model SeatRequest {
   @@index([roomId])
 }
 
-
 model AudioRoomKick {
   id        String   @id @default(uuid())
   roomId    String
   userId    String
   bannedBy  String
   reason    String?
-  expiresAt DateTime  // ban end time
+  expiresAt DateTime // ban end time
 
   room AudioRoom @relation(fields: [roomId], references: [id])
   user User      @relation("UserKicks", fields: [userId], references: [id])
 
   @@unique([roomId, userId])
 }
-
 
 model AudioRoomBan {
   id        String   @id @default(uuid())
@@ -645,11 +643,11 @@ model Svip {
 
 model SvipPowerPrivilege {
   id        Int    @id @default(autoincrement())
-  svipId    Int
+  svipId    Int?
   powerName String
 
   // Relation
-  svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  svip Svip? @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipMediaPrivilege {

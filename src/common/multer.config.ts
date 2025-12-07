@@ -61,44 +61,6 @@ export const galleryMulterConfig = {
   },
 };
 
-// for just images
-// export const momentMulterConfig = {
-//   storage: diskStorage({
-//     destination: './uploads/moments',
-//     filename: (req, file, cb) => {
-//       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
-//       cb(null, unique);
-//     },
-//   }),
-//   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB per image
-//   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
-//     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
-//     if (!allowed.includes(file.mimetype)) {
-//       return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
-//     }
-//     cb(null, true);
-//   },
-// };
-
-// for just video
-// export const momentVideoMulterConfig = {
-//   storage: diskStorage({
-//     destination: './uploads/moments/videos',
-//     filename: (req, file, cb) => {
-//       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
-//       cb(null, unique);
-//     },
-//   }),
-//   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max per video
-//   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
-//     const allowed = ['video/mp4', 'video/mkv', 'video/webm'];
-//     if (!allowed.includes(file.mimetype)) {
-//       return cb(new BadRequestException('Only MP4/MKV/WEBM allowed'), false);
-//     }
-//     cb(null, true);
-//   },
-// };
-
 export const momentFilesInterceptorConfig = {
   storage: diskStorage({
     destination: (req, file, cb) => {
@@ -143,3 +105,68 @@ export const momentFilesInterceptorConfig = {
     fileSize: 50 * 1024 * 1024, // max 50MB per file (matches video limit)
   },
 };
+
+// for just images
+export const svipMulterConfig = {
+  storage: diskStorage({
+    destination: './uploads/svip',
+    filename: (req, file, cb) => {
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+      cb(null, unique);
+    },
+  }),
+
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB per image
+
+  fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+    const allowed = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/jpg',
+      'image/svga',
+    ];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
+    }
+    cb(null, true);
+  },
+};
+
+// for just images
+// export const momentMulterConfig = {
+//   storage: diskStorage({
+//     destination: './uploads/moments',
+//     filename: (req, file, cb) => {
+//       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+//       cb(null, unique);
+//     },
+//   }),
+//   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB per image
+//   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+//     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+//     if (!allowed.includes(file.mimetype)) {
+//       return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
+//     }
+//     cb(null, true);
+//   },
+// };
+
+// for just video
+// export const momentVideoMulterConfig = {
+//   storage: diskStorage({
+//     destination: './uploads/moments/videos',
+//     filename: (req, file, cb) => {
+//       const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
+//       cb(null, unique);
+//     },
+//   }),
+//   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max per video
+//   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+//     const allowed = ['video/mp4', 'video/mkv', 'video/webm'];
+//     if (!allowed.includes(file.mimetype)) {
+//       return cb(new BadRequestException('Only MP4/MKV/WEBM allowed'), false);
+//     }
+//     cb(null, true);
+//   },
+// };
