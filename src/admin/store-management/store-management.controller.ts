@@ -21,11 +21,7 @@ export class StoreManagementController {
     private storeCategoryService: StoreCategoryService,
   ) {}
 
-  // @desc    Store Category Management Controller
-  //          Handles creation, retrieval, updating, and deletion of
-  //          store categories. Ensures proper validation, organizes
-  //          category hierarchy, and interacts with the StoreCategoryService
-  //          for database operations.
+  // @desc Store Category Management Controller
 
   // Create a new store category
   @Post('store-category/add')
@@ -57,11 +53,7 @@ export class StoreManagementController {
     return this.storeCategoryService.deleteCategory(id);
   }
 
-  // @desc    Store Items Management Controller
-  //          Handles all operations related to creating, retrieving,
-  //          updating, and deleting store items. This includes validating
-  //          incoming data, interacting with the StoreItemsService, and
-  //          returning consistent API responses.
+  // @desc Store Items Management Controller
 
   //  Create a new store item
   @Post('store-items/add')
