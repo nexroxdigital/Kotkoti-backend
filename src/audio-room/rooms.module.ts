@@ -7,13 +7,14 @@ import { RtcModule } from '../rtc/rtc.module';
 import { SeatsModule } from '../seats/seats.module';
 import { ParticipantsModule } from '../participants/participants.module';
 import { GatewayModule } from 'src/gateway/gateway.module';
+import { KickService } from './kick.service';
 
 
 
 @Module({
   imports: [PrismaModule, RtcModule, SeatsModule, ParticipantsModule, GatewayModule],
   controllers: [RoomsController],
-  providers: [RoomsService, RoomBanService],
+  providers: [RoomsService, RoomBanService, KickService],
   exports: [RoomsService, RoomBanService],
 })
 export class RoomsModule {}
