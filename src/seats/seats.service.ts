@@ -14,7 +14,6 @@ export class SeatsService {
   constructor(
     private prisma: PrismaService,
     private seatsRepo: SeatsRepository,
-    //private roomGateway: RoomGateway,
   ) {}
 
   async changeSeatMode(
@@ -46,47 +45,27 @@ export class SeatsService {
     // Send update to all users
     //this.roomGateway.broadcastSeatUpdate(roomId, seats);
 
-    return { ok: true };
+    return seats;
   }
 
   async requestSeat(roomId: string, userId: string, seatIndex?: number) {
-    const seat = await this.prisma.seat.findFirst({
+   const seat = await this.prisma.seat.findFirst({
       where: { roomId, index: seatIndex },
     });
 
     if (!seat) throw new NotFoundException('Seat not found');
 
-    // LOCKED → cannot request
+    // Cannot request LOCKED seat
     if (seat.mode === 'LOCKED') {
       throw new BadRequestException('This seat is locked');
     }
 
-    // FREE → instant join (NO REQUEST)
+    // FREE seat → INSTANT JOIN (NO REQUEST)
     if (seat.mode === 'FREE') {
-      // Remove user from any existing seat
-      await this.prisma.seat.updateMany({
-        where: { roomId, userId },
-        data: { userId: null, micOn: true },
-      });
-
-      // Assign user to this seat
-      const updated = await this.prisma.seat.update({
-        where: { id: seat.id },
-        data: {
-          userId,
-          micOn: true,
-        },
-      });
-
-      const seats = await this.prisma.seat.findMany({
-        where: { roomId },
-        orderBy: { index: 'asc' },
-      });
-
-      return { type: 'INSTANT_JOIN', seats };
+      return this.takeSeat(roomId, seatIndex!, userId);
     }
 
-    // REQUEST mode → create request entry
+    // REQUEST seat → create approval request
     return this.prisma.seatRequest.create({
       data: {
         id: uuidv4(),
@@ -98,51 +77,76 @@ export class SeatsService {
     });
   }
 
-  async userHasSeat(roomId: string, userId: string): Promise<boolean> {
-    const seat = await this.prisma.seat.findFirst({
-      where: { roomId, userId },
-    });
-
-    return !!seat;
-  }
-
+  // --------------------------
+  // HOST TAKES SEAT (NO REQUEST)
+  // --------------------------
   async hostTakeSeat(roomId: string, hostId: string, seatIndex: number) {
-    const room = await this.prisma.audioRoom.findUnique({
-      where: { id: roomId },
-    });
+    const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
     if (!room) throw new NotFoundException('Room not found');
-
-    if (room.hostId !== hostId) {
+    if (room.hostId !== hostId)
       throw new BadRequestException('Only host can call this');
-    }
 
     const seat = await this.prisma.seat.findFirst({
       where: { roomId, index: seatIndex },
     });
-
     if (!seat) throw new NotFoundException('Seat not found');
-    if (seat.mode === 'LOCKED') throw new BadRequestException('Seat is locked');
 
-    // Remove host from existing seat (only one seat per user)
+    // Remove host from any seat
     await this.prisma.seat.updateMany({
       where: { roomId, userId: hostId },
-      data: { userId: null, micOn: true },
+      data: { userId: null, micOn: false },
     });
 
-    // Assign seat to host
+    // Assign new seat (mic OFF)
     await this.prisma.seat.update({
       where: { id: seat.id },
-      data: { userId: hostId, micOn: true },
+      data: { userId: hostId, micOn: false },
     });
 
-    // Return updated seats
     const seats = await this.prisma.seat.findMany({
       where: { roomId },
       orderBy: { index: 'asc' },
     });
-
     return seats;
   }
+
+  // async hostTakeSeat(roomId: string, hostId: string, seatIndex: number) {
+  //   const room = await this.prisma.audioRoom.findUnique({
+  //     where: { id: roomId },
+  //   });
+  //   if (!room) throw new NotFoundException('Room not found');
+
+  //   if (room.hostId !== hostId) {
+  //     throw new BadRequestException('Only host can call this');
+  //   }
+
+  //   const seat = await this.prisma.seat.findFirst({
+  //     where: { roomId, index: seatIndex },
+  //   });
+
+  //   if (!seat) throw new NotFoundException('Seat not found');
+  //   if (seat.mode === 'LOCKED') throw new BadRequestException('Seat is locked');
+
+  //   // Remove host from existing seat (only one seat per user)
+  //   await this.prisma.seat.updateMany({
+  //     where: { roomId, userId: hostId },
+  //     data: { userId: null, micOn: true },
+  //   });
+
+  //   // Assign seat to host
+  //   await this.prisma.seat.update({
+  //     where: { id: seat.id },
+  //     data: { userId: hostId, micOn: true },
+  //   });
+
+  //   // Return updated seats
+  //   const seats = await this.prisma.seat.findMany({
+  //     where: { roomId },
+  //     orderBy: { index: 'asc' },
+  //   });
+
+  //   return seats;
+  // }
 
   async takeSeat(roomId: string, seatIndex: number, userId: string) {
     const room = await this.prisma.audioRoom.findUnique({
@@ -166,13 +170,13 @@ export class SeatsService {
     // Remove existing seat if user already has one
     await this.prisma.seat.updateMany({
       where: { roomId, userId },
-      data: { userId: null, micOn: true },
+      data: { userId: null, micOn: false },
     });
 
     // Assign new seat
     await this.prisma.seat.update({
       where: { id: seat.id },
-      data: { userId, micOn: true },
+      data: { userId, micOn: false },
     });
 
     const updatedSeats = await this.prisma.seat.findMany({
@@ -183,7 +187,7 @@ export class SeatsService {
     // Broadcast seat update
     //this.roomGateway.broadcastSeatUpdate(roomId, updatedSeats);
 
-    return { ok: true, seats: updatedSeats };
+    return updatedSeats;
   }
 
   async approveSeatRequest(requestId: string, hostId: string, accept: boolean) {
@@ -240,7 +244,7 @@ export class SeatsService {
     // ======================================
     await this.prisma.seat.updateMany({
       where: { roomId: req.roomId, userId: req.userId },
-      data: { userId: null, micOn: true },
+      data: { userId: null, micOn: false },
     });
 
     // ======================================
@@ -248,7 +252,7 @@ export class SeatsService {
     // ======================================
     await this.prisma.seat.update({
       where: { id: seat.id },
-      data: { userId: req.userId, micOn: true },
+      data: { userId: req.userId, micOn: false },
     });
 
     // Mark request resolved
@@ -276,7 +280,7 @@ export class SeatsService {
     if (!seat) throw new NotFoundException('User not on seat');
     await this.prisma.seat.update({
       where: { id: seat.id },
-      data: { userId: null, micOn: true },
+      data: { userId: null, micOn: false },
     });
     return { ok: true };
   }
@@ -316,6 +320,30 @@ export class SeatsService {
     return { ok: true };
   }
 
+  async hostMuteSeat(roomId: string, seatIndex: number, mute: boolean) {
+  const seat = await this.prisma.seat.findFirst({
+    where: { roomId, index: seatIndex },
+  });
+  if (!seat) throw new NotFoundException('Seat not found');
+
+  if (!seat.userId) throw new BadRequestException('Seat is empty');
+
+  // Update seat mic status
+  await this.prisma.seat.update({
+    where: { id: seat.id },
+    data: { micOn: !mute },
+  });
+
+  // Update participant UI state
+  await this.prisma.roomParticipant.updateMany({
+    where: { roomId, userId: seat.userId },
+    data: { muted: mute },
+  });
+
+  return { ok: true, userId: seat.userId };
+}
+
+
   async muteSeat(roomId: string, seatIndex: number) {
     const seat = await this.seatsRepo.findSeatByRoomAndIndex(roomId, seatIndex);
     if (!seat) throw new NotFoundException('Seat not found');
@@ -326,6 +354,8 @@ export class SeatsService {
     return { ok: true };
   }
 
+
+  
   async kickSeat(roomId: string, seatIndex: number) {
     const seat = await this.seatsRepo.findSeatByRoomAndIndex(roomId, seatIndex);
     if (!seat) throw new NotFoundException('Seat not found');
