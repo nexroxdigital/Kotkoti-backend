@@ -17,3 +17,9 @@ export class UpdateMomentDto {
   @IsString()
   caption?: string;
 }
+
+export class ShareMomentDto {
+  @IsOptional()
+  @IsString()
+  caption?: string;
+}

@@ -23,7 +23,11 @@ import {
   CreateCommentReplyDto,
   UpdateCommentReplyDto,
 } from './dto/create-comment.dto';
-import { CreateMomentDto, UpdateMomentDto } from './dto/moment.dto';
+import {
+  CreateMomentDto,
+  ShareMomentDto,
+  UpdateMomentDto,
+} from './dto/moment.dto';
 import { UpdateMomentCommentDto } from './dto/update-moment-comment.dto';
 import { MomentsService } from './moments.service';
 
@@ -255,7 +259,7 @@ export class MomentsController {
     @Param('replyId') replyId: string, // ID of the reply to delete
     @Req() req: RequestWithUser, // Get user from JWT
   ) {
-    const userId = (req.user as any)?.userId; // Extract userId from JWT
+    const userId = (req.user as any)?.userId;
     return this.momentsService.deleteReply(replyId, userId);
   }
 
@@ -274,5 +278,16 @@ export class MomentsController {
       cleanLastId,
       limitNumber,
     );
+  }
+
+  // share a moment
+  @Post(':momentId/share')
+  async shareMoment(
+    @Req() req: RequestWithUser,
+    @Param('momentId') momentId: string,
+    @Body() dto: ShareMomentDto,
+  ) {
+    const userId = (req.user as any)?.userId;
+    return this.momentsService.shareMoment(momentId, userId, dto);
   }
 }

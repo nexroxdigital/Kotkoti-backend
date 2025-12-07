@@ -14,7 +14,7 @@ import {
   CreateCommentReplyDto,
   UpdateCommentReplyDto,
 } from './dto/create-comment.dto';
-import { UpdateMomentDto } from './dto/moment.dto';
+import { ShareMomentDto, UpdateMomentDto } from './dto/moment.dto';
 import { UpdateMomentCommentDto } from './dto/update-moment-comment.dto';
 import { MomentCreateInput } from './types/moment.types';
 
@@ -776,5 +776,37 @@ export class MomentsService {
     const hasMore = result.length > limit;
 
     return { data: replies, hasMore };
+  }
+
+  // Share a moment
+  async shareMoment(momentId: string, userId: string, dto: ShareMomentDto) {
+    // Check if moment exists
+    const moment = await this.prisma.moment.findUnique({
+      where: { id: momentId },
+    });
+
+    if (!moment) {
+      throw new NotFoundException('Moment not found');
+    }
+
+    // Create a new MomentShare record
+    const share = await this.prisma.momentShare.create({
+      data: {
+        momentId,
+        userId,
+        caption: dto.caption,
+      },
+    });
+
+    // Count total shares for this moment
+    // const sharesCount = await this.prisma.momentShare.count({
+    //   where: { momentId },
+    // });
+
+    return {
+      message: 'Moment shared successfully',
+      // sharesCount,
+      share,
+    };
   }
 }
