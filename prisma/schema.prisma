@@ -401,7 +401,9 @@ model AudioRoom {
   name   String
   hostId String
   host   User   @relation("UserHostedRooms", fields: [hostId], references: [id])
-
+  tags      String[] @default([])
+  imageUrl  String?         
+  seatCount Int     @default(12) 
   isLive       Boolean            @default(true)
   createdAt    DateTime           @default(now())
   endedAt      DateTime?
@@ -419,8 +421,8 @@ model Seat {
   roomId String
   index  Int
   userId String?
-  micOn  Boolean  @default(false)
-  mode   SeatMode @default(REQUEST)
+  micOn  Boolean  @default(true)
+  mode   SeatMode @default(FREE)
 
   room AudioRoom @relation(fields: [roomId], references: [id])
   user User?     @relation(fields: [userId], references: [id])
@@ -436,7 +438,7 @@ model RoomParticipant {
   joinedAt       DateTime  @default(now())
   disconnectedAt DateTime?
   isHost         Boolean   @default(false)
-  muted          Boolean   @default(true)
+  muted          Boolean   @default(false)
   lastActiveAt   DateTime  @default(now())
 
   user User      @relation(fields: [userId], references: [id])

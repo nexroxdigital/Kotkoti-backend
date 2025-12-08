@@ -148,6 +148,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // MIC STATUS
   // =====================================================
+  
   @SubscribeMessage('user.micOn')
   async onMicOn(@MessageBody() payload: { roomId: string; userId: string }) {
     const allowed = await this.userHasSeat(payload.roomId, payload.userId);
@@ -180,6 +181,10 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!room) return;
 
     this.server.to(`user:${room.hostId}`).emit(event, payload);
+  }
+
+  emitSeatMute(roomId: string, seatIndex: number, mute: boolean) {
+    this.server.to(`room:${roomId}`).emit('seat.muted', { seatIndex, mute });
   }
 
   // =====================================================

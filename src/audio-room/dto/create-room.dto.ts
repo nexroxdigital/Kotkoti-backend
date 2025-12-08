@@ -1,15 +1,14 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
-import { Provider } from '@prisma/client';
+import { IsString, IsNumber, Min, IsOptional, IsArray } from "class-validator";
 
 export class CreateRoomDto {
   @IsString()
   name: string;
 
   @IsOptional()
-  @IsString()
-  description?: string;
+  @IsArray()
+  tags?: string[];
 
-  @IsOptional()
-  @IsEnum(Provider)
-  provider?: Provider;
+  @IsString()
+  //@Min(1)
+  seatCount: number;
 }

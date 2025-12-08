@@ -10,6 +10,9 @@ import {
   Req,
   ForbiddenException,
   NotFoundException,
+  UploadedFile,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { RoomBanService } from './room-ban.service';
@@ -21,13 +24,11 @@ import { RtcService } from '../rtc/rtc.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RoomGateway } from 'src/gateway/room.gateway';
 import { KickService } from './kick.service';
+import { CreateRoomDto } from './dto/create-room.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { roomImageMulterConfig } from 'src/common/multer.config';
 
-class CreateRoomDto {
-  name: string;
-  provider?: Provider;
-}
-
-@Controller('rooms')
+@Controller('audio-room')
 export class RoomsController {
   constructor(
     private roomsService: RoomsService,
@@ -43,7 +44,7 @@ export class RoomsController {
   // ============================
 
   @UseGuards(JwtAuthGuard)
-  @Get()
+  @Get('/all')
   async listRooms() {
     const rooms = await this.roomsService.listRooms();
     return { success: true, rooms };
@@ -71,15 +72,44 @@ export class RoomsController {
     return { success: true, data: result };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Post()
-  async createRoom(@Body() dto: CreateRoomDto, @Request() req) {
-    const room = await this.roomsService.createRoom(
-      dto.name,
-      req.user.userId,
-      dto.provider || 'AGORA',
-    );
-    return { success: true, room };
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image', roomImageMulterConfig))
+  async createRoom(
+    @Req() req,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: CreateRoomDto,
+  ) {
+    const hostId = req.user.userId;
+
+    // Ensure tags always becomes array
+    const tags = Array.isArray(dto.tags)
+      ? dto.tags
+      : dto.tags
+        ? [dto.tags]
+        : [];
+
+    // STEP 1 → Create room first (without image)
+    const room = await this.roomsService.createRoom({
+      name: dto.name,
+      tags,
+      seatCount: Number(dto.seatCount),
+      imageUrl: null,
+      hostId,
+    });
+
+    // STEP 2 → If image uploaded → process it
+    if (file) {
+      const imageUrl = await this.roomsService.processRoomImage(room.id, file);
+      await this.roomsService.updateRoomImage(room.id, imageUrl);
+
+      room.imageUrl = imageUrl;
+    }
+
+    return {
+      message: 'Room created successfully',
+      room,
+    };
   }
 
   @UseGuards(JwtAuthGuard)
@@ -105,7 +135,6 @@ export class RoomsController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
   async joinRoom(@Param('id') id: string, @Request() req) {
-    
     const result = await this.roomsService.joinRoom(id, req.user.userId);
     return { success: true, data: result };
   }
@@ -122,30 +151,38 @@ export class RoomsController {
   // ============================
 
   @UseGuards(JwtAuthGuard)
-@Post(':id/seat/mode')
-async changeSeatMode(
-  @Param('id') roomId: string,
-  @Body() body: { seatIndex: number; mode: 'FREE' | 'REQUEST' | 'LOCKED' },
-  @Request() req,
-) {
-  const userId = req.user.userId;
-  const seats = await this.seatsService.changeSeatMode(roomId, userId, body.seatIndex, body.mode);
+  @Post(':id/seat/mode')
+  async changeSeatMode(
+    @Param('id') roomId: string,
+    @Body() body: { seatIndex: number; mode: 'FREE' | 'REQUEST' | 'LOCKED' },
+    @Request() req,
+  ) {
+    const userId = req.user.userId;
+    const seats = await this.seatsService.changeSeatMode(
+      roomId,
+      userId,
+      body.seatIndex,
+      body.mode,
+    );
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
-   return { ok: true, seats };
-}
+    return { ok: true, seats };
+  }
 
-@Post(':id/seat/take')
-@UseGuards(JwtAuthGuard)
-async takeSeat(
-  @Param('id') roomId: string,
-  @Body() dto: { seatIndex: number },
-  @Request() req,
-) {
-  const seats = await this.seatsService.takeSeat(roomId, dto.seatIndex, req.user.userId);
-  this.roomGateway.broadcastSeatUpdate(roomId, seats);
-   return { ok: true, seats };
-}
-
+  @Post(':id/seat/take')
+  @UseGuards(JwtAuthGuard)
+  async takeSeat(
+    @Param('id') roomId: string,
+    @Body() dto: { seatIndex: number },
+    @Request() req,
+  ) {
+    const seats = await this.seatsService.takeSeat(
+      roomId,
+      dto.seatIndex,
+      req.user.userId,
+    );
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    return { ok: true, seats };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/seat/request')
@@ -170,72 +207,112 @@ async takeSeat(
     return { success: true, request };
   }
 
-@UseGuards(JwtAuthGuard)
-@Post(':roomId/seat/approve')
-async approveSeat(
-  @Param('roomId') roomId: string,
-  @Body() dto: ApproveSeatDto,
-  @Request() req,
-) {
-  const hostId = req.user.userId;
+  @UseGuards(JwtAuthGuard)
+  @Post(':roomId/seat/approve')
+  async approveSeat(
+    @Param('roomId') roomId: string,
+    @Body() dto: ApproveSeatDto,
+    @Request() req,
+  ) {
+    const hostId = req.user.userId;
 
-  const room = await this.roomsService.getRoom(roomId);
-  if (!room) throw new NotFoundException("Room not found");
+    const room = await this.roomsService.getRoom(roomId);
+    if (!room) throw new NotFoundException('Room not found');
 
-  if (room.hostId !== hostId)
-    throw new ForbiddenException("Only host can approve or deny seats");
+    if (room.hostId !== hostId)
+      throw new ForbiddenException('Only host can approve or deny seats');
 
-  // Perform seat switch / approval
-  const result = await this.seatsService.approveSeatRequest(
-    dto.requestId,
-    hostId,
-    dto.accept,
-  );
+    // Perform seat switch / approval
+    const result = await this.seatsService.approveSeatRequest(
+      dto.requestId,
+      hostId,
+      dto.accept,
+    );
 
-  // Always reload seats
-  const seats = await this.seatsService['prisma'].seat.findMany({
-    where: { roomId },
-    orderBy: { index: 'asc' },
-  });
+    // Always reload seats
+    const seats = await this.seatsService['prisma'].seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+    });
 
-  // Emit update
-  try {
-    this.roomGateway.broadcastSeatUpdate(roomId, seats);
-  } catch (e) {
-    console.warn("⚠️ Failed to emit seat.update", e);
+    // Emit update
+    try {
+      this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    } catch (e) {
+      console.warn('⚠️ Failed to emit seat.update', e);
+    }
+
+    return { success: true, result, seats };
   }
 
-  return { success: true, result, seats };
-}
+  // MUTE SEAT (HOST)
+  @Post(':id/seat/:seatIndex/mute')
+  @UseGuards(JwtAuthGuard)
+  async muteSeat(
+    @Param('id') roomId: string,
+    @Param('seatIndex') seatIndex: number,
+    @Request() req,
+  ) {
+    this.roomGateway.server
+      .to(`room:${roomId}`)
+      .emit('seat.muted', { seatIndex, mute: true });
 
-
-@UseGuards(JwtAuthGuard)
-@Post(':id/seat/mute')
-async hostMuteSeat(
-  @Param('id') roomId: string,
-  @Body() dto: { seatIndex: number; mute: boolean },
-  @Request() req,
-) {
-  const room = await this.roomsService.getRoom(roomId);
-
-  if (room.hostId !== req.user.userId) {
-    throw new ForbiddenException('Only host can mute users');
+    return this.seatsService.muteSeatByHost(
+      roomId,
+      Number(seatIndex),
+      req.user.userId,
+    );
   }
 
-  const { seatIndex, mute } = dto;
+  // UNMUTE SEAT (HOST)
+  @Post(':id/seat/:seatIndex/unmute')
+  @UseGuards(JwtAuthGuard)
+  async unmuteSeat(
+    @Param('id') roomId: string,
+    @Param('seatIndex') seatIndex: number,
+    @Request() req,
+  ) {
+    this.roomGateway.server
+      .to(`room:${roomId}`)
+      .emit('seat.muted', { seatIndex, mute: true });
 
-  const result = await this.seatsService.hostMuteSeat(roomId, seatIndex, mute);
+    return this.seatsService.unmuteSeatByHost(
+      roomId,
+      Number(seatIndex),
+      req.user.userId,
+    );
+  }
 
-  // Broadcast to all clients
-  this.roomGateway.server.to(`room:${roomId}`).emit('seat.mute', {
-    seatIndex,
-    mute,
-    userId: result.userId,
-  });
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/seat/mute')
+  async hostMuteSeat(
+    @Param('id') roomId: string,
+    @Body() dto: { seatIndex: number; mute: boolean },
+    @Request() req,
+  ) {
+    const room = await this.roomsService.getRoom(roomId);
 
-  return { success: true };
-}
+    if (room.hostId !== req.user.userId) {
+      throw new ForbiddenException('Only host can mute users');
+    }
 
+    const { seatIndex, mute } = dto;
+
+    const result = await this.seatsService.hostMuteSeat(
+      roomId,
+      seatIndex,
+      mute,
+    );
+
+    // Broadcast to all clients
+    this.roomGateway.server.to(`room:${roomId}`).emit('seat.mute', {
+      seatIndex,
+      mute,
+      userId: result.userId,
+    });
+
+    return { success: true };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/seat/leave')
@@ -247,41 +324,39 @@ async hostMuteSeat(
   // ============================
   // BAN CONTROL (HOST ONLY)
   // ============================
-@Get(':id/kick/all')
-@UseGuards(JwtAuthGuard)
-async getKickList(@Param('id') roomId: string, @Request() req) {
-  const room = await this.roomsService.getRoom(roomId);
-  if (room.hostId !== req.user.userId)
-    throw new ForbiddenException('Only host can view kicked list');
+  @Get(':id/kick/all')
+  @UseGuards(JwtAuthGuard)
+  async getKickList(@Param('id') roomId: string, @Request() req) {
+    const room = await this.roomsService.getRoom(roomId);
+    if (room.hostId !== req.user.userId)
+      throw new ForbiddenException('Only host can view kicked list');
 
-  return this.kickService.getKickList(roomId);
-}
+    return this.kickService.getKickList(roomId);
+  }
 
   @Post(':id/kick')
-@UseGuards(JwtAuthGuard)
-async kickUser(
-  @Param('id') roomId: string,
-  @Body() dto: { userId: string },
-  @Request() req,
-) {
-  return this.kickService.kickUser(roomId, dto.userId, req.user.userId);
-}
+  @UseGuards(JwtAuthGuard)
+  async kickUser(
+    @Param('id') roomId: string,
+    @Body() dto: { userId: string },
+    @Request() req,
+  ) {
+    return this.kickService.kickUser(roomId, dto.userId, req.user.userId);
+  }
 
-@Delete(':id/unkick/:userId')
-@UseGuards(JwtAuthGuard)
-async unkickUser(
-  @Param('id') roomId: string,
-  @Param('userId') targetId: string,
-  @Request() req,
-) {
-  const room = await this.roomsService.getRoom(roomId);
-  if (room.hostId !== req.user.userId)
-    throw new ForbiddenException('Only host can unkick users');
+  @Delete(':id/unkick/:userId')
+  @UseGuards(JwtAuthGuard)
+  async unkickUser(
+    @Param('id') roomId: string,
+    @Param('userId') targetId: string,
+    @Request() req,
+  ) {
+    const room = await this.roomsService.getRoom(roomId);
+    if (room.hostId !== req.user.userId)
+      throw new ForbiddenException('Only host can unkick users');
 
-  return this.kickService.removeKick(roomId, targetId);
-}
-
-
+    return this.kickService.removeKick(roomId, targetId);
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/ban')

@@ -170,13 +170,13 @@ export class SeatsService {
     // Remove existing seat if user already has one
     await this.prisma.seat.updateMany({
       where: { roomId, userId },
-      data: { userId: null, micOn: false },
+      data: { userId: null},
     });
 
     // Assign new seat
     await this.prisma.seat.update({
       where: { id: seat.id },
-      data: { userId, micOn: false },
+      data: { userId },
     });
 
     const updatedSeats = await this.prisma.seat.findMany({
@@ -319,6 +319,50 @@ export class SeatsService {
     });
     return { ok: true };
   }
+
+
+  // --- mute a seat (host)
+async muteSeatByHost(roomId: string, seatIndex: number, hostId: string) {
+  const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId }});
+  if (!room) throw new NotFoundException('Room not found');
+  if (room.hostId !== hostId) throw new BadRequestException('Only host can mute seats');
+
+  const seat = await this.prisma.seat.findFirst({ where: { roomId, index: seatIndex }});
+  if (!seat) throw new NotFoundException('Seat not found');
+
+  await this.prisma.seat.update({
+    where: { id: seat.id },
+    data: { micOn: false }, // seat muted
+  });
+
+  const seats = await this.prisma.seat.findMany({ where: { roomId }, orderBy: { index: 'asc' }});
+
+  // broadcast updated seats
+ // this.roomGateway.broadcastSeatUpdate(roomId, seats);
+
+  return { ok: true, seats };
+}
+
+// --- unmute seat (host)
+async unmuteSeatByHost(roomId: string, seatIndex: number, hostId: string) {
+  const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId }});
+  if (!room) throw new NotFoundException('Room not found');
+  if (room.hostId !== hostId) throw new BadRequestException('Only host can unmute seats');
+
+  const seat = await this.prisma.seat.findFirst({ where: { roomId, index: seatIndex }});
+  if (!seat) throw new NotFoundException('Seat not found');
+
+  await this.prisma.seat.update({
+    where: { id: seat.id },
+    data: { micOn: true }, // seat unmuted (allowed)
+  });
+
+  const seats = await this.prisma.seat.findMany({ where: { roomId }, orderBy: { index: 'asc' }});
+
+  //this.roomGateway.broadcastSeatUpdate(roomId, seats);
+
+  return { ok: true, seats };
+}
 
   async hostMuteSeat(roomId: string, seatIndex: number, mute: boolean) {
   const seat = await this.prisma.seat.findFirst({
