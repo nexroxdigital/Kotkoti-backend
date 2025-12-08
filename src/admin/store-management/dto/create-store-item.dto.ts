@@ -25,4 +25,12 @@ export class CreateStoreItemDto {
   @IsOptional()
   @IsDateString()
   validity?: string; // Prisma will convert to Date automatically
+
+  @IsOptional()
+  @IsString()
+  swf?: string;
+
+  @IsOptional()
+  @IsInt()
+  swfTime?: number;
 }

@@ -318,6 +318,8 @@ model StoreItem {
   name        String
   price       Int
   icon        String
+  swf         String?
+  swftime     Int?
   type        String
   validity    DateTime?
   createdAt   DateTime      @default(now())
@@ -397,13 +399,13 @@ model RechargeLog {
 }
 
 model AudioRoom {
-  id     String @id @default(uuid())
-  name   String
-  hostId String
-  host   User   @relation("UserHostedRooms", fields: [hostId], references: [id])
-  tags      String[] @default([])
-  imageUrl  String?         
-  seatCount Int     @default(12) 
+  id           String             @id @default(uuid())
+  name         String
+  hostId       String
+  host         User               @relation("UserHostedRooms", fields: [hostId], references: [id])
+  tags         String[]           @default([])
+  imageUrl     String?
+  seatCount    Int                @default(12)
   isLive       Boolean            @default(true)
   createdAt    DateTime           @default(now())
   endedAt      DateTime?
@@ -663,6 +665,8 @@ model Svip {
   needPoint      Int
   expireDuration Int
   img            String?
+  swf            String?
+  swfTime        Int?
 
   // Relations
   powerPrivileges SvipPowerPrivilege[]
@@ -671,9 +675,12 @@ model Svip {
 }
 
 model SvipPowerPrivilege {
-  id        Int    @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   svipId    Int?
   powerName String
+  icon      String?
+  swf       String?
+  swftime   Int?
 
   // Relation
   svip Svip? @relation(fields: [svipId], references: [id], onDelete: Cascade)
@@ -682,8 +689,9 @@ model SvipPowerPrivilege {
 model SvipMediaPrivilege {
   id      Int     @id @default(autoincrement())
   svipId  Int
+  icon    String?
   swf     String?
-  swftime String?
+  swfTime Int?
 
   // Relation
   svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
