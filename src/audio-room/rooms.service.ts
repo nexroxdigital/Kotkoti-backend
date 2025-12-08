@@ -8,6 +8,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { RtcService } from '../rtc/rtc.service';
 import { Provider } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
+import { join } from 'path';
+import * as fs from 'fs';
+import sharp from 'sharp';
 
 @Injectable()
 export class RoomsService {
@@ -16,53 +19,100 @@ export class RoomsService {
     private rtc: RtcService,
   ) {}
 
-  async listRooms() {
-    return this.prisma.audioRoom.findMany({
-      where: { isLive: true },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        hostId: true,
-        provider: true,
-        isLive: true,
-        createdAt: true,
+async listRooms() {
+  return this.prisma.audioRoom.findMany({
+    where: { isLive: true },
+    orderBy: { createdAt: "desc" },
+
+    select: {
+      id: true,
+      name: true,
+      provider: true,
+      isLive: true,
+      createdAt: true,
+      tags: true,
+      imageUrl: true,
+
+      host: {
+        select: {
+          id: true,
+          nickName: true,
+          profilePicture: true,
+          email: true,
+        },
       },
-    });
-  }
+
+      // 👇 Add participant count
+      _count: {
+        select: {
+          participants: true,
+        },
+      },
+    },
+  });
+}
+
 
   async getRoomDetail(roomId: string) {
-    const room = await this.prisma.audioRoom.findUnique({
-      where: { id: roomId },
-      include: {
-        seats: { orderBy: { index: 'asc' } },
-        participants: {
-          where: { disconnectedAt: null },
-          select: {
-            id: true,
-            userId: true,
-            isHost: true,
-            rtcUid: true,
-            muted: true,
-            joinedAt: true,
-          },
-        },
-        bans: {
-          select: {
-            id: true,
-            userId: true,
-            bannedBy: true,
-            reason: true,
-            createdAt: true,
+  const room = await this.prisma.audioRoom.findUnique({
+    where: { id: roomId },
+    include: {
+      seats: { orderBy: { index: 'asc' } },
+
+      participants: {
+        where: { disconnectedAt: null },
+        select: {
+          id: true,
+          userId: true,
+          isHost: true,
+          rtcUid: true,
+          muted: true,
+          joinedAt: true,
+          user: {
+            select: {
+              id: true,
+              nickName: true,
+              profilePicture: true,
+              email: true,
+            },
           },
         },
       },
-    });
 
-    if (!room) throw new NotFoundException('Room not found');
+      host: {
+        select: {
+          id: true,
+          nickName: true,
+          profilePicture: true,
+          email: true,
+        },
+      },
 
-    return room;
-  }
+      bans: {
+        select: {
+          id: true,
+          userId: true,
+          bannedBy: true,
+          reason: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!room) throw new NotFoundException('Room not found');
+
+  // 👍 Manual count: Only participants with disconnectedAt = null
+  const participantCount = await this.prisma.roomParticipant.count({
+    where: { roomId, disconnectedAt: null },
+  });
+
+  return {
+    ...room,
+    participantCount,
+  };
+}
+
 
   async issuePublisherTokenForUser(roomId: string, userId: string) {
     const room = await this.prisma.audioRoom.findUnique({
@@ -126,37 +176,84 @@ export class RoomsService {
     });
   }
 
-  async createRoom(name: string, hostId: string, provider: Provider) {
-    const roomId = uuidv4();
+ // ---------------------------------------------------------
+  // CREATE ROOM
+  // ---------------------------------------------------------
+  async createRoom(data: {
+    name: string;
+    tags: string[];
+    seatCount: number;
+    imageUrl?: string | null;
+    hostId: string;
+  }) {
+    const seatCount = Math.max(1, Number(data.seatCount));
+
     const room = await this.prisma.audioRoom.create({
       data: {
-        id: roomId,
-        name,
-        hostId,
-        provider,
+        id: uuidv4(),
+        name: data.name,
+        tags: data.tags,
+        hostId: data.hostId,
+        imageUrl: data.imageUrl,
       },
     });
 
-    // Create seats (e.g., 12 seats)
-    const seatsData = Array.from({ length: 12 }).map((_, index) => ({
+    // Create seats
+    const seats = Array.from({ length: seatCount }).map((_, index) => ({
       id: uuidv4(),
-      roomId,
+      roomId: room.id,
       index,
     }));
 
-    await this.prisma.seat.createMany({ data: seatsData });
+    await this.prisma.seat.createMany({ data: seats });
 
-    // Add host as participant (optional)
+    // Add host as participant
     await this.prisma.roomParticipant.create({
       data: {
-        roomId,
-        userId: hostId,
+        roomId: room.id,
+        userId: data.hostId,
         isHost: true,
       },
     });
 
     return room;
   }
+
+  // ---------------------------------------------------------
+  // PROCESS IMAGE
+  // ---------------------------------------------------------
+  async processRoomImage(roomId: string, file: Express.Multer.File) {
+    const tempPath = file.path;
+
+    const outputDir = join(process.cwd(), "uploads/rooms");
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const finalFile = `${roomId}-${Date.now()}.webp`;
+    const finalPath = join(outputDir, finalFile);
+
+    // resize/convert to webp
+    await sharp(tempPath)
+      .resize(600, 600, { fit: "cover" })
+      .webp({ quality: 80 })
+      .toFile(finalPath);
+
+    fs.unlinkSync(tempPath);
+
+    return `/uploads/rooms/${finalFile}`;
+  }
+
+  // ---------------------------------------------------------
+  // UPDATE ROOM IMAGE
+  // ---------------------------------------------------------
+  async updateRoomImage(roomId: string, imageUrl: string) {
+    await this.prisma.audioRoom.update({
+      where: { id: roomId },
+      data: { imageUrl },
+    });
+  }
+
 
   async endRoom(roomId: string, hostId: string) {
     const room = await this.prisma.audioRoom.findUnique({
@@ -186,41 +283,45 @@ export class RoomsService {
   }
 
   async joinRoom(roomId: string, userId: string) {
-    // rooms.service.ts or controller
-
-    // Check ban
-    const ban = await this.prisma.audioRoomKick.findUnique({
+    // ===========================
+    // 1. CHECK 24-HOUR KICK BAN
+    // ===========================
+    const kick = await this.prisma.audioRoomKick.findUnique({
       where: { roomId_userId: { roomId, userId } },
     });
 
-    if (ban) {
-      if (ban.expiresAt > new Date()) {
+    if (kick) {
+      if (kick.expiresAt > new Date()) {
         const hours = Math.ceil(
-          (ban.expiresAt.getTime() - Date.now()) / 3600000,
+          (kick.expiresAt.getTime() - Date.now()) / 3600000,
         );
-        throw new ForbiddenException(`You are banned for ${hours} more hours`);
+        throw new ForbiddenException(
+          `You are banned from this room for ${hours} more hours`,
+        );
       }
 
-      // Remove expired ban
+      // Remove expired kick ban
       await this.prisma.audioRoomKick.delete({
         where: { roomId_userId: { roomId, userId } },
       });
     }
 
+    // ===========================
+    // 2. VERIFY ROOM STATUS
+    // ===========================
     const room = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
     });
-    if (!room || !room.isLive) throw new NotFoundException('Room not live');
 
-    const banned = await this.prisma.audioRoomBan.findUnique({
-      where: { roomId_userId: { roomId, userId } },
-    });
-    if (banned) throw new BadRequestException('You are banned from this room');
+    if (!room || !room.isLive) {
+      throw new NotFoundException('Room not live');
+    }
 
+    // ===========================
+    // 3. UPSERT PARTICIPANT
+    // ===========================
     await this.prisma.roomParticipant.upsert({
-      where: {
-        roomId_userId: { roomId, userId },
-      },
+      where: { roomId_userId: { roomId, userId } },
       create: {
         roomId,
         userId,
@@ -233,21 +334,26 @@ export class RoomsService {
       },
     });
 
+    // ===========================
+    // 4. ISSUE SUBSCRIBER TOKEN
+    // ===========================
     const tokenInfo = await this.rtc.issueToken(
       room.provider,
       roomId,
-      'subscriber', // audience
+      'subscriber',
     );
 
+    // ===========================
+    // 5. SAVE RTC UID
+    // ===========================
     await this.prisma.roomParticipant.update({
-      where: {
-        roomId_userId: { roomId, userId },
-      },
-      data: {
-        rtcUid: String(tokenInfo.uid),
-      },
+      where: { roomId_userId: { roomId, userId } },
+      data: { rtcUid: String(tokenInfo.uid) },
     });
 
+    // ===========================
+    // 6. RETURN ROOM INFO
+    // ===========================
     return { room, token: tokenInfo };
   }
 

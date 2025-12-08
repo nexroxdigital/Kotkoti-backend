@@ -8,8 +8,10 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+
 import { ParticipantsService } from '../participants/participants.service';
-import { SeatsService } from 'src/seats/seats.service';
+import { SeatsService } from '../seats/seats.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/' })
 export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -19,58 +21,94 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private participantsService: ParticipantsService,
     private seatsService: SeatsService,
+    private prisma: PrismaService,
   ) {
     console.log('✅ RoomGateway initialized');
   }
 
   // =====================================================
-  // 🔌 CONNECTION HANDLERS
+  // 🔌 CONNECTION (JOIN SOCKET)
   // =====================================================
-
   async handleConnection(client: Socket) {
-    const { userId } = client.handshake.query;
-    if (userId) {
-      client.join(`user:${userId}`);
+    const { userId, roomId } = client.handshake.query as any;
+
+    console.log('🔌 Socket connected:', client.id, userId, roomId);
+
+    if (!userId || !roomId) return;
+
+    // -----------------------------------------------------
+    // 🔥 24-HOUR BAN ENFORCEMENT
+    // -----------------------------------------------------
+    const kick = await this.prisma.audioRoomKick.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+
+    if (kick && kick.expiresAt > new Date()) {
+      console.log('⛔ Blocked banned user:', userId);
+
+      // Notify front-end
+      client.emit('user.kicked', { userId });
+
+      // Disconnect immediately
+      client.disconnect(true);
+      return;
     }
-    console.log('🔌 Socket connected:', client.id);
+
+    // If ban expired, auto cleanup
+    if (kick && kick.expiresAt <= new Date()) {
+      await this.prisma.audioRoomKick.delete({
+        where: { roomId_userId: { roomId, userId } },
+      });
+    }
+
+    // -----------------------------------------------------
+    // NORMAL CONNECTION
+    // -----------------------------------------------------
+    client.join(`user:${userId}`);
+    client.join(`room:${roomId}`);
   }
 
-async handleDisconnect(client: Socket) {
-  const { userId, roomId } = client.handshake.query as any;
+  // =====================================================
+  // 🔌 DISCONNECT CLEANUP
+  // =====================================================
+  async handleDisconnect(client: Socket) {
+    const { userId, roomId } = client.handshake.query as any;
 
-  console.log('❌ Socket disconnected:', client.id, userId, roomId);
+    console.log('❌ Socket disconnected:', client.id, userId, roomId);
 
-  if (!userId || !roomId) return;
+    if (!userId || !roomId) return;
 
-  // ✅ remove from seat
-  const result = await this.seatsService.leaveSeatSilent(roomId, userId);
+    // Remove from seat
+    const res = await this.seatsService.leaveSeatSilent(roomId, userId);
 
-  // ✅ remove from participants
-  await this.participantsService.remove(roomId, userId);
+    // Remove from participants table
+    await this.participantsService.remove(roomId, userId);
 
-  // ✅ broadcast updates
-  if (result?.seats) {
-    this.server.to(`room:${roomId}`).emit('seat.update', { seats: result.seats });
+    // Update seats
+    if (res?.seats) {
+      this.server.to(`room:${roomId}`).emit('seat.update', {
+        seats: res.seats,
+      });
+    }
+
+    // Update participants
+    const participants = await this.participantsService.getActive(roomId);
+    this.server.to(`room:${roomId}`).emit('room.leave', {
+      userId,
+      participants,
+    });
   }
 
-  const participants = await this.participantsService.getActive(roomId);
-  this.server.to(`room:${roomId}`).emit('room.leave', {
-    userId,
-    participants,
-  });
-}
-
-
+  // Helper
   private async userHasSeat(roomId: string, userId: string) {
-    return !!(await this.seatsService['prisma'].seat.findFirst({
+    return !!(await this.prisma.seat.findFirst({
       where: { roomId, userId },
     }));
   }
 
   // =====================================================
-  // ROOM JOIN / LEAVE (PRESENCE)
+  // ROOM JOIN / LEAVE MESSAGES
   // =====================================================
-
   @SubscribeMessage('room.join')
   async onRoomJoin(
     @MessageBody() payload: { roomId: string; userId: string },
@@ -80,8 +118,6 @@ async handleDisconnect(client: Socket) {
 
     client.join(`room:${roomId}`);
     client.join(`user:${userId}`);
-
-    console.log('ROOM JOIN:', roomId, userId);
 
     const participants = await this.participantsService.getActive(roomId);
 
@@ -99,8 +135,8 @@ async handleDisconnect(client: Socket) {
     const { roomId, userId } = payload;
 
     client.leave(`room:${roomId}`);
-
     await this.participantsService.remove(roomId, userId);
+
     const participants = await this.participantsService.getActive(roomId);
 
     this.server.to(`room:${roomId}`).emit('room.leave', {
@@ -110,48 +146,51 @@ async handleDisconnect(client: Socket) {
   }
 
   // =====================================================
-  // MIC STATUS (UI STATE ONLY)
+  // MIC STATUS
   // =====================================================
-
+  
   @SubscribeMessage('user.micOn')
   async onMicOn(@MessageBody() payload: { roomId: string; userId: string }) {
     const allowed = await this.userHasSeat(payload.roomId, payload.userId);
-    if (!allowed) {
-      console.log('micOn blocked, user has no seat', payload);
-      return;
-    }
+    if (!allowed) return;
+
     this.server.to(`room:${payload.roomId}`).emit('user.micOn', payload);
   }
 
   @SubscribeMessage('user.micOff')
   async onMicOff(@MessageBody() payload: { roomId: string; userId: string }) {
     const allowed = await this.userHasSeat(payload.roomId, payload.userId);
-    if (!allowed) {
-      console.log('micOff blocked, user has no seat', payload);
-      return;
-    }
+    if (!allowed) return;
+
     this.server.to(`room:${payload.roomId}`).emit('user.micOff', payload);
   }
 
   // =====================================================
-  // SERVER-ONLY EMITS (CONTROLLER CALLS THESE)
+  // SERVER-ONLY EMITS (CONTROLLER → WS)
   // =====================================================
-
-  // Emit seat request to host after DB commit
-  emitSeatRequest(roomId: string, request: any) {
-    this.emitToHost(roomId, 'seat.request', { request });
-  }
-
-  // Broadcast updated seats after approve/deny/leave/kick
   broadcastSeatUpdate(roomId: string, seats: any[]) {
     this.server.to(`room:${roomId}`).emit('seat.update', { seats });
   }
 
-  // Host-only room
+  emitSeatRequest(roomId: string, request: any) {
+    this.emitToHost(roomId, 'seat.request', { request });
+  }
+
   async emitToHost(roomId: string, event: string, payload: any) {
     const room = await this.participantsService.getRoomWithHost(roomId);
     if (!room) return;
 
     this.server.to(`user:${room.hostId}`).emit(event, payload);
+  }
+
+  emitSeatMute(roomId: string, seatIndex: number, mute: boolean) {
+    this.server.to(`room:${roomId}`).emit('seat.muted', { seatIndex, mute });
+  }
+
+  // =====================================================
+  // KICK EVENT EMIT
+  // =====================================================
+  emitUserKicked(roomId: string, userId: string) {
+    this.server.to(`room:${roomId}`).emit('user.kicked', { userId });
   }
 }
