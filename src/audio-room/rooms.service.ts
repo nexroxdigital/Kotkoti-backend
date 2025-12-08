@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
 import * as fs from 'fs';
 import sharp from 'sharp';
+import { UpdateRoomDto } from './dto/UpdateRoomDto';
 
 @Injectable()
 export class RoomsService {
@@ -18,103 +19,156 @@ export class RoomsService {
     private prisma: PrismaService,
     private rtc: RtcService,
   ) {}
+  // Dynamically adjust seat count (increase / decrease seats)
+  private async adjustSeatCount(roomId: string, newCount: number) {
+    const currentSeats = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+    });
 
-async listRooms() {
-  return this.prisma.audioRoom.findMany({
-    where: { isLive: true },
-    orderBy: { createdAt: "desc" },
+    const currentCount = currentSeats.length;
 
-    select: {
-      id: true,
-      name: true,
-      provider: true,
-      isLive: true,
-      createdAt: true,
-      tags: true,
-      imageUrl: true,
+    // === If same seat count, nothing to change ===
+    if (currentCount === newCount) return;
 
-      host: {
-        select: {
-          id: true,
-          nickName: true,
-          profilePicture: true,
-          email: true,
+    // === If new seat count is greater → ADD new seats ===
+    if (newCount > currentCount) {
+      const seatsToAdd = newCount - currentCount;
+      const newSeats = Array.from({ length: seatsToAdd }).map((_, i) => ({
+        roomId,
+        index: currentCount + i,
+      }));
+
+      await this.prisma.seat.createMany({ data: newSeats });
+      return;
+    }
+
+    // === If new seat count is smaller → REMOVE extra seats ===
+    // Only remove seats that are EMPTY. If occupied, throw error.
+    const seatsToRemove = currentSeats.slice(newCount); // seats beyond newCount
+
+    const occupied = seatsToRemove.some((s) => s.userId !== null);
+    if (occupied) {
+      throw new Error('Cannot reduce seat count: some seats are occupied');
+    }
+
+    await this.prisma.seat.deleteMany({
+      where: { id: { in: seatsToRemove.map((s) => s.id) } },
+    });
+  }
+
+  async listRooms() {
+    return this.prisma.audioRoom.findMany({
+      where: { isLive: true },
+      orderBy: { createdAt: 'desc' },
+
+      select: {
+        id: true,
+        name: true,
+        provider: true,
+        isLive: true,
+        createdAt: true,
+        tags: true,
+        imageUrl: true,
+
+        host: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            email: true,
+            country: true,
+            dob: true,
+          },
         },
-      },
 
-      // 👇 Add participant count
-      _count: {
-        select: {
-          participants: true,
-        },
-      },
-    },
-  });
-}
-
-
-  async getRoomDetail(roomId: string) {
-  const room = await this.prisma.audioRoom.findUnique({
-    where: { id: roomId },
-    include: {
-      seats: { orderBy: { index: 'asc' } },
-
-      participants: {
-        where: { disconnectedAt: null },
-        select: {
-          id: true,
-          userId: true,
-          isHost: true,
-          rtcUid: true,
-          muted: true,
-          joinedAt: true,
-          user: {
-            select: {
-              id: true,
-              nickName: true,
-              profilePicture: true,
-              email: true,
-            },
+        // 👇 Add participant count
+        _count: {
+          select: {
+            participants: true,
           },
         },
       },
+    });
+  }
 
-      host: {
-        select: {
-          id: true,
-          nickName: true,
-          profilePicture: true,
-          email: true,
+  async getRoomDetail(roomId: string) {
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+      include: {
+        seats: {
+          orderBy: { index: 'asc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                email: true,
+                country: true,
+                dob: true,
+              },
+            },
+          },
+        },
+
+        participants: {
+          where: { disconnectedAt: null },
+          select: {
+            id: true,
+            userId: true,
+            isHost: true,
+            rtcUid: true,
+            muted: true,
+            joinedAt: true,
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                email: true,
+                country: true,
+                dob: true,
+              },
+            },
+          },
+        },
+
+        host: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            email: true,
+          },
+        },
+
+        bans: {
+          select: {
+            id: true,
+            userId: true,
+            bannedBy: true,
+            reason: true,
+            createdAt: true,
+          },
         },
       },
+    });
 
-      bans: {
-        select: {
-          id: true,
-          userId: true,
-          bannedBy: true,
-          reason: true,
-          createdAt: true,
-        },
+    if (!room) throw new NotFoundException('Room not found');
+
+    // 👍 Manual count: Only participants with disconnectedAt = null
+    const participantCount = await this.prisma.roomParticipant.count({
+      where: { roomId, disconnectedAt: null },
+    });
+
+    return {
+      ...room,
+      _count: {
+        participantCount,
       },
-    },
-  });
-
-  if (!room) throw new NotFoundException('Room not found');
-
-  // 👍 Manual count: Only participants with disconnectedAt = null
-  const participantCount = await this.prisma.roomParticipant.count({
-    where: { roomId, disconnectedAt: null },
-  });
-
-  return {
-    ...room,
-    _count: {
-      participantCount
-    },
-  };
-}
-
+    };
+  }
 
   async issuePublisherTokenForUser(roomId: string, userId: string) {
     const room = await this.prisma.audioRoom.findUnique({
@@ -178,7 +232,7 @@ async listRooms() {
     });
   }
 
- // ---------------------------------------------------------
+  // ---------------------------------------------------------
   // CREATE ROOM
   // ---------------------------------------------------------
   async createRoom(data: {
@@ -188,6 +242,14 @@ async listRooms() {
     imageUrl?: string | null;
     hostId: string;
   }) {
+    // 🚫 Prevent creating more than one room
+    const exists = await this.prisma.audioRoom.findFirst({
+      where: { hostId: data.hostId, isLive: true },
+    });
+
+    if (exists) {
+      throw new BadRequestException('You already have a live audio room');
+    }
     const seatCount = Math.max(1, Number(data.seatCount));
 
     const room = await this.prisma.audioRoom.create({
@@ -227,7 +289,7 @@ async listRooms() {
   async processRoomImage(roomId: string, file: Express.Multer.File) {
     const tempPath = file.path;
 
-    const outputDir = join(process.cwd(), "uploads/rooms");
+    const outputDir = join(process.cwd(), 'uploads/rooms');
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
@@ -237,7 +299,7 @@ async listRooms() {
 
     // resize/convert to webp
     await sharp(tempPath)
-      .resize(600, 600, { fit: "cover" })
+      .resize(600, 600, { fit: 'cover' })
       .webp({ quality: 80 })
       .toFile(finalPath);
 
@@ -256,6 +318,45 @@ async listRooms() {
     });
   }
 
+  async updateRoom(
+    roomId: string,
+    userId: string,
+    dto: UpdateRoomDto,
+    file?: Express.Multer.File,
+  ) {
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+
+    if (room.hostId !== userId) {
+      throw new ForbiddenException('Only host can edit the room');
+    }
+
+    let imageUrl = room.imageUrl;
+
+    if (file) {
+      imageUrl = await this.processRoomImage(roomId, file);
+    }
+
+    // 🚀 Update core room data
+    const updated = await this.prisma.audioRoom.update({
+      where: { id: roomId },
+      data: {
+        name: dto.name ?? room.name,
+        tags: dto.tags ?? room.tags,
+        seatCount: dto.seatCount ?? room.seatCount,
+        imageUrl,
+      },
+    });
+
+    // 🚨 If seatCount changed → adjust seat rows
+    if (dto.seatCount && dto.seatCount !== room.seatCount) {
+      await this.adjustSeatCount(roomId, dto.seatCount);
+    }
+
+    return updated;
+  }
 
   async endRoom(roomId: string, hostId: string) {
     const room = await this.prisma.audioRoom.findUnique({
@@ -281,6 +382,71 @@ async listRooms() {
       include: { seats: true, participants: true },
     });
     if (!room) throw new NotFoundException('Room not found');
+    return room;
+  }
+
+  async getRoomByHost(hostId: string) {
+    const room = await this.prisma.audioRoom.findFirst({
+      where: { hostId, isLive: true },
+      include: {
+        host: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            email: true,
+            dob: true,
+            country: true,
+          },
+        },
+        seats: {
+          orderBy: { index: 'asc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                dob: true,
+                country: true,
+              },
+            },
+          },
+        },
+        participants: {
+          where: { disconnectedAt: null },
+          select: {
+            id: true,
+            userId: true,
+            isHost: true,
+            rtcUid: true,
+            muted: true,
+            joinedAt: true,
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                dob: true,
+                country: true,
+              },
+            },
+          },
+        },
+        _count: {
+          select: {
+            participants: {
+              where: { disconnectedAt: null },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room) {
+      throw new NotFoundException("You don't have an active room");
+    }
+
     return room;
   }
 
