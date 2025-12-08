@@ -13,6 +13,7 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  Patch,
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { RoomBanService } from './room-ban.service';
@@ -27,6 +28,7 @@ import { KickService } from './kick.service';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { roomImageMulterConfig } from 'src/common/multer.config';
+import { UpdateRoomDto } from './dto/UpdateRoomDto';
 
 @Controller('audio-room')
 export class RoomsController {
@@ -51,9 +53,18 @@ export class RoomsController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':id')
+  @Get(':id/details')
   async getRoomDetail(@Param('id') id: string) {
     const room = await this.roomsService.getRoomDetail(id);
+    return { success: true, room };
+  }
+  @Get('/my')
+  @UseGuards(JwtAuthGuard)
+  async getMyRoom(@Req() req) {
+    const hostId = req.user.userId;
+
+    const room = await this.roomsService.getRoomByHost(hostId);
+
     return { success: true, room };
   }
 
@@ -124,6 +135,23 @@ export class RoomsController {
     const result = await this.roomsService.endRoom(id, req.user.userId);
     return { success: true, data: result };
   }
+
+  @Patch(':id/update')
+@UseGuards(JwtAuthGuard)
+@UseInterceptors(FileInterceptor('image', roomImageMulterConfig))
+async updateRoom(
+  @Param('id') roomId: string,
+  @Req() req,
+  @UploadedFile() file: Express.Multer.File,
+  @Body() dto: UpdateRoomDto
+) {
+  const userId = req.user.userId;
+
+  const updated = await this.roomsService.updateRoom(roomId, userId, dto, file);
+
+  return { success: true, room: updated };
+}
+
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/rtc/publisher')
@@ -233,6 +261,15 @@ export class RoomsController {
     const seats = await this.seatsService['prisma'].seat.findMany({
       where: { roomId },
       orderBy: { index: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
     });
 
     // Emit update
@@ -253,15 +290,13 @@ export class RoomsController {
     @Param('seatIndex') seatIndex: number,
     @Request() req,
   ) {
-    this.roomGateway.server
-      .to(`room:${roomId}`)
-      .emit('seat.muted', { seatIndex, mute: true });
-
-    return this.seatsService.muteSeatByHost(
+    const seats = await this.seatsService.muteSeatByHost(
       roomId,
       Number(seatIndex),
       req.user.userId,
     );
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    return { ok: true, seats };
   }
 
   // UNMUTE SEAT (HOST)
@@ -272,15 +307,13 @@ export class RoomsController {
     @Param('seatIndex') seatIndex: number,
     @Request() req,
   ) {
-    this.roomGateway.server
-      .to(`room:${roomId}`)
-      .emit('seat.muted', { seatIndex, mute: true });
-
-    return this.seatsService.unmuteSeatByHost(
+    const seats = await this.seatsService.unmuteSeatByHost(
       roomId,
       Number(seatIndex),
       req.user.userId,
     );
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    return { ok: true, seats };
   }
 
   @UseGuards(JwtAuthGuard)
