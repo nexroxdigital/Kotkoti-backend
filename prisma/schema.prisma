@@ -687,11 +687,12 @@ model SvipPowerPrivilege {
 }
 
 model SvipMediaPrivilege {
-  id      Int     @id @default(autoincrement())
-  svipId  Int
-  icon    String?
-  swf     String?
-  swfTime Int?
+  id            Int     @id @default(autoincrement())
+  svipId        Int
+  privilegeName String?
+  icon          String?
+  swf           String?
+  swfTime       Int?
 
   // Relation
   svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)

@@ -111,8 +111,19 @@ export const svipMulterConfig = {
   storage: diskStorage({
     destination: './uploads/svip',
     filename: (req, file, cb) => {
-      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extname(file.originalname)}`;
-      cb(null, unique);
+      const original = file.originalname
+        .replace(/\s+/g, '-') // replace spaces
+        .replace(/[^a-zA-Z0-9.-]/g, '') // remove unsafe chars
+        .toLowerCase();
+
+      const nameWithoutExt = original.replace(extname(original), '');
+      const extension = extname(original);
+
+      const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+
+      const finalName = `${nameWithoutExt}-${unique}${extension}`;
+
+      cb(null, finalName);
     },
   }),
 
@@ -125,9 +136,16 @@ export const svipMulterConfig = {
       'image/webp',
       'image/jpg',
       'image/svga',
+      'application/octet-stream',
     ];
-    if (!allowed.includes(file.mimetype)) {
-      return cb(new BadRequestException('Only JPG/PNG/WEBP allowed'), false);
+    if (
+      !allowed.includes(file.mimetype) &&
+      !file.originalname.toLowerCase().endsWith('.svga')
+    ) {
+      return cb(
+        new BadRequestException('Only JPG/PNG/WEBP/SVGA allowed'),
+        false,
+      );
     }
     cb(null, true);
   },
@@ -170,8 +188,6 @@ export const svipMulterConfig = {
 //     cb(null, true);
 //   },
 // };
-
-
 
 export const roomImageMulterConfig = {
   storage: diskStorage({

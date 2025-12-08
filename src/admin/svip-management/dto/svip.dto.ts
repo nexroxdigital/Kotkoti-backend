@@ -78,6 +78,10 @@ export class AddPowerPrivilegeDto {
 export class AddMediaPrivilegeDto {
   @IsOptional()
   @IsString()
+  privilegeName?: string;
+
+  @IsOptional()
+  @IsString()
   icon?: string;
 
   @IsOptional()
