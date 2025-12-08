@@ -109,7 +109,9 @@ async listRooms() {
 
   return {
     ...room,
-    participantCount,
+    _count: {
+      participantCount
+    },
   };
 }
 
