@@ -81,7 +81,7 @@ export class SvipManagementService {
       data: {
         svipId,
         swf: dto.swf,
-        swftime: dto.swftime,
+        swfTime: dto.swfTime,
       },
     });
   }
