@@ -13,7 +13,8 @@ async function bootstrap() {
 app.useGlobalPipes(new ValidationPipe());
 
 app.enableCors({
-  origin: ['http://localhost:3000', 'http://192.168.0.102:3000', 'https://audio-room-frontend.vercel.app'],
+ /*  origin: ['http://localhost:3000', 'http://192.168.0.102:3000', 'https://audio-room-frontend.vercel.app'] */
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
