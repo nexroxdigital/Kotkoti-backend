@@ -73,12 +73,15 @@ export class RoomsService {
 
         host: {
           select: {
-            id: true,
-            nickName: true,
-            profilePicture: true,
-            email: true,
-            country: true,
-            dob: true,
+         id: true,
+        nickName: true,
+        profilePicture: true,
+        gender:true,
+        email: true,
+        dob:true,
+        country:true,
+        charmLevel:true,
+        charmLevelId:true,
           },
         },
 
@@ -391,12 +394,15 @@ export class RoomsService {
       include: {
         host: {
           select: {
-            id: true,
-            nickName: true,
-            profilePicture: true,
-            email: true,
-            dob: true,
-            country: true,
+      id: true,
+        nickName: true,
+        profilePicture: true,
+        gender:true,
+        email: true,
+        dob:true,
+        country:true,
+        charmLevel:true,
+        charmLevelId:true,
           },
         },
         seats: {
@@ -404,11 +410,15 @@ export class RoomsService {
           include: {
             user: {
               select: {
-                id: true,
-                nickName: true,
-                profilePicture: true,
-                dob: true,
-                country: true,
+      id: true,
+        nickName: true,
+        profilePicture: true,
+        gender:true,
+        email: true,
+        dob:true,
+        country:true,
+        charmLevel:true,
+        charmLevelId:true,
               },
             },
           },
@@ -424,11 +434,15 @@ export class RoomsService {
             joinedAt: true,
             user: {
               select: {
-                id: true,
-                nickName: true,
-                profilePicture: true,
-                dob: true,
-                country: true,
+                 id: true,
+        nickName: true,
+        profilePicture: true,
+        gender:true,
+        email: true,
+        dob:true,
+        country:true,
+        charmLevel:true,
+        charmLevelId:true,
               },
             },
           },
@@ -477,9 +491,25 @@ export class RoomsService {
     // ===========================
     // 2. VERIFY ROOM STATUS
     // ===========================
-    const room = await this.prisma.audioRoom.findUnique({
-      where: { id: roomId },
-    });
+ const room = await this.prisma.audioRoom.findUnique({
+  where: { id: roomId },
+  include: {
+    host: {
+      select: {
+        id: true,
+        nickName: true,
+        profilePicture: true,
+        gender:true,
+        email: true,
+        dob:true,
+        country:true,
+        charmLevel:true,
+        charmLevelId:true,
+      },
+    },
+  },
+});
+
 
     if (!room || !room.isLive) {
       throw new NotFoundException('Room not live');
