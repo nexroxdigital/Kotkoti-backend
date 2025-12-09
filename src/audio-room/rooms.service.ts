@@ -73,22 +73,52 @@ export class RoomsService {
 
         host: {
           select: {
-         id: true,
-        nickName: true,
-        profilePicture: true,
-        gender:true,
-        email: true,
-        dob:true,
-        country:true,
-        charmLevel:true,
-        charmLevelId:true,
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            gender: true,
+            email: true,
+            dob: true,
+            country: true,
+            charmLevel: true,
+            charmLevelId: true,
           },
         },
 
-        // 👇 Add participant count
+        seats: {
+          where: { userId: { not: null } },
+          orderBy: { index: 'asc' },
+          select: {
+            // ... seat fields
+            index: true,
+            userId: true,
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                gender: true,
+                email: true,
+                dob: true,
+                country: true,
+                charmLevel: true,
+                charmLevelId: true,
+              },
+            },
+          },
+        },
+
         _count: {
           select: {
-            participants: true,
+            // 1. Count Active Participants
+            participants: {
+              where: { disconnectedAt: null },
+            },
+
+            // 2. Count Occupied Seats (MUST BE ADDED HERE)
+            seats: {
+              where: { userId: { not: null } },
+            },
           },
         },
       },
@@ -107,9 +137,12 @@ export class RoomsService {
                 id: true,
                 nickName: true,
                 profilePicture: true,
+                gender: true,
                 email: true,
-                country: true,
                 dob: true,
+                country: true,
+                charmLevel: true,
+                charmLevelId: true,
               },
             },
           },
@@ -129,9 +162,12 @@ export class RoomsService {
                 id: true,
                 nickName: true,
                 profilePicture: true,
+                gender: true,
                 email: true,
-                country: true,
                 dob: true,
+                country: true,
+                charmLevel: true,
+                charmLevelId: true,
               },
             },
           },
@@ -142,7 +178,12 @@ export class RoomsService {
             id: true,
             nickName: true,
             profilePicture: true,
+            gender: true,
             email: true,
+            dob: true,
+            country: true,
+            charmLevel: true,
+            charmLevelId: true,
           },
         },
 
@@ -155,22 +196,26 @@ export class RoomsService {
             createdAt: true,
           },
         },
+
+        _count: {
+          select: {
+            // Count Active Participants
+            participants: {
+              where: { disconnectedAt: null },
+            },
+
+            // Count Occupied Seats (MUST BE ADDED HERE)
+            seats: {
+              where: { userId: { not: null } },
+            },
+          },
+        },
       },
     });
 
     if (!room) throw new NotFoundException('Room not found');
 
-    // 👍 Manual count: Only participants with disconnectedAt = null
-    const participantCount = await this.prisma.roomParticipant.count({
-      where: { roomId, disconnectedAt: null },
-    });
-
-    return {
-      ...room,
-      _count: {
-        participantCount,
-      },
-    };
+    return room;
   }
 
   async issuePublisherTokenForUser(roomId: string, userId: string) {
@@ -245,7 +290,7 @@ export class RoomsService {
     imageUrl?: string | null;
     hostId: string;
   }) {
-    // 🚫 Prevent creating more than one room
+    // Prevent creating more than one room
     const exists = await this.prisma.audioRoom.findFirst({
       where: { hostId: data.hostId, isLive: true },
     });
@@ -342,7 +387,7 @@ export class RoomsService {
       imageUrl = await this.processRoomImage(roomId, file);
     }
 
-    // 🚀 Update core room data
+    // Update core room data
     const updated = await this.prisma.audioRoom.update({
       where: { id: roomId },
       data: {
@@ -353,7 +398,7 @@ export class RoomsService {
       },
     });
 
-    // 🚨 If seatCount changed → adjust seat rows
+    // If seatCount changed → adjust seat rows
     if (dto.seatCount && dto.seatCount !== room.seatCount) {
       await this.adjustSeatCount(roomId, dto.seatCount);
     }
@@ -394,15 +439,15 @@ export class RoomsService {
       include: {
         host: {
           select: {
-      id: true,
-        nickName: true,
-        profilePicture: true,
-        gender:true,
-        email: true,
-        dob:true,
-        country:true,
-        charmLevel:true,
-        charmLevelId:true,
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            gender: true,
+            email: true,
+            dob: true,
+            country: true,
+            charmLevel: true,
+            charmLevelId: true,
           },
         },
         seats: {
@@ -410,15 +455,15 @@ export class RoomsService {
           include: {
             user: {
               select: {
-      id: true,
-        nickName: true,
-        profilePicture: true,
-        gender:true,
-        email: true,
-        dob:true,
-        country:true,
-        charmLevel:true,
-        charmLevelId:true,
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                gender: true,
+                email: true,
+                dob: true,
+                country: true,
+                charmLevel: true,
+                charmLevelId: true,
               },
             },
           },
@@ -434,23 +479,29 @@ export class RoomsService {
             joinedAt: true,
             user: {
               select: {
-                 id: true,
-        nickName: true,
-        profilePicture: true,
-        gender:true,
-        email: true,
-        dob:true,
-        country:true,
-        charmLevel:true,
-        charmLevelId:true,
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                gender: true,
+                email: true,
+                dob: true,
+                country: true,
+                charmLevel: true,
+                charmLevelId: true,
               },
             },
           },
         },
         _count: {
           select: {
+            // Count Active Participants
             participants: {
               where: { disconnectedAt: null },
+            },
+
+            // Count Occupied Seats (MUST BE ADDED HERE)
+            seats: {
+              where: { userId: { not: null } },
             },
           },
         },
@@ -491,25 +542,24 @@ export class RoomsService {
     // ===========================
     // 2. VERIFY ROOM STATUS
     // ===========================
- const room = await this.prisma.audioRoom.findUnique({
-  where: { id: roomId },
-  include: {
-    host: {
-      select: {
-        id: true,
-        nickName: true,
-        profilePicture: true,
-        gender:true,
-        email: true,
-        dob:true,
-        country:true,
-        charmLevel:true,
-        charmLevelId:true,
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+      include: {
+        host: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            gender: true,
+            email: true,
+            dob: true,
+            country: true,
+            charmLevel: true,
+            charmLevelId: true,
+          },
+        },
       },
-    },
-  },
-});
-
+    });
 
     if (!room || !room.isLive) {
       throw new NotFoundException('Room not live');
