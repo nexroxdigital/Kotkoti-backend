@@ -137,21 +137,37 @@ export class RoomsController {
   }
 
   @Patch(':id/update')
-@UseGuards(JwtAuthGuard)
-@UseInterceptors(FileInterceptor('image', roomImageMulterConfig))
-async updateRoom(
-  @Param('id') roomId: string,
-  @Req() req,
-  @UploadedFile() file: Express.Multer.File,
-  @Body() dto: UpdateRoomDto
-) {
-  const userId = req.user.userId;
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('image', roomImageMulterConfig))
+  async updateRoom(
+    @Param('id') roomId: string,
+    @Req() req,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UpdateRoomDto,
+  ) {
+    const userId = req.user.userId;
 
-  const updated = await this.roomsService.updateRoom(roomId, userId, dto, file);
+    const normalizedDto = {
+      name: dto.name,
+      // tags can be string | string[]
+      tags: Array.isArray(dto.tags) ? dto.tags : dto.tags ? [dto.tags] : [],
 
-  return { success: true, room: updated };
-}
+      // FIX: convert seatCount to number if sent as string
+      seatCount:
+        dto.seatCount !== undefined && dto.seatCount !== null
+          ? Number(dto.seatCount)
+          : undefined,
+    };
 
+    const updated = await this.roomsService.updateRoom(
+      roomId,
+      userId,
+      normalizedDto,
+      file,
+    );
+
+    return { success: true, room: updated };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/rtc/publisher')
@@ -194,6 +210,27 @@ async updateRoom(
     );
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
     return { ok: true, seats };
+  }
+
+  @Patch(':id/seat-count')
+  @UseGuards(JwtAuthGuard)
+  async changeSeatCount(
+    @Param('id') roomId: string,
+    @Body() dto: { seatCount: number },
+    @Req() req,
+  ) {
+    const userId = req.user.userId;
+
+    const seats = await this.seatsService.changeSeatCount(
+      roomId,
+      userId,
+      dto.seatCount,
+    );
+
+    // push to all clients
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+
+    return { success: true, seats };
   }
 
   @Post(':id/seat/take')

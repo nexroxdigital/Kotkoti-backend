@@ -11,6 +11,6 @@ export class UpdateRoomDto {
   tags?: string[];
 
   @IsOptional()
-  @IsInt()
+  //@IsInt()
   seatCount?: number;
 }
