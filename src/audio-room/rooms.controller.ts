@@ -212,6 +212,26 @@ export class RoomsController {
     return { ok: true, seats };
   }
 
+  @Patch(':id/seat/mode/toggle')
+  @UseGuards(JwtAuthGuard)
+  async toggleSeatMode(
+    @Param('id') roomId: string,
+    @Req() req,
+    @Body() dto: { mode: 'FREE' | 'REQUEST' },
+  ) {
+    const userId = req.user.userId;
+
+    const seats = await this.seatsService.bulkToggleFreeRequest(
+      roomId,
+      userId,
+      dto.mode,
+    );
+
+    // push to all clients
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    return { success: true, seats };
+  }
+
   @Patch(':id/seat-count')
   @UseGuards(JwtAuthGuard)
   async changeSeatCount(

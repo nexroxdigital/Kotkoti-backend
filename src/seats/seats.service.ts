@@ -49,6 +49,50 @@ export class SeatsService {
     return seats;
   }
 
+  async bulkToggleFreeRequest(
+    roomId: string,
+    userId: string,
+    mode: 'FREE' | 'REQUEST',
+  ) {
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) throw new NotFoundException('Room not found');
+    if (room.hostId !== userId)
+      throw new ForbiddenException('Only host can update');
+
+    // Determine which seats to update
+    const targetMode = mode === 'REQUEST' ? 'FREE' : 'REQUEST';
+
+    await this.prisma.seat.updateMany({
+      where: {
+        roomId,
+        mode: targetMode, // convert opposite mode
+      },
+      data: {
+        mode,
+      },
+    });
+
+    // Fetch updated seats with user data
+    const updatedSeats = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
+    });
+
+    return updatedSeats;
+  }
+
   async changeSeatCount(roomId: string, userId: string, seatCount: number) {
     const room = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
@@ -84,7 +128,7 @@ export class SeatsService {
     // STEP 3 — If decreasing → remove only empty seats from the END
     if (seatCount < oldCount) {
       const toRemove = existing
-        .filter((s) => s.index >= seatCount && !s.userId) // ❗ remove empty only
+        .filter((s) => s.index >= seatCount && !s.userId) 
         .map((s) => s.id);
 
       if (toRemove.length !== oldCount - seatCount) {
