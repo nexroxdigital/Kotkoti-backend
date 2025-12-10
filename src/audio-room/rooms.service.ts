@@ -533,14 +533,14 @@ export class RoomsService {
         );
       }
 
-      // Remove expired kick ban
+      // Remove expired ban
       await this.prisma.audioRoomKick.delete({
         where: { roomId_userId: { roomId, userId } },
       });
     }
 
     // ===========================
-    // 2. VERIFY ROOM STATUS
+    // 2. VERIFY ROOM STATUS + LOAD HOST INFO
     // ===========================
     const room = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
@@ -592,7 +592,7 @@ export class RoomsService {
     );
 
     // ===========================
-    // 5. SAVE RTC UID
+    // 5. SAVE RTC UID IN DB
     // ===========================
     await this.prisma.roomParticipant.update({
       where: { roomId_userId: { roomId, userId } },
@@ -600,9 +600,70 @@ export class RoomsService {
     });
 
     // ===========================
-    // 6. RETURN ROOM INFO
+    // 6. RELOAD ROOM WITH UPDATED PARTICIPANTS + SEATS
     // ===========================
-    return { room, token: tokenInfo };
+    const fullRoom = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+      include: {
+        host: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+            gender: true,
+            email: true,
+            dob: true,
+            country: true,
+            charmLevel: true,
+            charmLevelId: true,
+          },
+        },
+        seats: {
+          orderBy: { index: 'asc' },
+          include: {
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+              },
+            },
+          },
+        },
+        participants: {
+          where: { disconnectedAt: null },
+          select: {
+            id: true,
+            userId: true,
+            isHost: true,
+            rtcUid: true,
+            muted: true,
+            joinedAt: true,
+            user: {
+              select: {
+                id: true,
+                nickName: true,
+                profilePicture: true,
+                gender: true,
+                email: true,
+                dob: true,
+                country: true,
+                charmLevel: true,
+                charmLevelId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // ===========================
+    // 7. RETURN UPDATED ROOM + TOKEN
+    // ===========================
+    return {
+      room: fullRoom,
+      token: tokenInfo,
+    };
   }
 
   async leaveRoom(roomId: string, userId: string) {
