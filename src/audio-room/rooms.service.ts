@@ -263,6 +263,26 @@ export class RoomsService {
     return { token: tokenInfo };
   }
 
+
+  async issueSubscriberTokenForUser(roomId: string, userId: string) {
+    const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundException('Room not found');
+
+    const existing = await this.prisma.roomParticipant.findUnique({ where: { roomId_userId: { roomId, userId } } });
+    const existingUid = existing?.rtcUid ? parseInt(existing.rtcUid, 10) : undefined;
+
+    const token = await this.rtc.issueToken(room.provider, roomId, 'subscriber', existingUid);
+
+    // persist rtcUid (subscriber tokens also have uid)
+    await this.prisma.roomParticipant.update({
+      where: { roomId_userId: { roomId, userId } },
+      data: { rtcUid: String(token.uid) },
+    });
+
+    return { success: true, token };
+  }
+
+
   async updateRtcUid(userId: string, roomId: string, rtcUid: number) {
     return this.prisma.roomParticipant.upsert({
       where: {
