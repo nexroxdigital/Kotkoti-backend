@@ -55,6 +55,24 @@ export class ProfileService {
       wealthLevel: true,
       createdAt: true,
       updatedAt: true,
+      activeItem: {
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          price: true,
+          swf: true,
+          swftime: true,
+          type: true,
+          validity: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
     };
 
     const relationSelect: Record<string, true> = {};
@@ -162,6 +180,24 @@ export class ProfileService {
         wealthLevel: true,
         createdAt: true,
         updatedAt: true,
+        activeItem: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            price: true,
+            swf: true,
+            swftime: true,
+            type: true,
+            validity: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -694,6 +730,24 @@ export class ProfileService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                price: true,
+                swf: true,
+                swftime: true,
+                type: true,
+                validity: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
