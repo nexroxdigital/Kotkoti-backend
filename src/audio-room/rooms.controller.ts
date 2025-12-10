@@ -175,7 +175,12 @@ export class RoomsController {
     const userId = req.user.userId;
     return this.roomsService.issuePublisherTokenForUser(roomId, userId);
   }
-
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/rtc/subscriber')
+  async getSubscriberToken(@Param('id') id: string, @Request() req) {
+    const userId = req.user.userId;
+    return this.roomsService.issueSubscriberTokenForUser(id, userId);
+  }
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
   async joinRoom(@Param('id') id: string, @Request() req) {
