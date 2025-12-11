@@ -93,68 +93,74 @@ export class SeatsService {
     return updatedSeats;
   }
 
-  async changeSeatCount(roomId: string, userId: string, seatCount: number) {
-    const room = await this.prisma.audioRoom.findUnique({
-      where: { id: roomId },
-    });
-    if (!room) throw new NotFoundException('Room not found');
+async changeSeatCount(roomId: string, userId: string, seatCount: number) {
+  const room = await this.prisma.audioRoom.findUnique({
+    where: { id: roomId },
+  });
+  if (!room) throw new NotFoundException('Room not found');
 
-    if (room.hostId !== userId)
-      throw new ForbiddenException('Only host can update seat count');
+  if (room.hostId !== userId)
+    throw new ForbiddenException('Only host can update seat count');
 
-    if (seatCount < 1) throw new BadRequestException('Seat count must be >= 1');
+  if (seatCount < 1) throw new BadRequestException('Seat count must be >= 1');
 
-    // STEP 1 — get existing seats
-    const existing = await this.prisma.seat.findMany({
-      where: { roomId },
-      orderBy: { index: 'asc' },
-    });
+  // STEP 1 — get existing seats
+  const existing = await this.prisma.seat.findMany({
+    where: { roomId },
+    orderBy: { index: 'asc' },
+  });
 
-    const oldCount = existing.length;
+  const oldCount = existing.length;
 
-    // STEP 2 — If increasing → create new seats
-    if (seatCount > oldCount) {
-      const newSeats = Array.from({ length: seatCount - oldCount }).map(
-        (_, i) => ({
-          roomId,
-          index: oldCount + i,
-          micOn: true,
-          mode: SeatMode.FREE,
-        }),
-      );
-      await this.prisma.seat.createMany({ data: newSeats });
-    }
-
-    // STEP 3 — If decreasing → remove only empty seats from the END
-    if (seatCount < oldCount) {
-      const toRemove = existing
-        .filter((s) => s.index >= seatCount && !s.userId) 
-        .map((s) => s.id);
-
-      if (toRemove.length !== oldCount - seatCount) {
-        throw new BadRequestException(
-          'Cannot reduce seat count because some seats are occupied.',
-        );
-      }
-
-      await this.prisma.seat.deleteMany({
-        where: { id: { in: toRemove } },
-      });
-    }
-
-    // STEP 4 — return updated seats
-    const updatedSeats = await this.prisma.seat.findMany({
-      where: { roomId },
-      orderBy: { index: 'asc' },
-      include: {
-        user: {
-          select: { id: true, nickName: true, profilePicture: true },
-        },
-      },
-    });
-
-    return updatedSeats;
+  // STEP 2 — If increasing → create new seats
+  if (seatCount > oldCount) {
+    const newSeats = Array.from({ length: seatCount - oldCount }).map(
+      (_, i) => ({
+        roomId,
+        index: oldCount + i,
+        micOn: true,
+        mode: SeatMode.FREE,
+      }),
+    );
+    await this.prisma.seat.createMany({ data: newSeats });
   }
+
+  // STEP 3 — If decreasing → remove only empty seats from the END
+  if (seatCount < oldCount) {
+    const toRemove = existing
+      .filter((s) => s.index >= seatCount && !s.userId)
+      .map((s) => s.id);
+
+    if (toRemove.length !== oldCount - seatCount) {
+      throw new BadRequestException(
+        'Cannot reduce seat count because some seats are occupied.',
+      );
+    }
+
+    await this.prisma.seat.deleteMany({
+      where: { id: { in: toRemove } },
+    });
+  }
+
+  // STEP 4 — UPDATE room.seatCount 
+  await this.prisma.audioRoom.update({
+    where: { id: roomId },
+    data: { seatCount },
+  });
+
+  // STEP 5 — return updated seats
+  const updatedSeats = await this.prisma.seat.findMany({
+    where: { roomId },
+    orderBy: { index: 'asc' },
+    include: {
+      user: {
+        select: { id: true, nickName: true, profilePicture: true },
+      },
+    },
+  });
+
+  return updatedSeats;
+}
 
   async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     const seat = await this.prisma.seat.findFirst({
