@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import sharp from 'sharp';
 import { UpdateRoomDto } from './dto/UpdateRoomDto';
 import { RoomGateway } from 'src/gateway/room.gateway';
+import { verifyPin } from 'src/common/utils/room-pin.util';
 
 @Injectable()
 export class RoomsService {
@@ -72,6 +73,7 @@ export class RoomsService {
         createdAt: true,
         tags: true,
         imageUrl: true,
+        isLocked: true,
 
         host: {
           select: {
@@ -472,7 +474,7 @@ export class RoomsService {
     return room;
   }
 
-  async joinRoom(roomId: string, userId: string) {
+  async joinRoom(roomId: string, userId: string, pin?: string) {
     // --------------------------------------------------
     // 1) Check ban/kick
     // --------------------------------------------------
@@ -522,6 +524,18 @@ export class RoomsService {
       throw new NotFoundException('Room not live');
     }
 
+
+      // 🔒 PIN CHECK
+  if (room.isLocked) {
+    if (!pin) {
+      throw new ForbiddenException("Room is locked");
+    }
+
+    const ok = await verifyPin(pin, room.pinHash!);
+    if (!ok) {
+      throw new ForbiddenException("Invalid room PIN");
+    }
+  }
     // --------------------------------------------------
     // 3) Create/update participant
     // --------------------------------------------------
