@@ -6,7 +6,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // url      = env("DATABASE_URL")
 }
 
 model User {
@@ -36,20 +35,41 @@ model User {
   wealthLevelId         String?
   coverImage            String?
   activeItemId          String?
-  wealthPoint           Int?
   charmPoint            Int?
+  wealthPoint           Int?
   activityLog           ActivityLog[]
+  hostedRooms           AudioRoom[]           @relation("UserHostedRooms")
+  bannedBy              AudioRoomBan[]        @relation("BannedByHost")
+  bans                  AudioRoomBan[]
+  kickedRooms           AudioRoomKick[]       @relation("UserKicks")
   backpack              Backpack[]
   blockedBy             Block[]               @relation("UserBlocked")
   blocking              Block[]               @relation("UserBlocking")
+  coinSellers           CoinSeller?
+  coinsSellingHistories CoinsSellingHistory[]
   UserGallery           CoverPhoto[]
   following             Follow[]              @relation("UserFollowing")
   followers             Follow[]              @relation("UserFollowers")
   receivedFriends       Friends[]             @relation("ReceivedFriends")
   requestedFriends      Friends[]             @relation("RequestedFriends")
+  receivedGifts         GiftTransaction[]     @relation("ReceiverRelation")
+  sentGifts             GiftTransaction[]     @relation("SenderRelation")
   loginHistory          LoginHistory[]
+  createdLuckyPacks     LuckyPack[]           @relation("UserCreatedLuckyPacks")
+  claimedLuckyPacks     LuckyPackClaim[]      @relation("UserClaimedLuckyPacks")
+  moments               Moment[]
+  momentComments        MomentComment[]
+  momentCommentLikes    MomentCommentLike[]
+  momentCommentReplies  MomentCommentReply[]
+  momentLikes           MomentLike[]
+  momentShares          MomentShare[]
+  rechargeLogs          RechargeLog[]
   refreshTokens         RefreshToken[]
+  participants          RoomParticipant[]
+  seats                 Seat[]
+  seatRequests          SeatRequest[]
   sessions              Session[]
+  svipLogs              SvipLog[]
   activeItem            StoreItem?            @relation("UserActiveItem", fields: [activeItemId], references: [id])
   charmLevel            CharmLevel?           @relation("UserCharmLevel", fields: [charmLevelId], references: [id])
   wealthLevel           WealthLevel?          @relation("UserWealthLevel", fields: [wealthLevelId], references: [id])
@@ -58,28 +78,14 @@ model User {
   deactivation          UserDeactivation?
   visitors              Visitors[]            @relation("UserVisitors")
   visitedUsers          Visitors[]            @relation("UserVisitorsBy")
-  coinSellers           CoinSeller[]
-  coinsSellingHistories CoinsSellingHistory[]
-  hostedRooms           AudioRoom[]           @relation("UserHostedRooms")
-  participants          RoomParticipant[]
-  seats                 Seat[]
-  seatRequests          SeatRequest[]
-  kickedRooms           AudioRoomKick[]       @relation("UserKicks")
-  bans                  AudioRoomBan[]
-  bannedBy              AudioRoomBan[]        @relation("BannedByHost")
-  sentGifts             GiftTransaction[]     @relation("SenderRelation")
-  receivedGifts         GiftTransaction[]     @relation("ReceiverRelation")
 
-  createdLuckyPacks    LuckyPack[]          @relation("UserCreatedLuckyPacks")
-  claimedLuckyPacks    LuckyPackClaim[]     @relation("UserClaimedLuckyPacks")
-  moments              Moment[]
-  momentLikes          MomentLike[]
-  momentComments       MomentComment[]
-  svipLogs             SvipLog[]
-  momentCommentLikes   MomentCommentLike[]
-  momentCommentReplies MomentCommentReply[]
-  momentShares         MomentShare[]
-  rechargeLogs         RechargeLog[]
+  @@index([agencyId])
+  @@index([vipId])
+  @@index([activeItemId])
+  @@index([charmLevelId])
+  @@index([wealthLevelId])
+  @@index([isHost])
+  @@index([createdAt])
 }
 
 model Session {
@@ -106,6 +112,9 @@ model LoginHistory {
   userAgent String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model CoverPhoto {
@@ -136,6 +145,9 @@ model Agency {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   users         User[]
+
+  @@index([ownerId])
+  @@index([status])
 }
 
 model Vip {
@@ -153,6 +165,9 @@ model Vip {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   users          User[]
+
+  @@index([type])
+  @@index([expiryDate])
 }
 
 model EmailOtp {
@@ -173,35 +188,37 @@ model RefreshToken {
   userId    String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
 }
 
 model CharmLevel {
   id            String @id @default(uuid())
   name          String
-  levelNo       Int
   imageUrl      String
   levelup_point Int
+  levelNo       Int
   users         User[] @relation("UserCharmLevel")
 }
 
 model WealthLevel {
   id            String @id @default(uuid())
   name          String
-  levelNo       Int
   imageUrl      String
   levelup_point Int
+  levelNo       Int
   users         User[] @relation("UserWealthLevel")
 }
 
 model Category_Level_privileges {
-  id   Int    @id @default(autoincrement())
-  name String
-
+  id         Int                     @id @default(autoincrement())
+  name       String
   privileges Level_privileges_Gift[]
 }
 
 model Level_privileges_Gift {
-  id          Int       @id @default(autoincrement())
+  id          Int                       @id @default(autoincrement())
   name        String
   categoryId  Int
   expiredDate DateTime?
@@ -211,8 +228,7 @@ model Level_privileges_Gift {
   isCharm     Boolean?
   isWealth    Boolean?
   levelNo     Int?
-
-  category Category_Level_privileges @relation(fields: [categoryId], references: [id])
+  category    Category_Level_privileges @relation(fields: [categoryId], references: [id])
 }
 
 model Follow {
@@ -245,15 +261,12 @@ model Friends {
 }
 
 model Visitors {
-  id String @id @default(uuid())
-
+  id        String   @id @default(uuid())
   userId    String
   visitorId String
-
   createdAt DateTime @default(now())
-
-  user    User @relation("UserVisitors", fields: [userId], references: [id])
-  visitor User @relation("UserVisitorsBy", fields: [visitorId], references: [id])
+  user      User     @relation("UserVisitors", fields: [userId], references: [id])
+  visitor   User     @relation("UserVisitorsBy", fields: [visitorId], references: [id])
 
   @@index([userId])
   @@index([visitorId])
@@ -320,11 +333,11 @@ model StoreItem {
   name        String
   price       Int
   icon        String
-  swf         String?
-  swftime     Int?
   type        String
   validity    DateTime?
   createdAt   DateTime      @default(now())
+  swf         String?
+  swftime     Int?
   backpacks   Backpack[]
   category    StoreCategory @relation(fields: [categoryId], references: [id])
   activeUsers User[]        @relation("UserActiveItem")
@@ -354,82 +367,87 @@ model Employee {
 }
 
 model CoinSeller {
-  id        Int      @id @default(autoincrement())
-  userId    String   @unique
-  totalCoin Int
-  status    String
-  createdAt DateTime @default(now())
-
+  userId         String                @unique
+  totalCoin      Int
+  status         String
+  createdAt      DateTime              @default(now())
+  id             Int                   @id @default(autoincrement())
   user           User                  @relation(fields: [userId], references: [id])
-  sellingHistory CoinsSellingHistory[]
   buyingHistory  CoinsBuyingHistory[]
+  sellingHistory CoinsSellingHistory[]
   rechargeLogs   RechargeLog[]
 }
 
 model CoinsSellingHistory {
-  id         Int      @id @default(autoincrement())
-  sellerId   Int
   receiverId String
   status     String
   amount     Int
-  createdAt  DateTime @default(now())
-
-  seller   CoinSeller @relation(fields: [sellerId], references: [id])
-  receiver User       @relation(fields: [receiverId], references: [id])
+  createdAt  DateTime   @default(now())
+  id         Int        @id @default(autoincrement())
+  sellerId   Int
+  receiver   User       @relation(fields: [receiverId], references: [id])
+  seller     CoinSeller @relation(fields: [sellerId], references: [id])
 }
 
 model CoinsBuyingHistory {
-  id        Int      @id @default(autoincrement())
-  sellerId  Int
   amount    Int
   status    String
-  createdAt DateTime @default(now())
-
-  seller CoinSeller @relation(fields: [sellerId], references: [id])
+  createdAt DateTime   @default(now())
+  id        Int        @id @default(autoincrement())
+  sellerId  Int
+  seller    CoinSeller @relation(fields: [sellerId], references: [id])
 }
 
 model RechargeLog {
-  id        Int      @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   userId    String
   sellerId  Int
   amount    Int
   status    String
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
+  seller    CoinSeller @relation(fields: [sellerId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
 
-  user   User       @relation(fields: [userId], references: [id])
-  seller CoinSeller @relation(fields: [sellerId], references: [id])
+  @@index([userId])
+  @@index([sellerId])
+  @@index([createdAt])
 }
 
 model AudioRoom {
   id           String             @id @default(uuid())
   name         String
   hostId       String
-  host         User               @relation("UserHostedRooms", fields: [hostId], references: [id])
-  tags         String[]           @default([])
-  imageUrl     String?
-  seatCount    Int                @default(12)
   isLive       Boolean            @default(true)
+  isLocked    Boolean  @default(false)
+  pinHash     String?
   createdAt    DateTime           @default(now())
   endedAt      DateTime?
   provider     Provider           @default(AGORA)
-  seats        Seat[]
-  participants RoomParticipant[]
+  imageUrl     String?
+  seatCount    Int                @default(12)
+  tags         String[]           @default([])
+  host         User               @relation("UserHostedRooms", fields: [hostId], references: [id])
   bans         AudioRoomBan[]
   kicks        AudioRoomKick[]
-  seatRequests SeatRequest[]
   tokenLogs    ProviderTokenLog[]
+  participants RoomParticipant[]
+  seats        Seat[]
+  seatRequests SeatRequest[]
+
+  @@index([hostId])
+  @@index([isLive])
+  @@index([createdAt])
 }
 
 model Seat {
-  id     String   @id @default(uuid())
+  id     String    @id @default(uuid())
   roomId String
   index  Int
   userId String?
-  micOn  Boolean  @default(true)
-  mode   SeatMode @default(FREE)
-
-  room AudioRoom @relation(fields: [roomId], references: [id])
-  user User?     @relation(fields: [userId], references: [id])
+  micOn  Boolean   @default(true)
+  mode   SeatMode  @default(FREE)
+  room   AudioRoom @relation(fields: [roomId], references: [id])
+  user   User?     @relation(fields: [userId], references: [id])
 
   @@unique([roomId, index])
 }
@@ -444,9 +462,8 @@ model RoomParticipant {
   isHost         Boolean   @default(false)
   muted          Boolean   @default(false)
   lastActiveAt   DateTime  @default(now())
-
-  user User      @relation(fields: [userId], references: [id])
-  room AudioRoom @relation(fields: [roomId], references: [id])
+  room           AudioRoom @relation(fields: [roomId], references: [id])
+  user           User      @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
   @@index([roomId])
@@ -460,38 +477,35 @@ model SeatRequest {
   seatIndex Int?
   status    RequestStatus @default(PENDING)
   createdAt DateTime      @default(now())
-
-  user User      @relation(fields: [userId], references: [id])
-  room AudioRoom @relation(fields: [roomId], references: [id])
+  room      AudioRoom     @relation(fields: [roomId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
 
   @@index([roomId])
 }
 
 model AudioRoomKick {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   roomId    String
   userId    String
   bannedBy  String
   reason    String?
-  expiresAt DateTime // ban end time
-
-  room AudioRoom @relation(fields: [roomId], references: [id])
-  user User      @relation("UserKicks", fields: [userId], references: [id])
+  expiresAt DateTime
+  room      AudioRoom @relation(fields: [roomId], references: [id])
+  user      User      @relation("UserKicks", fields: [userId], references: [id])
 
   @@unique([roomId, userId])
 }
 
 model AudioRoomBan {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   roomId    String
   userId    String
   bannedBy  String
   reason    String?
-  createdAt DateTime @default(now())
-
-  room AudioRoom @relation(fields: [roomId], references: [id])
-  user User      @relation(fields: [userId], references: [id])
-  host User      @relation("BannedByHost", fields: [bannedBy], references: [id])
+  createdAt DateTime  @default(now())
+  host      User      @relation("BannedByHost", fields: [bannedBy], references: [id])
+  room      AudioRoom @relation(fields: [roomId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
   @@unique([roomId, userId])
 }
@@ -504,30 +518,28 @@ model ProviderTokenLog {
   token     String
   issuedAt  DateTime   @default(now())
   expiresAt DateTime?
-  room      AudioRoom? @relation(fields: [roomId], references: [id])
   meta      Json?
+  room      AudioRoom? @relation(fields: [roomId], references: [id])
 }
 
 model GiftCategory {
-  id   String @id @default(uuid())
-  name String
-  icon String
-
+  id    String @id @default(uuid())
+  name  String
+  icon  String
   gifts Gift[]
 }
 
 model Gift {
-  id         String  @id @default(uuid())
-  categoryId String
-  name       String
-  type       String
-  needCoin   Int
-  giftIcon   String
-  swf        String
-  swfTime    String
-  worldMsg   Boolean
-  isSound    Boolean
-
+  id           String            @id @default(uuid())
+  categoryId   String
+  name         String
+  type         String
+  needCoin     Int
+  giftIcon     String
+  swf          String
+  swfTime      String
+  worldMsg     Boolean
+  isSound      Boolean
   category     GiftCategory      @relation(fields: [categoryId], references: [id])
   transactions GiftTransaction[]
 }
@@ -541,37 +553,43 @@ model GiftTransaction {
   quantity   Int
   totalCoins Int
   createdAt  DateTime @default(now())
+  gift       Gift     @relation(fields: [giftId], references: [id])
+  receiver   User     @relation("ReceiverRelation", fields: [receiverId], references: [id])
+  sender     User     @relation("SenderRelation", fields: [senderId], references: [id])
 
-  sender   User @relation("SenderRelation", fields: [senderId], references: [id])
-  receiver User @relation("ReceiverRelation", fields: [receiverId], references: [id])
-  gift     Gift @relation(fields: [giftId], references: [id])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([streamId])
+  @@index([createdAt])
 }
 
 model LuckyPack {
-  id            String   @id @default(uuid())
+  id            String           @id @default(uuid())
   creatorId     String
   roomId        String
   totalGold     Int
-  remainingGold Int
   totalClaimers Int
+  claimedCount  Int              @default(0)
+  createdAt     DateTime         @default(now())
+  remainingGold Int
   maxClaims     Int
-  claimedCount  Int      @default(0)
-  createdAt     DateTime @default(now())
+  creator       User             @relation("UserCreatedLuckyPacks", fields: [creatorId], references: [id])
+  claims        LuckyPackClaim[]
 
-  creator User             @relation("UserCreatedLuckyPacks", fields: [creatorId], references: [id])
-  claims  LuckyPackClaim[]
+  @@index([creatorId])
+  @@index([roomId])
+  @@index([createdAt])
 }
 
 model LuckyPackClaim {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   luckyPackId String
   userId      String
   goldClaimed Int
   diamondGot  Int
-  createdAt   DateTime @default(now())
-
-  luckyPack LuckyPack @relation(fields: [luckyPackId], references: [id])
-  user      User      @relation("UserClaimedLuckyPacks", fields: [userId], references: [id])
+  createdAt   DateTime  @default(now())
+  luckyPack   LuckyPack @relation(fields: [luckyPackId], references: [id])
+  user        User      @relation("UserClaimedLuckyPacks", fields: [userId], references: [id])
 
   @@unique([luckyPackId, userId])
   @@index([luckyPackId])
@@ -586,10 +604,13 @@ model Moment {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   user         User            @relation(fields: [userId], references: [id])
-  likes        MomentLike[]
   comments     MomentComment[]
   momentImages MomentImage[]
+  likes        MomentLike[]
   momentShares MomentShare[]
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model MomentImage {
@@ -597,8 +618,7 @@ model MomentImage {
   momentId  String
   url       String
   createdAt DateTime @default(now())
-
-  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  moment    Moment   @relation(fields: [momentId], references: [id], onDelete: Cascade)
 }
 
 model MomentLike {
@@ -652,28 +672,22 @@ model MomentShare {
   userId    String
   caption   String?
   createdAt DateTime @default(now())
-
-  moment Moment @relation(fields: [momentId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id])
+  moment    Moment   @relation(fields: [momentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
 }
 
-//
-// SVIP
-//
 model Svip {
-  id             Int     @id @default(autoincrement())
-  levelName      String
-  levelNo        String
-  needPoint      Int
-  expireDuration Int
-  img            String?
-  swf            String?
-  swfTime        Int?
-
-  // Relations
-  powerPrivileges SvipPowerPrivilege[]
-  mediaPrivileges SvipMediaPrivilege[]
+  id              Int                  @id @default(autoincrement())
+  levelName       String
+  levelNo         String
+  needPoint       Int
+  expireDuration  Int
+  img             String?
+  swf             String?
+  swfTime         Int?
   logs            SvipLog[]
+  mediaPrivileges SvipMediaPrivilege[]
+  powerPrivileges SvipPowerPrivilege[]
 }
 
 model SvipPowerPrivilege {
@@ -683,32 +697,25 @@ model SvipPowerPrivilege {
   icon      String?
   swf       String?
   swftime   Int?
-
-  // Relation
-  svip Svip? @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  svip      Svip?   @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipMediaPrivilege {
-  id      Int     @id @default(autoincrement())
-  svipId  Int
-  icon    String?
-  swf     String?
-  swfTime Int?
-
-  // Relation
-  svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  id            Int     @id @default(autoincrement())
+  svipId        Int
+  swf           String?
+  icon          String?
+  swfTime       Int?
+  privilegeName String?
+  svip          Svip    @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipLog {
   id     Int    @id @default(autoincrement())
   svipId Int
   userId String
-
-  // Relation
-  svip Svip @relation(fields: [svipId], references: [id], onDelete: Cascade)
-
-  // If you have a User model, link it like this:
-  user User @relation(fields: [userId], references: [id])
+  svip   Svip   @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id])
 }
 
 enum Provider {
@@ -741,6 +748,7 @@ enum EmployeeRole {
   MANAGER
   STAFF
 }
+
 
 
 ```
