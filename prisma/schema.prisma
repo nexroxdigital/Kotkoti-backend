@@ -392,6 +392,8 @@ model AudioRoom {
   name         String
   hostId       String
   isLive       Boolean            @default(true)
+  isLocked    Boolean  @default(false)
+  pinHash     String?
   createdAt    DateTime           @default(now())
   endedAt      DateTime?
   provider     Provider           @default(AGORA)

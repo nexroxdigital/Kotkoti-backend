@@ -7,7 +7,13 @@ export class BackpackService {
 
   // get all backpack items grouped by category
   async getAllItemsGrouped(userId: string) {
-    // Step 1: Fetch all backpack items with item + category info
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { activeItemId: true },
+    });
+    const activeItemId = user?.activeItemId ?? null;
+
+    //  Fetch all backpack items with item + category info
     const backpackItems = await this.prisma.backpack.findMany({
       where: { userId },
       select: {
@@ -31,7 +37,7 @@ export class BackpackService {
       orderBy: { acquiredAt: 'desc' },
     });
 
-    // Step 2: Group items by category name
+    // Group items by category name
     const grouped: Record<string, any[]> = {};
 
     for (const bItem of backpackItems) {
@@ -47,6 +53,7 @@ export class BackpackService {
         backpackItemId: bItem.id,
         acquiredAt: bItem.acquiredAt,
         ...itemWithoutCategory,
+        isUsed: itemWithoutCategory.id === activeItemId,
       });
     }
 

@@ -2,21 +2,16 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
-import { MailService } from '../mail/mail.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { UpdateMeDto } from './dto/update-me.dto';
-import { join } from 'path';
 import * as fs from 'fs';
+import { join } from 'path';
 import sharp from 'sharp';
 import {
   countryCodeToFlag,
   normalizeCountry,
 } from 'src/common/utils/country.util';
+import { PrismaService } from '../prisma/prisma.service';
+import { UpdateMeDto } from './dto/update-me.dto';
 
 @Injectable()
 export class ProfileService {
@@ -60,6 +55,24 @@ export class ProfileService {
       wealthLevel: true,
       createdAt: true,
       updatedAt: true,
+      activeItem: {
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          price: true,
+          swf: true,
+          swftime: true,
+          type: true,
+          validity: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
     };
 
     const relationSelect: Record<string, true> = {};
@@ -167,6 +180,24 @@ export class ProfileService {
         wealthLevel: true,
         createdAt: true,
         updatedAt: true,
+        activeItem: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            price: true,
+            swf: true,
+            swftime: true,
+            type: true,
+            validity: true,
+            category: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -277,6 +308,9 @@ export class ProfileService {
     const countryCode = normalizeCountry(user.country);
     const countryFlag = countryCodeToFlag(countryCode);
 
+    // check isFollowing
+    const isFollowing = !!iFollowHim;
+
     // Final response
     return {
       publicProfile: {
@@ -289,6 +323,7 @@ export class ProfileService {
         countryFlag,
         friendStatus,
         followStatus,
+        isFollowing,
         blockStatus,
         friendRequestId,
         isLive: false,
@@ -695,6 +730,24 @@ export class ProfileService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                price: true,
+                swf: true,
+                swftime: true,
+                type: true,
+                validity: true,
+                category: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

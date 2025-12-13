@@ -148,7 +148,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // MIC STATUS
   // =====================================================
-  
+
   @SubscribeMessage('user.micOn')
   async onMicOn(@MessageBody() payload: { roomId: string; userId: string }) {
     const allowed = await this.userHasSeat(payload.roomId, payload.userId);
