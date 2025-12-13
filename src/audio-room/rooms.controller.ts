@@ -29,10 +29,12 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { roomImageMulterConfig } from 'src/common/multer.config';
 import { UpdateRoomDto } from './dto/UpdateRoomDto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Controller('audio-room')
 export class RoomsController {
   constructor(
+    private prisma: PrismaService,
     private roomsService: RoomsService,
     private roomBanService: RoomBanService,
     private seatsService: SeatsService,
@@ -169,18 +171,6 @@ export class RoomsController {
     return { success: true, room: updated };
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/rtc/publisher')
-  async getPublisherToken(@Param('id') roomId: string, @Request() req) {
-    const userId = req.user.userId;
-    return this.roomsService.issuePublisherTokenForUser(roomId, userId);
-  }
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/rtc/subscriber')
-  async getSubscriberToken(@Param('id') id: string, @Request() req) {
-    const userId = req.user.userId;
-    return this.roomsService.issueSubscriberTokenForUser(id, userId);
-  }
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
   async joinRoom(@Param('id') id: string, @Request() req) {
@@ -503,13 +493,29 @@ export class RoomsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/rtc/refresh')
-  async refreshToken(@Param('id') id: string) {
-    const room = await this.roomsService.getRoom(id);
+  async refreshToken(@Param('id') roomId: string, @Request() req) {
+    const userId = req.user.userId;
+
+    const participant = await this.prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+
+    if (!participant?.rtcUid) {
+      throw new BadRequestException(
+        'Missing rtcUid — user must join room first.',
+      );
+    }
+
+    const room = await this.roomsService.getRoom(roomId);
+    const rtcUid = parseInt(participant.rtcUid, 10);
+
     const token = await this.rtcService.issueToken(
       room.provider,
-      id,
-      'publisher',
+      roomId,
+      'subscriber',
+      rtcUid,
     );
+
     return { success: true, token };
   }
 
