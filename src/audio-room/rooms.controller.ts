@@ -29,10 +29,13 @@ import { CreateRoomDto } from './dto/create-room.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { roomImageMulterConfig } from 'src/common/multer.config';
 import { UpdateRoomDto } from './dto/UpdateRoomDto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { hashPin } from 'src/common/utils/room-pin.util';
 
 @Controller('audio-room')
 export class RoomsController {
   constructor(
+    private prisma: PrismaService,
     private roomsService: RoomsService,
     private roomBanService: RoomBanService,
     private seatsService: SeatsService,
@@ -170,21 +173,9 @@ export class RoomsController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post(':id/rtc/publisher')
-  async getPublisherToken(@Param('id') roomId: string, @Request() req) {
-    const userId = req.user.userId;
-    return this.roomsService.issuePublisherTokenForUser(roomId, userId);
-  }
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/rtc/subscriber')
-  async getSubscriberToken(@Param('id') id: string, @Request() req) {
-    const userId = req.user.userId;
-    return this.roomsService.issueSubscriberTokenForUser(id, userId);
-  }
-  @UseGuards(JwtAuthGuard)
   @Post(':id/join')
-  async joinRoom(@Param('id') id: string, @Request() req) {
-    const result = await this.roomsService.joinRoom(id, req.user.userId);
+  async joinRoom(@Param('id') id: string,  @Body() dto: { pin?: string }, @Request() req) {
+    const result = await this.roomsService.joinRoom(id, req.user.userId, dto?.pin);
     return { success: true, data: result };
   }
 
@@ -236,7 +227,6 @@ export class RoomsController {
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
     return { success: true, seats };
   }
-
   @Patch(':id/seat-count')
   @UseGuards(JwtAuthGuard)
   async changeSeatCount(
@@ -246,16 +236,18 @@ export class RoomsController {
   ) {
     const userId = req.user.userId;
 
-    const seats = await this.seatsService.changeSeatCount(
+    const result = await this.seatsService.changeSeatCount(
       roomId,
       userId,
       dto.seatCount,
     );
 
-    // push to all clients
-    this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    this.roomGateway.broadcastSeatUpdate(roomId, result.seats);
 
-    return { success: true, seats };
+    return {
+      success: true,
+      seats: result.seats,
+    };
   }
 
   @Post(':id/seat/take')
@@ -497,19 +489,91 @@ export class RoomsController {
     return { success: true, data: result };
   }
 
+
+  @Patch(":id/lock")
+@UseGuards(JwtAuthGuard)
+async lockRoom(
+  @Param("id") roomId: string,
+  @Body() dto: { pin: string },
+  @Req() req
+) {
+  const userId = req.user.userId;
+
+  if (!/^\d{6}$/.test(dto.pin)) {
+    throw new BadRequestException("PIN must be 6 digits");
+  }
+
+  const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
+
+  if (!room || room.hostId !== userId) {
+    throw new ForbiddenException("Only host can lock room");
+  }
+
+  const pinHash = await hashPin(dto.pin);
+
+  await this.prisma.audioRoom.update({
+    where: { id: roomId },
+    data: {
+      isLocked: true,
+      pinHash,
+    },
+  });
+
+  return { success: true };
+}
+
+@Patch(":id/unlock")
+@UseGuards(JwtAuthGuard)
+async unlockRoom(@Param("id") roomId: string, @Req() req) {
+  const userId = req.user.userId;
+
+  const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
+
+  if (!room || room.hostId !== userId) {
+    throw new ForbiddenException("Only host can unlock room");
+  }
+
+  await this.prisma.audioRoom.update({
+    where: { id: roomId },
+    data: {
+      isLocked: false,
+      pinHash: null,
+    },
+  });
+
+  return { success: true };
+}
+
+
   // ============================
   // RTC
   // ============================
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/rtc/refresh')
-  async refreshToken(@Param('id') id: string) {
-    const room = await this.roomsService.getRoom(id);
+  async refreshToken(@Param('id') roomId: string, @Request() req) {
+    const userId = req.user.userId;
+
+    const participant = await this.prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+
+    if (!participant?.rtcUid) {
+      throw new BadRequestException(
+        'Missing rtcUid — user must join room first.',
+      );
+    }
+
+    const room = await this.roomsService.getRoom(roomId);
+    const rtcUid = parseInt(participant.rtcUid, 10);
+
     const token = await this.rtcService.issueToken(
       room.provider,
-      id,
-      'publisher',
+      roomId,
+      'subscriber',
+      rtcUid,
     );
+
     return { success: true, token };
   }
 

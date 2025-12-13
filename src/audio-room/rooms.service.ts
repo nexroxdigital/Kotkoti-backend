@@ -12,12 +12,15 @@ import { join } from 'path';
 import * as fs from 'fs';
 import sharp from 'sharp';
 import { UpdateRoomDto } from './dto/UpdateRoomDto';
+import { RoomGateway } from 'src/gateway/room.gateway';
+import { verifyPin } from 'src/common/utils/room-pin.util';
 
 @Injectable()
 export class RoomsService {
   constructor(
     private prisma: PrismaService,
     private rtc: RtcService,
+    private gateway: RoomGateway,
   ) {}
   // Dynamically adjust seat count (increase / decrease seats)
   private async adjustSeatCount(roomId: string, newCount: number) {
@@ -70,6 +73,7 @@ export class RoomsService {
         createdAt: true,
         tags: true,
         imageUrl: true,
+        isLocked: true,
 
         host: {
           select: {
@@ -217,71 +221,6 @@ export class RoomsService {
 
     return room;
   }
-
-  async issuePublisherTokenForUser(roomId: string, userId: string) {
-    const room = await this.prisma.audioRoom.findUnique({
-      where: { id: roomId },
-    });
-
-    if (!room || !room.isLive) {
-      throw new NotFoundException('Room not live');
-    }
-
-    // user must be on a seat to get a publisher token
-    const seat = await this.prisma.seat.findFirst({
-      where: { roomId, userId },
-    });
-
-    if (!seat) {
-      throw new BadRequestException('You must be on a seat to speak');
-    }
-    const participant = await this.prisma.roomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId } },
-    });
-
-    if (!participant?.rtcUid) {
-      throw new BadRequestException('RTC UID not found for user');
-    }
-    const tokenInfo = await this.rtc.issueToken(
-      room.provider,
-      roomId,
-      'publisher',
-      Number(participant.rtcUid),
-    );
-
-    // Optional: sync rtcUid in roomParticipant
-    await this.prisma.roomParticipant.update({
-      where: {
-        roomId_userId: { roomId, userId },
-      },
-      data: {
-        rtcUid: String(tokenInfo.uid),
-        lastActiveAt: new Date(),
-      },
-    });
-
-    return { token: tokenInfo };
-  }
-
-
-  async issueSubscriberTokenForUser(roomId: string, userId: string) {
-    const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
-    if (!room) throw new NotFoundException('Room not found');
-
-    const existing = await this.prisma.roomParticipant.findUnique({ where: { roomId_userId: { roomId, userId } } });
-    const existingUid = existing?.rtcUid ? parseInt(existing.rtcUid, 10) : undefined;
-
-    const token = await this.rtc.issueToken(room.provider, roomId, 'subscriber', existingUid);
-
-    // persist rtcUid (subscriber tokens also have uid)
-    await this.prisma.roomParticipant.update({
-      where: { roomId_userId: { roomId, userId } },
-      data: { rtcUid: String(token.uid) },
-    });
-
-    return { success: true, token };
-  }
-
 
   async updateRtcUid(userId: string, roomId: string, rtcUid: number) {
     return this.prisma.roomParticipant.upsert({
@@ -535,10 +474,10 @@ export class RoomsService {
     return room;
   }
 
-  async joinRoom(roomId: string, userId: string) {
-    // ===========================
-    // 1. CHECK 24-HOUR KICK BAN
-    // ===========================
+  async joinRoom(roomId: string, userId: string, pin?: string) {
+    // --------------------------------------------------
+    // 1) Check ban/kick
+    // --------------------------------------------------
     const kick = await this.prisma.audioRoomKick.findUnique({
       where: { roomId_userId: { roomId, userId } },
     });
@@ -553,15 +492,15 @@ export class RoomsService {
         );
       }
 
-      // Remove expired ban
+      // Expired: remove ban
       await this.prisma.audioRoomKick.delete({
         where: { roomId_userId: { roomId, userId } },
       });
     }
 
-    // ===========================
-    // 2. VERIFY ROOM STATUS + LOAD HOST INFO
-    // ===========================
+    // --------------------------------------------------
+    // 2) Load room
+    // --------------------------------------------------
     const room = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
       include: {
@@ -570,8 +509,8 @@ export class RoomsService {
             id: true,
             nickName: true,
             profilePicture: true,
-            gender: true,
             email: true,
+            gender: true,
             dob: true,
             country: true,
             charmLevel: true,
@@ -585,15 +524,28 @@ export class RoomsService {
       throw new NotFoundException('Room not live');
     }
 
-    // ===========================
-    // 3. UPSERT PARTICIPANT
-    // ===========================
+
+      // 🔒 PIN CHECK
+  if (room.isLocked) {
+    if (!pin) {
+      throw new ForbiddenException("Room is locked");
+    }
+
+    const ok = await verifyPin(pin, room.pinHash!);
+    if (!ok) {
+      throw new ForbiddenException("Invalid room PIN");
+    }
+  }
+    // --------------------------------------------------
+    // 3) Create/update participant
+    // --------------------------------------------------
     await this.prisma.roomParticipant.upsert({
       where: { roomId_userId: { roomId, userId } },
       create: {
         roomId,
         userId,
         isHost: room.hostId === userId,
+        joinedAt: new Date(),
       },
       update: {
         disconnectedAt: null,
@@ -602,26 +554,48 @@ export class RoomsService {
       },
     });
 
-    // ===========================
-    // 4. ISSUE SUBSCRIBER TOKEN
-    // ===========================
+    const participant = await this.prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+    if (!participant) {
+      throw new NotFoundException('Participant record missing');
+    }
+
+    // --------------------------------------------------
+    // 4) Ensure stable rtcUid (generate once)
+    // --------------------------------------------------
+    let rtcUidNum: number;
+
+    if (participant.rtcUid) {
+      rtcUidNum = parseInt(participant.rtcUid, 10);
+      if (isNaN(rtcUidNum)) {
+        rtcUidNum = Math.floor(Math.random() * 1_000_000_000);
+        await this.prisma.roomParticipant.update({
+          where: { roomId_userId: { roomId, userId } },
+          data: { rtcUid: String(rtcUidNum) },
+        });
+      }
+    } else {
+      rtcUidNum = Math.floor(Math.random() * 1_000_000_000);
+      await this.prisma.roomParticipant.update({
+        where: { roomId_userId: { roomId, userId } },
+        data: { rtcUid: String(rtcUidNum) },
+      });
+    }
+
+    // --------------------------------------------------
+    // 5) Issue ONE subscriber token ONLY
+    // --------------------------------------------------
     const tokenInfo = await this.rtc.issueToken(
       room.provider,
       roomId,
-      'subscriber',
+      'subscriber', // ALWAYS subscriber
+      rtcUidNum, // same UID
     );
 
-    // ===========================
-    // 5. SAVE RTC UID IN DB
-    // ===========================
-    await this.prisma.roomParticipant.update({
-      where: { roomId_userId: { roomId, userId } },
-      data: { rtcUid: String(tokenInfo.uid) },
-    });
-
-    // ===========================
-    // 6. RELOAD ROOM WITH UPDATED PARTICIPANTS + SEATS
-    // ===========================
+    // --------------------------------------------------
+    // 6) Reload full room detail
+    // --------------------------------------------------
     const fullRoom = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
       include: {
@@ -630,8 +604,8 @@ export class RoomsService {
             id: true,
             nickName: true,
             profilePicture: true,
-            gender: true,
             email: true,
+            gender: true,
             dob: true,
             country: true,
             charmLevel: true,
@@ -664,8 +638,8 @@ export class RoomsService {
                 id: true,
                 nickName: true,
                 profilePicture: true,
-                gender: true,
                 email: true,
+                gender: true,
                 dob: true,
                 country: true,
                 charmLevel: true,
@@ -677,20 +651,29 @@ export class RoomsService {
       },
     });
 
-    // ===========================
-    // 7. RETURN UPDATED ROOM + TOKEN
-    // ===========================
+    // --------------------------------------------------
+    // 7) Return to frontend
+    // --------------------------------------------------
     return {
       room: fullRoom,
-      token: tokenInfo,
+      token: tokenInfo, // ONLY subscriber token
+      rtcUid: rtcUidNum,
     };
   }
 
   async leaveRoom(roomId: string, userId: string) {
+    await this.prisma.seat.updateMany({
+      where: { roomId, userId },
+      data: { userId: null, micOn: true },
+    });
+
     await this.prisma.roomParticipant.updateMany({
-      where: { roomId, userId, disconnectedAt: null },
+      where: { roomId, userId },
       data: { disconnectedAt: new Date() },
     });
+
+    this.gateway.server.to(`room:${roomId}`).emit('room.leave', { userId });
+
     return { ok: true };
   }
 }
