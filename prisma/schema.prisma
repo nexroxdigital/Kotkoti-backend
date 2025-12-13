@@ -76,6 +76,14 @@ model User {
   deactivation          UserDeactivation?
   visitors              Visitors[]            @relation("UserVisitors")
   visitedUsers          Visitors[]            @relation("UserVisitorsBy")
+
+  @@index([agencyId])
+  @@index([vipId])
+  @@index([activeItemId])
+  @@index([charmLevelId])
+  @@index([wealthLevelId])
+  @@index([isHost])
+  @@index([createdAt])
 }
 
 model Session {
@@ -102,6 +110,9 @@ model LoginHistory {
   userAgent String?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model CoverPhoto {
@@ -132,6 +143,9 @@ model Agency {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   users         User[]
+
+  @@index([ownerId])
+  @@index([status])
 }
 
 model Vip {
@@ -149,6 +163,9 @@ model Vip {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   users          User[]
+
+  @@index([type])
+  @@index([expiryDate])
 }
 
 model EmailOtp {
@@ -169,6 +186,9 @@ model RefreshToken {
   userId    String
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([token])
 }
 
 model CharmLevel {
@@ -385,6 +405,10 @@ model RechargeLog {
   createdAt DateTime   @default(now())
   seller    CoinSeller @relation(fields: [sellerId], references: [id])
   user      User       @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([sellerId])
+  @@index([createdAt])
 }
 
 model AudioRoom {
@@ -400,8 +424,6 @@ model AudioRoom {
   imageUrl     String?
   seatCount    Int                @default(12)
   tags         String[]           @default([])
-  isLocked     Boolean            @default(false)
-  pinHash      String?
   host         User               @relation("UserHostedRooms", fields: [hostId], references: [id])
   bans         AudioRoomBan[]
   kicks        AudioRoomKick[]
@@ -409,6 +431,10 @@ model AudioRoom {
   participants RoomParticipant[]
   seats        Seat[]
   seatRequests SeatRequest[]
+
+  @@index([hostId])
+  @@index([isLive])
+  @@index([createdAt])
 }
 
 model Seat {
@@ -528,6 +554,11 @@ model GiftTransaction {
   gift       Gift     @relation(fields: [giftId], references: [id])
   receiver   User     @relation("ReceiverRelation", fields: [receiverId], references: [id])
   sender     User     @relation("SenderRelation", fields: [senderId], references: [id])
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([streamId])
+  @@index([createdAt])
 }
 
 model LuckyPack {
@@ -542,6 +573,10 @@ model LuckyPack {
   maxClaims     Int
   creator       User             @relation("UserCreatedLuckyPacks", fields: [creatorId], references: [id])
   claims        LuckyPackClaim[]
+
+  @@index([creatorId])
+  @@index([roomId])
+  @@index([createdAt])
 }
 
 model LuckyPackClaim {
@@ -571,6 +606,9 @@ model Moment {
   momentImages MomentImage[]
   likes        MomentLike[]
   momentShares MomentShare[]
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model MomentImage {
