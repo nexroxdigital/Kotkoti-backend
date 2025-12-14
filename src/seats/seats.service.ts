@@ -451,6 +451,55 @@ export class SeatsService {
     return { ok: true, seats };
   }
 
+  // seats.service.ts
+  async removeUserFromSeat(
+    roomId: string,
+    hostId: string,
+    targetUserId: string,
+  ) {
+    // 1. Verify room & host
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room) throw new NotFoundException('Room not found');
+    if (room.hostId !== hostId)
+      throw new ForbiddenException('Only host can remove users from seat');
+
+    // 2. Find user's seat
+    const seat = await this.prisma.seat.findFirst({
+      where: { roomId, userId: targetUserId },
+    });
+
+    if (!seat) return null;
+
+    // 3. Remove user from seat
+    await this.prisma.seat.update({
+      where: { id: seat.id },
+      data: {
+        userId: null,
+        micOn: true,
+      },
+    });
+
+    // 4. Return updated seats
+    const seats = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
+    });
+
+    return seats;
+  }
+
   async toggleMic(roomId: string, userId: string, micOn: boolean) {
     const seat = await this.prisma.seat.findFirst({
       where: { roomId, userId },
