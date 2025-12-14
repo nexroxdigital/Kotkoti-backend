@@ -49,17 +49,6 @@ export class PrismaService
     });
 
     this.pool = pool;
-
-    // Log slow queries (> 1000ms)
-    this.$on('query' as never, (e: any) => {
-      if (e.duration > 1000) {
-        this.logger.warn(`Slow query detected (${e.duration}ms): ${e.query}`);
-      }
-    });
-
-    this.$on('error' as never, (e: any) => {
-      this.logger.error('Prisma error:', e);
-    });
   }
 
   async onModuleInit() {
