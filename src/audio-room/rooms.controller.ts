@@ -174,8 +174,16 @@ export class RoomsController {
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/join')
-  async joinRoom(@Param('id') id: string,  @Body() dto: { pin?: string }, @Request() req) {
-    const result = await this.roomsService.joinRoom(id, req.user.userId, dto?.pin);
+  async joinRoom(
+    @Param('id') id: string,
+    @Body() dto: { pin?: string },
+    @Request() req,
+  ) {
+    const result = await this.roomsService.joinRoom(
+      id,
+      req.user.userId,
+      dto?.pin,
+    );
     return { success: true, data: result };
   }
 
@@ -401,12 +409,18 @@ export class RoomsController {
     return { success: true };
   }
 
-  @UseGuards(JwtAuthGuard)
-  @Post(':id/seat/leave')
-  async leaveSeat(@Param('id') id: string, @Request() req) {
-    const result = await this.seatsService.leaveSeat(id, req.user.userId);
-    return { success: true, data: result };
-  }
+@Patch(':id/seat/leave')
+@UseGuards(JwtAuthGuard)
+async leaveSeat(@Param('id') roomId: string, @Req() req) {
+  const userId = req.user.userId;
+
+  const result = await this.seatsService.leaveSeat(roomId, userId);
+console.log("result", result)
+  this.roomGateway.broadcastSeatUpdate(roomId, result.seats);
+
+  return { success: true, seats: result.seats };
+}
+
 
   // ============================
   // BAN CONTROL (HOST ONLY)
@@ -489,61 +503,63 @@ export class RoomsController {
     return { success: true, data: result };
   }
 
+  @Patch(':id/lock')
+  @UseGuards(JwtAuthGuard)
+  async lockRoom(
+    @Param('id') roomId: string,
+    @Body() dto: { pin: string },
+    @Req() req,
+  ) {
+    const userId = req.user.userId;
 
-  @Patch(":id/lock")
-@UseGuards(JwtAuthGuard)
-async lockRoom(
-  @Param("id") roomId: string,
-  @Body() dto: { pin: string },
-  @Req() req
-) {
-  const userId = req.user.userId;
+    if (!/^\d{6}$/.test(dto.pin)) {
+      throw new BadRequestException('PIN must be 6 digits');
+    }
 
-  if (!/^\d{6}$/.test(dto.pin)) {
-    throw new BadRequestException("PIN must be 6 digits");
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room || room.hostId !== userId) {
+      throw new ForbiddenException('Only host can lock room');
+    }
+
+    const pinHash = await hashPin(dto.pin);
+
+    await this.prisma.audioRoom.update({
+      where: { id: roomId },
+      data: {
+        isLocked: true,
+        pinHash,
+      },
+    });
+
+    return { success: true };
   }
 
-  const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
+  @Patch(':id/unlock')
+  @UseGuards(JwtAuthGuard)
+  async unlockRoom(@Param('id') roomId: string, @Req() req) {
+    const userId = req.user.userId;
 
-  if (!room || room.hostId !== userId) {
-    throw new ForbiddenException("Only host can lock room");
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+    });
+
+    if (!room || room.hostId !== userId) {
+      throw new ForbiddenException('Only host can unlock room');
+    }
+
+    await this.prisma.audioRoom.update({
+      where: { id: roomId },
+      data: {
+        isLocked: false,
+        pinHash: null,
+      },
+    });
+
+    return { success: true };
   }
-
-  const pinHash = await hashPin(dto.pin);
-
-  await this.prisma.audioRoom.update({
-    where: { id: roomId },
-    data: {
-      isLocked: true,
-      pinHash,
-    },
-  });
-
-  return { success: true };
-}
-
-@Patch(":id/unlock")
-@UseGuards(JwtAuthGuard)
-async unlockRoom(@Param("id") roomId: string, @Req() req) {
-  const userId = req.user.userId;
-
-  const room = await this.prisma.audioRoom.findUnique({ where: { id: roomId } });
-
-  if (!room || room.hostId !== userId) {
-    throw new ForbiddenException("Only host can unlock room");
-  }
-
-  await this.prisma.audioRoom.update({
-    where: { id: roomId },
-    data: {
-      isLocked: false,
-      pinHash: null,
-    },
-  });
-
-  return { success: true };
-}
-
 
   // ============================
   // RTC
