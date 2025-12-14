@@ -93,78 +93,77 @@ export class SeatsService {
     return updatedSeats;
   }
 
-async changeSeatCount(roomId: string, userId: string, seatCount: number) {
-  const room = await this.prisma.audioRoom.findUnique({
-    where: { id: roomId },
-  });
-  if (!room) throw new NotFoundException('Room not found');
-  if (room.hostId !== userId)
-    throw new ForbiddenException('Only host can update seat count');
+  async changeSeatCount(roomId: string, userId: string, seatCount: number) {
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+    });
+    if (!room) throw new NotFoundException('Room not found');
+    if (room.hostId !== userId)
+      throw new ForbiddenException('Only host can update seat count');
 
-  const existing = await this.prisma.seat.findMany({
-    where: { roomId },
-    orderBy: { index: 'asc' },
-  });
+    const existing = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+    });
 
-  const oldCount = existing.length;
+    const oldCount = existing.length;
 
-  // 1 INCREASE SEATS
-  if (seatCount > oldCount) {
-    const newSeats = Array.from({ length: seatCount - oldCount }).map(
-      (_, i) => ({
-        roomId,
-        index: oldCount + i,
-        micOn: true,
-        mode: SeatMode.FREE,
-      }),
-    );
+    // 1 INCREASE SEATS
+    if (seatCount > oldCount) {
+      const newSeats = Array.from({ length: seatCount - oldCount }).map(
+        (_, i) => ({
+          roomId,
+          index: oldCount + i,
+          micOn: true,
+          mode: SeatMode.FREE,
+        }),
+      );
 
-    await this.prisma.seat.createMany({ data: newSeats });
-  }
-
-  // 2 DECREASE SEATS → AUTO REMOVE USERS (NO RTC LOGIC)
-  if (seatCount < oldCount) {
-    const seatsToRemove = existing.filter((s) => s.index >= seatCount);
-
-    for (const seat of seatsToRemove) {
-      if (seat.userId) {
-        // Just remove user from seat
-        await this.prisma.seat.update({
-          where: { id: seat.id },
-          data: { userId: null, micOn: true },
-        });
-      }
+      await this.prisma.seat.createMany({ data: newSeats });
     }
 
-    await this.prisma.seat.deleteMany({
-      where: { roomId, index: { gte: seatCount } },
+    // 2 DECREASE SEATS → AUTO REMOVE USERS (NO RTC LOGIC)
+    if (seatCount < oldCount) {
+      const seatsToRemove = existing.filter((s) => s.index >= seatCount);
+
+      for (const seat of seatsToRemove) {
+        if (seat.userId) {
+          // Just remove user from seat
+          await this.prisma.seat.update({
+            where: { id: seat.id },
+            data: { userId: null, micOn: true },
+          });
+        }
+      }
+
+      await this.prisma.seat.deleteMany({
+        where: { roomId, index: { gte: seatCount } },
+      });
+    }
+
+    // 3 UPDATE ROOM SEAT COUNT
+    await this.prisma.audioRoom.update({
+      where: { id: roomId },
+      data: { seatCount },
     });
-  }
 
-  // 3 UPDATE ROOM SEAT COUNT
-  await this.prisma.audioRoom.update({
-    where: { id: roomId },
-    data: { seatCount },
-  });
-
-  // 4 RETURN UPDATED SEATS
-  const updatedSeats = await this.prisma.seat.findMany({
-    where: { roomId },
-    orderBy: { index: 'asc' },
-    include: {
-      user: {
-        select: {
-          id: true,
-          nickName: true,
-          profilePicture: true,
+    // 4 RETURN UPDATED SEATS
+    const updatedSeats = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  return { seats: updatedSeats };
-}
-
+    return { seats: updatedSeats };
+  }
 
   async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     const seat = await this.prisma.seat.findFirst({
@@ -280,7 +279,7 @@ async changeSeatCount(roomId: string, userId: string, seatCount: number) {
     if (!seat) throw new NotFoundException('Seat not found');
 
     const isHost = room.hostId === userId;
-
+    if (seat.userId) throw new BadRequestException('Seat occupied');
     // RULE: HOST may take any seat
     // USER may take only FREE seats
     if (!isHost && seat.mode !== 'FREE') {
@@ -404,12 +403,29 @@ async changeSeatCount(roomId: string, userId: string, seatCount: number) {
     const seat = await this.prisma.seat.findFirst({
       where: { roomId, userId },
     });
-    if (!seat) throw new NotFoundException('User not on seat');
-    await this.prisma.seat.update({
-      where: { id: seat.id },
-      data: { userId: null, micOn: false },
+
+    if (seat) {
+      await this.prisma.seat.update({
+        where: { id: seat.id },
+        data: { userId: null, micOn: true },
+      });
+    }
+
+    const seats = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            profilePicture: true,
+          },
+        },
+      },
     });
-    return { ok: true };
+
+    return { seats };
   }
 
   async leaveSeatSilent(roomId: string, userId: string) {
@@ -555,5 +571,4 @@ async changeSeatCount(roomId: string, userId: string, seatCount: number) {
     });
     return { ok: true };
   }
-
 }

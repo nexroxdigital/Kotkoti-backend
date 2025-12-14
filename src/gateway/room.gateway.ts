@@ -145,6 +145,44 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  // room.gateway.ts
+  @SubscribeMessage('seat.invite')
+  async onSeatInvite(
+    @MessageBody()
+    payload: {
+      roomId: string;
+      seatIndex: number;
+      targetUserId: string;
+    },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { roomId, seatIndex, targetUserId } = payload;
+
+    // Send invite ONLY to target user
+    this.server.to(`user:${targetUserId}`).emit('seat.invited', {
+      roomId,
+      seatIndex,
+    });
+  }
+
+  @SubscribeMessage('seat.invite.accept')
+  async onInviteAccept(
+    @MessageBody()
+    payload: {
+      roomId: string;
+      seatIndex: number;
+      userId: string;
+    },
+  ) {
+    const { roomId, seatIndex, userId } = payload;
+
+    // Use existing seat service logic
+    const seats = await this.seatsService.takeSeat(roomId, seatIndex, userId);
+
+    // Broadcast updated seats
+    this.server.to(`room:${roomId}`).emit('seat.update', { seats });
+  }
+
   // =====================================================
   // MIC STATUS
   // =====================================================
