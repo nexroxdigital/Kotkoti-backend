@@ -421,6 +421,37 @@ console.log("result", result)
   return { success: true, seats: result.seats };
 }
 
+@UseGuards(JwtAuthGuard)
+@Patch(":id/seat/remove-user")
+async removeUserFromSeat(
+  @Param("id") roomId: string,
+  @Body() dto: { userId: string },
+  @Req() req,
+) {
+  const hostId = req.user.userId;
+
+  const seats = await this.seatsService.removeUserFromSeat(
+    roomId,
+    hostId,
+    dto.userId,
+  );
+
+  if (!seats) return { ok: true };
+
+  // Broadcast seat update
+  this.roomGateway.broadcastSeatUpdate(roomId, seats);
+
+  // Notify removed user
+  this.roomGateway.server
+    .to(`room:${roomId}`)
+    .emit("seat.removed", {
+      userId: dto.userId,
+    });
+
+  return { ok: true, seats };
+}
+
+
 
   // ============================
   // BAN CONTROL (HOST ONLY)
