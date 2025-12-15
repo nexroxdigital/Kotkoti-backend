@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SeatsService } from '../seats/seats.service';
 import { ParticipantsService } from '../participants/participants.service';
 import { RoomGateway } from '../gateway/room.gateway';
+import { requireHostOrAdmin } from 'src/common/utils/requireHostOrAdmin';
 
 @Injectable()
 export class KickService {
@@ -23,7 +24,7 @@ export class KickService {
     return this.prisma.audioRoomKick.findMany({
       where: { roomId },
       include: {
-        user: { select: { id: true, nickName: true, email: true, profilePicture: true, charmLevel: true , wealthLevel: true, dob: true, country: true, gender: true} },
+        user: { select: { id: true, nickName: true, email: true, profilePicture: true, charmLevel: true , wealthLevel: true, dob: true, country: true} },
       },
       orderBy: { expiresAt: 'desc' },
     });
@@ -36,10 +37,13 @@ export class KickService {
     });
     if (!room) throw new NotFoundException('Room not found');
 
+    const actor = await this.participantsService.getParticipant(roomId, userId);
     // Only host can kick
-    if (room.hostId !== hostId) {
-      throw new ForbiddenException('Only host can kick users');
+    if (room.hostId !== hostId || actor.role !== 'ADMIN') {
+      throw new ForbiddenException('Only host or admin can kick users');
     }
+
+
 
     // Ban for 24 hours
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
