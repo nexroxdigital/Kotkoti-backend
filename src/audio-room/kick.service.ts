@@ -23,7 +23,7 @@ export class KickService {
     return this.prisma.audioRoomKick.findMany({
       where: { roomId },
       include: {
-        user: { select: { id: true, nickName: true, email: true } },
+        user: { select: { id: true, nickName: true, email: true, profilePicture: true, charmLevel: true , wealthLevel: true, dob: true, country: true, gender: true} },
       },
       orderBy: { expiresAt: 'desc' },
     });
