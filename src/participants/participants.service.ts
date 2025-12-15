@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -54,7 +54,22 @@ async getRoomWithHost(roomId: string) {
   return room;
 }
 
+ async getParticipant(roomId: string, userId: string) {
+    const participant = await this.prisma.roomParticipant.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
 
+    if (!participant) {
+      throw new ForbiddenException('User is not in this room');
+    }
+
+    return participant;
+  }
 }
 
 
