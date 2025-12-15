@@ -326,7 +326,7 @@ model StoreCategory {
   name      String
   icon      String
   createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  updatedAt DateTime?   @updatedAt
   items     StoreItem[]
 }
 
@@ -339,7 +339,7 @@ model StoreItem {
   type        String
   validity    DateTime?
   createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  updatedAt   DateTime?     @updatedAt
   swf         String?
   swftime     Int?
   backpacks   Backpack[]
@@ -377,7 +377,7 @@ model CoinSeller {
   totalCoin      Int
   status         String
   createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
+  updatedAt      DateTime?             @updatedAt
   id             Int                   @id @default(autoincrement())
   user           User                  @relation(fields: [userId], references: [id])
   buyingHistory  CoinsBuyingHistory[]
@@ -390,7 +390,7 @@ model CoinsSellingHistory {
   status     String
   amount     Int
   createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  updatedAt  DateTime?  @updatedAt
   id         Int        @id @default(autoincrement())
   sellerId   Int
   receiver   User       @relation(fields: [receiverId], references: [id])
@@ -401,7 +401,7 @@ model CoinsBuyingHistory {
   amount    Int
   status    String
   createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  updatedAt DateTime?  @updatedAt
   id        Int        @id @default(autoincrement())
   sellerId  Int
   seller    CoinSeller @relation(fields: [sellerId], references: [id])
@@ -414,7 +414,7 @@ model RechargeLog {
   amount    Int
   status    String
   createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  updatedAt DateTime?  @updatedAt
   seller    CoinSeller @relation(fields: [sellerId], references: [id])
   user      User       @relation(fields: [userId], references: [id])
 
@@ -474,7 +474,7 @@ model RoomParticipant {
   lastActiveAt   DateTime  @default(now())
   room           AudioRoom @relation(fields: [roomId], references: [id])
   user           User      @relation(fields: [userId], references: [id])
-  role      RoomRole @default(USER)
+  role           RoomRole  @default(USER)
 
   @@unique([roomId, userId])
   @@index([roomId])
@@ -703,43 +703,43 @@ model Svip {
   swfTime         Int?
   logs            SvipLog[]
   createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  updatedAt       DateTime?            @updatedAt
   mediaPrivileges SvipMediaPrivilege[]
   powerPrivileges SvipPowerPrivilege[]
 }
 
 model SvipPowerPrivilege {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   svipId    Int?
   powerName String
   icon      String?
   swf       String?
   swftime   Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  svip      Svip?    @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  svip      Svip?     @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipMediaPrivilege {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   svipId        Int
   swf           String?
   icon          String?
   swfTime       Int?
   privilegeName String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  svip          Svip     @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime? @updatedAt
+  svip          Svip      @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipLog {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   svipId    Int
   userId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  svip      Svip     @relation(fields: [svipId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  svip      Svip      @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
 }
 
 enum Provider {
