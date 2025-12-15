@@ -14,12 +14,14 @@ import sharp from 'sharp';
 import { UpdateRoomDto } from './dto/UpdateRoomDto';
 import { RoomGateway } from 'src/gateway/room.gateway';
 import { verifyPin } from 'src/common/utils/room-pin.util';
+import { ParticipantsService } from 'src/participants/participants.service';
 
 @Injectable()
 export class RoomsService {
   constructor(
     private prisma: PrismaService,
     private rtc: RtcService,
+    private participant: ParticipantsService,
     private gateway: RoomGateway,
   ) {}
   // Dynamically adjust seat count (increase / decrease seats)
@@ -524,18 +526,17 @@ export class RoomsService {
       throw new NotFoundException('Room not live');
     }
 
+    // 🔒 PIN CHECK
+    if (room.isLocked) {
+      if (!pin) {
+        throw new ForbiddenException('Room is locked');
+      }
 
-      // 🔒 PIN CHECK
-  if (room.isLocked) {
-    if (!pin) {
-      throw new ForbiddenException("Room is locked");
+      const ok = await verifyPin(pin, room.pinHash!);
+      if (!ok) {
+        throw new ForbiddenException('Invalid room PIN');
+      }
     }
-
-    const ok = await verifyPin(pin, room.pinHash!);
-    if (!ok) {
-      throw new ForbiddenException("Invalid room PIN");
-    }
-  }
     // --------------------------------------------------
     // 3) Create/update participant
     // --------------------------------------------------
@@ -659,6 +660,45 @@ export class RoomsService {
       token: tokenInfo, // ONLY subscriber token
       rtcUid: rtcUidNum,
     };
+  }
+
+  async makeAdmin(roomId: string, hostId: string, targetUserId: string) {
+    const host = await this.prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId: hostId } },
+    });
+
+    if (host?.role !== 'HOST') {
+      throw new ForbiddenException('Only host can assign admin');
+    }
+
+    await this.prisma.roomParticipant.update({
+      where: { roomId_userId: { roomId, userId: targetUserId } },
+      data: { role: 'ADMIN' },
+    });
+
+    return { success: true };
+  }
+
+  async removeAdmin(roomId: string, actorId: string, targetUserId: string) {
+    const actor = await this.participant.getParticipant(roomId, actorId);
+
+    if (actor.role !== 'HOST') {
+      throw new ForbiddenException('Only host can remove admin');
+    }
+
+    await this.prisma.roomParticipant.update({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId: targetUserId,
+        },
+      },
+      data: {
+        role: 'USER',
+      },
+    });
+
+    return { success: true };
   }
 
   async leaveRoom(roomId: string, userId: string) {

@@ -145,7 +145,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  // room.gateway.ts
+
   @SubscribeMessage('seat.invite')
   async onSeatInvite(
     @MessageBody()
@@ -165,6 +165,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  
   @SubscribeMessage('seat.invite.accept')
   async onInviteAccept(
     @MessageBody()
@@ -181,6 +182,20 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Broadcast updated seats
     this.server.to(`room:${roomId}`).emit('seat.update', { seats });
+  }
+
+  @SubscribeMessage('seat.invite.reject')
+  handleInviteReject(
+    @MessageBody()
+    payload: {
+      roomId: string;
+      seatIndex: number;
+      userId: string;
+    },
+  ) {
+    this.server
+      .to(`room:${payload.roomId}`)
+      .emit('seat.invite.reject', payload);
   }
 
   // =====================================================

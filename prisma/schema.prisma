@@ -474,6 +474,7 @@ model RoomParticipant {
   lastActiveAt   DateTime  @default(now())
   room           AudioRoom @relation(fields: [roomId], references: [id])
   user           User      @relation(fields: [userId], references: [id])
+  role      RoomRole @default(USER)
 
   @@unique([roomId, userId])
   @@index([roomId])
@@ -750,6 +751,12 @@ enum SeatMode {
   FREE
   REQUEST
   LOCKED
+}
+
+enum RoomRole {
+  HOST
+  ADMIN
+  USER
 }
 
 enum RequestStatus {

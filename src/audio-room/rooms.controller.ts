@@ -409,49 +409,45 @@ export class RoomsController {
     return { success: true };
   }
 
-@Patch(':id/seat/leave')
-@UseGuards(JwtAuthGuard)
-async leaveSeat(@Param('id') roomId: string, @Req() req) {
-  const userId = req.user.userId;
+  @Patch(':id/seat/leave')
+  @UseGuards(JwtAuthGuard)
+  async leaveSeat(@Param('id') roomId: string, @Req() req) {
+    const userId = req.user.userId;
 
-  const result = await this.seatsService.leaveSeat(roomId, userId);
-console.log("result", result)
-  this.roomGateway.broadcastSeatUpdate(roomId, result.seats);
+    const result = await this.seatsService.leaveSeat(roomId, userId);
+    console.log('result', result);
+    this.roomGateway.broadcastSeatUpdate(roomId, result.seats);
 
-  return { success: true, seats: result.seats };
-}
+    return { success: true, seats: result.seats };
+  }
 
-@UseGuards(JwtAuthGuard)
-@Patch(":id/seat/remove-user")
-async removeUserFromSeat(
-  @Param("id") roomId: string,
-  @Body() dto: { userId: string },
-  @Req() req,
-) {
-  const hostId = req.user.userId;
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/seat/remove-user')
+  async removeUserFromSeat(
+    @Param('id') roomId: string,
+    @Body() dto: { userId: string },
+    @Req() req,
+  ) {
+    const hostId = req.user.userId;
 
-  const seats = await this.seatsService.removeUserFromSeat(
-    roomId,
-    hostId,
-    dto.userId,
-  );
+    const seats = await this.seatsService.removeUserFromSeat(
+      roomId,
+      hostId,
+      dto.userId,
+    );
 
-  if (!seats) return { ok: true };
+    if (!seats) return { ok: true };
 
-  // Broadcast seat update
-  this.roomGateway.broadcastSeatUpdate(roomId, seats);
+    // Broadcast seat update
+    this.roomGateway.broadcastSeatUpdate(roomId, seats);
 
-  // Notify removed user
-  this.roomGateway.server
-    .to(`room:${roomId}`)
-    .emit("seat.removed", {
+    // Notify removed user
+    this.roomGateway.server.to(`room:${roomId}`).emit('seat.removed', {
       userId: dto.userId,
     });
 
-  return { ok: true, seats };
-}
-
-
+    return { ok: true, seats };
+  }
 
   // ============================
   // BAN CONTROL (HOST ONLY)
@@ -590,6 +586,16 @@ async removeUserFromSeat(
     });
 
     return { success: true };
+  }
+
+  @Patch(':roomId/admin/:userId')
+  @UseGuards(JwtAuthGuard)
+  async makeAdmin(
+    @Param('roomId') roomId: string,
+    @Param('userId') targetUserId: string,
+    @Req() req,
+  ) {
+    return this.roomsService.makeAdmin(roomId, req.user.userId, targetUserId);
   }
 
   // ============================
