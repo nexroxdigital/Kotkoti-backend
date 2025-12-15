@@ -322,10 +322,12 @@ model Post {
 }
 
 model StoreCategory {
-  id    String      @id @default(uuid())
-  name  String
-  icon  String
-  items StoreItem[]
+  id        String      @id @default(uuid())
+  name      String
+  icon      String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime?   @updatedAt
+  items     StoreItem[]
 }
 
 model StoreItem {
@@ -337,6 +339,7 @@ model StoreItem {
   type        String
   validity    DateTime?
   createdAt   DateTime      @default(now())
+  updatedAt   DateTime?     @updatedAt
   swf         String?
   swftime     Int?
   backpacks   Backpack[]
@@ -364,6 +367,8 @@ model Employee {
   phone          String?      @unique
   password       String
   profilePicture String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   role           EmployeeRole @default(STAFF)
 }
 
@@ -372,6 +377,7 @@ model CoinSeller {
   totalCoin      Int
   status         String
   createdAt      DateTime              @default(now())
+  updatedAt      DateTime?             @updatedAt
   id             Int                   @id @default(autoincrement())
   user           User                  @relation(fields: [userId], references: [id])
   buyingHistory  CoinsBuyingHistory[]
@@ -384,6 +390,7 @@ model CoinsSellingHistory {
   status     String
   amount     Int
   createdAt  DateTime   @default(now())
+  updatedAt  DateTime?  @updatedAt
   id         Int        @id @default(autoincrement())
   sellerId   Int
   receiver   User       @relation(fields: [receiverId], references: [id])
@@ -394,6 +401,7 @@ model CoinsBuyingHistory {
   amount    Int
   status    String
   createdAt DateTime   @default(now())
+  updatedAt DateTime?  @updatedAt
   id        Int        @id @default(autoincrement())
   sellerId  Int
   seller    CoinSeller @relation(fields: [sellerId], references: [id])
@@ -406,6 +414,7 @@ model RechargeLog {
   amount    Int
   status    String
   createdAt DateTime   @default(now())
+  updatedAt DateTime?  @updatedAt
   seller    CoinSeller @relation(fields: [sellerId], references: [id])
   user      User       @relation(fields: [userId], references: [id])
 
@@ -419,8 +428,8 @@ model AudioRoom {
   name         String
   hostId       String
   isLive       Boolean            @default(true)
-  isLocked    Boolean  @default(false)
-  pinHash     String?
+  isLocked     Boolean            @default(false)
+  pinHash      String?
   createdAt    DateTime           @default(now())
   endedAt      DateTime?
   provider     Provider           @default(AGORA)
@@ -465,7 +474,7 @@ model RoomParticipant {
   lastActiveAt   DateTime  @default(now())
   room           AudioRoom @relation(fields: [roomId], references: [id])
   user           User      @relation(fields: [userId], references: [id])
-  role      RoomRole @default(USER)
+  role           RoomRole  @default(USER)
 
   @@unique([roomId, userId])
   @@index([roomId])
@@ -525,10 +534,12 @@ model ProviderTokenLog {
 }
 
 model GiftCategory {
-  id    String @id @default(uuid())
-  name  String
-  icon  String
-  gifts Gift[]
+  id        String   @id @default(uuid())
+  name      String
+  icon      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  gifts     Gift[]
 }
 
 model Gift {
@@ -542,6 +553,8 @@ model Gift {
   swfTime      String
   worldMsg     Boolean
   isSound      Boolean
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
   category     GiftCategory      @relation(fields: [categoryId], references: [id])
   transactions GiftTransaction[]
 }
@@ -555,6 +568,7 @@ model GiftTransaction {
   quantity   Int
   totalCoins Int
   createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   gift       Gift     @relation(fields: [giftId], references: [id])
   receiver   User     @relation("ReceiverRelation", fields: [receiverId], references: [id])
   sender     User     @relation("SenderRelation", fields: [senderId], references: [id])
@@ -688,36 +702,44 @@ model Svip {
   swf             String?
   swfTime         Int?
   logs            SvipLog[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime?            @updatedAt
   mediaPrivileges SvipMediaPrivilege[]
   powerPrivileges SvipPowerPrivilege[]
 }
 
 model SvipPowerPrivilege {
-  id        Int     @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   svipId    Int?
   powerName String
   icon      String?
   swf       String?
   swftime   Int?
-  svip      Svip?   @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  svip      Svip?     @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipMediaPrivilege {
-  id            Int     @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   svipId        Int
   swf           String?
   icon          String?
   swfTime       Int?
   privilegeName String?
-  svip          Svip    @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime? @updatedAt
+  svip          Svip      @relation(fields: [svipId], references: [id], onDelete: Cascade)
 }
 
 model SvipLog {
-  id     Int    @id @default(autoincrement())
-  svipId Int
-  userId String
-  svip   Svip   @relation(fields: [svipId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id])
+  id        Int       @id @default(autoincrement())
+  svipId    Int
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
+  svip      Svip      @relation(fields: [svipId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
 }
 
 enum Provider {

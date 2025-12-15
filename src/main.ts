@@ -15,7 +15,13 @@ async function bootstrap() {
 
   app.enableCors({
     /*  origin: ['http://localhost:3000', 'http://192.168.0.102:3000', 'https://audio-room-frontend.vercel.app'] */
-    origin: '*',
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://audio-room-frontend.vercel.app',
+      'http://192.168.0.102:3000',
+      'http://192.168.0.102:5173',
+    ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
