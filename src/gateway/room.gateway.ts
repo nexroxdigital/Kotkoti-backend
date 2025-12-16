@@ -60,7 +60,18 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
         where: { roomId_userId: { roomId, userId } },
       });
     }
+ // FETCH participant AFTER join
+  const participant = await this.participantsService.getParticipant(
+    roomId,
+    userId,
+  );
 
+  if (participant?.userId) {
+    this.server.to(`room:${roomId}`).emit('chat:system', {
+      message: `${participant.userId} joined the room`,
+      timestamp: Date.now(),
+    });
+  }
     // -----------------------------------------------------
     // NORMAL CONNECTION
     // -----------------------------------------------------
@@ -109,23 +120,38 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // ROOM JOIN / LEAVE MESSAGES
   // =====================================================
-  @SubscribeMessage('room.join')
-  async onRoomJoin(
-    @MessageBody() payload: { roomId: string; userId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const { roomId, userId } = payload;
+@SubscribeMessage('room.join')
+async onRoomJoin(
+  @MessageBody() payload: { roomId: string; userId: string },
+  @ConnectedSocket() client: Socket,
+) {
+  const { roomId, userId } = payload;
 
-    client.join(`room:${roomId}`);
-    client.join(`user:${userId}`);
+  // join socket rooms
+  client.join(`room:${roomId}`);
+  client.join(`user:${userId}`);
 
-    const participants = await this.participantsService.getActive(roomId);
+  // get participants
+  const participants = await this.participantsService.getActive(roomId);
 
-    this.server.to(`room:${roomId}`).emit('room.join', {
-      userId,
-      participants,
-    });
+  // 🔹 find current participant (for nickname)
+  const joinedUser = participants.find(p => p.userId === userId);
+
+  //  SYSTEM CHAT MESSAGE (JOIN)
+ if (joinedUser) {
+    this.emitSystemMessage(
+      roomId,
+      `${joinedUser.user.nickName} joined the room`,
+    );
   }
+
+  // existing room event
+  this.server.to(`room:${roomId}`).emit('room.join', {
+    userId,
+    participants,
+  });
+}
+
 
   @SubscribeMessage('room.leave')
   async onRoomLeave(
@@ -239,6 +265,25 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitSeatMute(roomId: string, seatIndex: number, mute: boolean) {
     this.server.to(`room:${roomId}`).emit('seat.muted', { seatIndex, mute });
   }
+
+
+  // =====================================================
+// PARTICIPANT UPDATE BROADCAST
+// =====================================================
+async broadcastParticipantUpdate(roomId: string) {
+  const participants = await this.participantsService.getActive(roomId);
+
+  this.server.to(`room:${roomId}`).emit('participant.update', {
+    participants,
+  });
+}
+
+private emitSystemMessage(roomId: string, text: string) {
+  this.server.to(`room:${roomId}`).emit('chat:system', {
+    message: text,
+    timestamp: Date.now(),
+  });
+}
 
   // =====================================================
   // KICK EVENT EMIT

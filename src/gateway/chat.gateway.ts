@@ -1,95 +1,199 @@
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { Server, Socket } from "socket.io";
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { PrismaService } from '../prisma/prisma.service';
+import { ParticipantsService } from '../participants/participants.service';
 
-@WebSocketGateway({ cors: true })
+type ChatMode = 'ALL' | 'SEAT_ONLY' | 'LOCKED';
+
+@WebSocketGateway({ cors: { origin: '*' } })
 export class ChatGateway {
   @WebSocketServer()
   server: Server;
 
-  private roomChatState = new Map<string, { mode: "ALL" | "SEAT_ONLY" | "LOCKED" }>();
+  constructor(
+    private prisma: PrismaService,
+    private participantsService: ParticipantsService,
+  ) {}
+
+  // =====================================================
+  // In-memory chat state (ephemeral)
+  // =====================================================
+  private roomChatState = new Map<
+    string,
+    { mode: ChatMode }
+  >();
 
   private getState(roomId: string) {
     if (!this.roomChatState.has(roomId)) {
-      this.roomChatState.set(roomId, { mode: "ALL" });
+      this.roomChatState.set(roomId, { mode: 'ALL' });
     }
     return this.roomChatState.get(roomId)!;
   }
 
-  // ---------------------------
+  // =====================================================
+  // HELPERS
+  // =====================================================
+  private getRoomId(client: Socket): string | null {
+    return (client.handshake.query?.roomId as string) ?? null;
+  }
+
+  private getUserId(client: Socket): string | null {
+    return (client.handshake.query?.userId as string) ?? null;
+  }
+
+  private emitError(client: Socket, message: string) {
+    client.emit('chat:error', { message });
+  }
+
+  // =====================================================
   // SEND MESSAGE
-  // ---------------------------
-  @SubscribeMessage("chat.send")
-  async onSend(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() body: { roomId: string; message: string }
+  // =====================================================
+  @SubscribeMessage('chat:send')
+  async handleSendMessage(
+    @MessageBody() payload: { message: string },
+    @ConnectedSocket() client: Socket,
   ) {
-    const { roomId, message } = body;
-    const user = socket.data.user;
+    const roomId = this.getRoomId(client);
+    const userId = this.getUserId(client);
 
-    const state = this.getState(roomId);
+    if (!roomId || !userId) return;
 
-    if (state.mode === "LOCKED") {
-      socket.emit("chat.error", { message: "Chat is locked" });
+    console.log('🔥 chat:send', { socketId: client.id, roomId, userId });
+
+    const message = payload.message?.trim();
+    if (!message) return;
+
+  const room = await this.prisma.audioRoom.findUnique({
+    where: { id: roomId },
+    select: { chatMode: true },
+  });
+
+  if (!room) return;
+
+  if (room.chatMode === 'LOCKED') {
+    this.emitError(client, 'Chat is locked by host');
+    return;
+  }
+
+  if (room.chatMode === 'SEAT_ONLY') {
+    const seat = await this.prisma.seat.findFirst({
+      where: { roomId, userId },
+    });
+    if (!seat) {
+      this.emitError(client, 'Only seated users can chat');
       return;
     }
+  }
+    // ---- Participant check (DB) ----
+  const participantWithUser =
+  await this.prisma.roomParticipant.findFirst({
+    where: { roomId, userId },
+    include: {
+      user: {
+        select: {
+          nickName: true,
+          isHost: true,
+          profilePicture: true,
+          gender: true,
+          email: true,
+          dob: true,
+          country: true,
+          charmLevel: true,
+          charmLevelId: true,
+        },
+      },
+    },
+  });
 
-    if (state.mode === "SEAT_ONLY") {
-      const isSeated = await this.isUserOnSeat(roomId, user.userId);
-      if (!isSeated) {
-        socket.emit("chat.error", { message: "Seat users only" });
+  const participant = participantWithUser?.user;
+
+    if (!participant) return;
+
+    // ---- Seat-only check ----
+    if (room.chatMode === 'SEAT_ONLY') {
+      const seat = await this.prisma.seat.findFirst({
+        where: { roomId, userId },
+      });
+
+      if (!seat) {
+        this.emitError(client, 'Only seated users can chat');
         return;
       }
     }
 
-    this.server.to(roomId).emit("chat.message", {
-      userId: user.userId,
-      nickName: user.nickName,
+    // ---- Broadcast (NO STORAGE) ----
+    this.server.to(`room:${roomId}`).emit('chat:message', {
+      userId,
+      role: participant.isHost ? 'HOST' : 'USER',
+      nickName: participant.nickName,
+      profilePicture: participant.profilePicture,
+      gender: participant.gender,
+      email: participant.email,
+      dob: participant.dob,
+      country: participant.country,
+      charmLevel: participant.charmLevel,
+      charmLevelId: participant.charmLevelId,
       message,
-      ts: Date.now(),
+      timestamp: Date.now(),
     });
   }
 
-  // ---------------------------
-  // CHANGE MODE (Host/Admin)
-  // ---------------------------
-  @SubscribeMessage("chat.setMode")
-  async setMode(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() body: { roomId: string; mode: "ALL" | "SEAT_ONLY" | "LOCKED" }
+  // =====================================================
+  // CHANGE MODE (HOST / ADMIN)
+  // =====================================================
+@SubscribeMessage('chat:setMode')
+async handleSetMode(
+  @MessageBody() payload: { mode: ChatMode },
+  @ConnectedSocket() client: Socket,
+) {
+  const roomId = this.getRoomId(client);
+  if (!roomId) return;
+console.log("mode", payload.mode)
+  // (Host/Admin check already enforced)
+  await this.prisma.audioRoom.update({
+    where: { id: roomId },
+    data: { chatMode: payload.mode },
+  });
+
+  this.server.to(`room:${roomId}`).emit('chat:modeChanged', {
+    mode: payload.mode,
+  });
+}
+
+@SubscribeMessage('chat:setMode')
+async handleSetMod(
+  @ConnectedSocket() client: Socket,
+  @MessageBody() payload: { mode: 'ALL' | 'SEAT_ONLY' | 'LOCKED' },
+) {
+  const roomId = client.handshake.query.roomId as string;
+  if (!roomId) return;
+
+  const state = this.getState(roomId);
+  state.mode = payload.mode;
+
+  // 🔔 Notify everyone
+  this.server.to(`room:${roomId}`).emit('chat:modeChanged', {
+    mode: payload.mode,
+    timestamp: Date.now(),
+  });
+}
+
+  // =====================================================
+  // CLEAR CHAT (HOST / ADMIN)
+  // =====================================================
+  @SubscribeMessage('chat:clear')
+  async handleClear(
+    @ConnectedSocket() client: Socket,
   ) {
-    if (!(await this.isHostOrAdmin(socket, body.roomId))) return;
+    const roomId = this.getRoomId(client);
+    if (!roomId) return;
 
-    const state = this.getState(body.roomId);
-    state.mode = body.mode;
-
-    this.server.to(body.roomId).emit("chat.modeChanged", {
-      mode: body.mode,
-    });
-  }
-
-  // ---------------------------
-  // CLEAR CHAT (Host/Admin)
-  // ---------------------------
-  @SubscribeMessage("chat.clear")
-  async clearChat(
-    @ConnectedSocket() socket: Socket,
-    @MessageBody() body: { roomId: string }
-  ) {
-    if (!(await this.isHostOrAdmin(socket, body.roomId))) return;
-
-    this.server.to(body.roomId).emit("chat.cleared");
-  }
-
-  // ---------------------------
-  // HELPERS
-  // ---------------------------
-  private async isHostOrAdmin(socket: Socket, roomId: string) {
-    const user = socket.data.user;
-    return user.role === "HOST" || user.role === "ADMIN";
-  }
-
-  private async isUserOnSeat(roomId: string, userId: string) {
-    // check seats table or in-memory seat state
-    return true; // implement with your seat service
+    this.server.to(`room:${roomId}`).emit('chat:cleared');
   }
 }

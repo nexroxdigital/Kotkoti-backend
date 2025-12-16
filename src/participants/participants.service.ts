@@ -37,11 +37,24 @@ export class ParticipantsService {
     });
   }
 
-  async getActive(roomId: string) {
-    return this.prisma.roomParticipant.findMany({
-      where: { roomId, disconnectedAt: null },
-    });
-  }
+
+async getActive(roomId: string) {
+  return this.prisma.roomParticipant.findMany({
+    where: {
+      roomId,
+      disconnectedAt: null,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          nickName: true,
+        },
+      },
+    },
+  });
+}
+
 
 async getRoomWithHost(roomId: string) {
   const room = await this.prisma.audioRoom.findUnique({
