@@ -443,6 +443,7 @@ model AudioRoom {
   participants RoomParticipant[]
   seats        Seat[]
   seatRequests SeatRequest[]
+  chatMode  ChatMode @default(ALL)
 
   @@index([hostId])
   @@index([isLive])
@@ -757,6 +758,12 @@ enum RoomRole {
   HOST
   ADMIN
   USER
+}
+
+enum ChatMode {
+  ALL
+  SEAT_ONLY
+  LOCKED
 }
 
 enum RequestStatus {
