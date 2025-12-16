@@ -138,7 +138,22 @@ export class ProfileService {
       countryFlag,
     };
   }
-
+  async getUserById(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        nickName: true,
+        profilePicture: true,
+        gender: true,
+        country: true,
+        isHost: true,
+        vipId: true,
+        charmLevelId: true,
+        wealthLevelId: true,
+      },
+    });
+  }
   // ----------------------------------
   // PUBLIC PROFILE
   // ----------------------------------

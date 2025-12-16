@@ -7,7 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
-import { ParticipantsService } from '../participants/participants.service';
+import { ProfileService } from 'src/profile/profile.service';
 
 type ChatMode = 'ALL' | 'SEAT_ONLY' | 'LOCKED';
 
@@ -18,23 +18,14 @@ export class ChatGateway {
 
   constructor(
     private prisma: PrismaService,
-    private participantsService: ParticipantsService,
+    private profileService: ProfileService,
   ) {}
 
   // =====================================================
   // In-memory chat state (ephemeral)
   // =====================================================
-  private roomChatState = new Map<
-    string,
-    { mode: ChatMode }
-  >();
 
-  private getState(roomId: string) {
-    if (!this.roomChatState.has(roomId)) {
-      this.roomChatState.set(roomId, { mode: 'ALL' });
-    }
-    return this.roomChatState.get(roomId)!;
-  }
+  private announcedSockets = new Set<string>();
 
   // =====================================================
   // HELPERS
@@ -49,6 +40,35 @@ export class ChatGateway {
 
   private emitError(client: Socket, message: string) {
     client.emit('chat:error', { message });
+  }
+
+  // ============================
+  // CLEANUP ON DISCONNECT
+  // ============================
+  handleDisconnect(client: Socket) {
+    this.announcedSockets.delete(client.id);
+  }
+
+  @SubscribeMessage('room.ready')
+  async onRoomReady(@ConnectedSocket() client: Socket) {
+    const { userId, roomId } = client.handshake.query as any;
+    if (!userId || !roomId) return;
+
+    // HARD GUARD: prevent duplicate JOIN
+    if (this.announcedSockets.has(client.id)) return;
+    this.announcedSockets.add(client.id);
+
+    const participant = await this.profileService.getUserById(userId);
+    if (!participant) return;
+
+    this.server.to(`room:${roomId}`).emit('chat:system', {
+      type: 'JOIN',
+      userId,
+      nickName: participant.nickName,
+      profilePicture: participant.profilePicture,
+      message: `${participant.nickName} joined the room`,
+      timestamp: Date.now(),
+    });
   }
 
   // =====================================================
@@ -69,49 +89,48 @@ export class ChatGateway {
     const message = payload.message?.trim();
     if (!message) return;
 
-  const room = await this.prisma.audioRoom.findUnique({
-    where: { id: roomId },
-    select: { chatMode: true },
-  });
-
-  if (!room) return;
-
-  if (room.chatMode === 'LOCKED') {
-    this.emitError(client, 'Chat is locked by host');
-    return;
-  }
-
-  if (room.chatMode === 'SEAT_ONLY') {
-    const seat = await this.prisma.seat.findFirst({
-      where: { roomId, userId },
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+      select: { chatMode: true },
     });
-    if (!seat) {
-      this.emitError(client, 'Only seated users can chat');
+
+    if (!room) return;
+
+    if (room.chatMode === 'LOCKED') {
+      this.emitError(client, 'Chat is locked by host');
       return;
     }
-  }
+
+    if (room.chatMode === 'SEAT_ONLY') {
+      const seat = await this.prisma.seat.findFirst({
+        where: { roomId, userId },
+      });
+      if (!seat) {
+        this.emitError(client, 'Only seated users can chat');
+        return;
+      }
+    }
     // ---- Participant check (DB) ----
-  const participantWithUser =
-  await this.prisma.roomParticipant.findFirst({
-    where: { roomId, userId },
-    include: {
-      user: {
-        select: {
-          nickName: true,
-          isHost: true,
-          profilePicture: true,
-          gender: true,
-          email: true,
-          dob: true,
-          country: true,
-          charmLevel: true,
-          charmLevelId: true,
+    const participantWithUser = await this.prisma.roomParticipant.findFirst({
+      where: { roomId, userId },
+      include: {
+        user: {
+          select: {
+            nickName: true,
+            isHost: true,
+            profilePicture: true,
+            gender: true,
+            email: true,
+            dob: true,
+            country: true,
+            charmLevel: true,
+            charmLevelId: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  const participant = participantWithUser?.user;
+    const participant = participantWithUser?.user;
 
     if (!participant) return;
 
@@ -147,50 +166,30 @@ export class ChatGateway {
   // =====================================================
   // CHANGE MODE (HOST / ADMIN)
   // =====================================================
-@SubscribeMessage('chat:setMode')
-async handleSetMode(
-  @MessageBody() payload: { mode: ChatMode },
-  @ConnectedSocket() client: Socket,
-) {
-  const roomId = this.getRoomId(client);
-  if (!roomId) return;
-console.log("mode", payload.mode)
-  // (Host/Admin check already enforced)
-  await this.prisma.audioRoom.update({
-    where: { id: roomId },
-    data: { chatMode: payload.mode },
-  });
+  @SubscribeMessage('chat:setMode')
+  async handleSetMode(
+    @MessageBody() payload: { mode: ChatMode },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const roomId = this.getRoomId(client);
+    if (!roomId) return;
+    console.log('mode', payload.mode);
+    // (Host/Admin check already enforced)
+    await this.prisma.audioRoom.update({
+      where: { id: roomId },
+      data: { chatMode: payload.mode },
+    });
 
-  this.server.to(`room:${roomId}`).emit('chat:modeChanged', {
-    mode: payload.mode,
-  });
-}
-
-@SubscribeMessage('chat:setMode')
-async handleSetMod(
-  @ConnectedSocket() client: Socket,
-  @MessageBody() payload: { mode: 'ALL' | 'SEAT_ONLY' | 'LOCKED' },
-) {
-  const roomId = client.handshake.query.roomId as string;
-  if (!roomId) return;
-
-  const state = this.getState(roomId);
-  state.mode = payload.mode;
-
-  // 🔔 Notify everyone
-  this.server.to(`room:${roomId}`).emit('chat:modeChanged', {
-    mode: payload.mode,
-    timestamp: Date.now(),
-  });
-}
+    this.server.to(`room:${roomId}`).emit('chat:modeChanged', {
+      mode: payload.mode,
+    });
+  }
 
   // =====================================================
   // CLEAR CHAT (HOST / ADMIN)
   // =====================================================
   @SubscribeMessage('chat:clear')
-  async handleClear(
-    @ConnectedSocket() client: Socket,
-  ) {
+  async handleClear(@ConnectedSocket() client: Socket) {
     const roomId = this.getRoomId(client);
     if (!roomId) return;
 

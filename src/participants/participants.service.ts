@@ -49,6 +49,14 @@ async getActive(roomId: string) {
         select: {
           id: true,
           nickName: true,
+          profilePicture: true,
+          gender: true,
+          email: true,
+          dob: true,
+          country: true,
+          charmLevel: true,
+          wealthLevel: true,
+        
         },
       },
     },

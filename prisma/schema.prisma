@@ -435,7 +435,8 @@ model AudioRoom {
   provider     Provider           @default(AGORA)
   imageUrl     String?
   seatCount    Int                @default(12)
-  tags         String[]           @default([])
+  tag          String?   
+  announcement String? 
   host         User               @relation("UserHostedRooms", fields: [hostId], references: [id])
   bans         AudioRoomBan[]
   kicks        AudioRoomKick[]
@@ -445,8 +446,7 @@ model AudioRoom {
   seatRequests SeatRequest[]
   chatMode  ChatMode @default(ALL)
 
-  @@index([hostId])
-  @@index([isLive])
+  @@index([hostId, isLive])
   @@index([createdAt])
 }
 
@@ -461,6 +461,10 @@ model Seat {
   user   User?     @relation(fields: [userId], references: [id])
 
   @@unique([roomId, index])
+  @@index([roomId, index])
+  @@index([roomId, micOn])
+  @@index([roomId, mode])
+
 }
 
 model RoomParticipant {
@@ -477,9 +481,9 @@ model RoomParticipant {
   user           User      @relation(fields: [userId], references: [id])
   role           RoomRole  @default(USER)
 
-  @@unique([roomId, userId])
+  @@unique([roomId, userId], name: "roomId_userId")
   @@index([roomId])
-  @@index([userId])
+  @@index([roomId, disconnectedAt])
 }
 
 model SeatRequest {

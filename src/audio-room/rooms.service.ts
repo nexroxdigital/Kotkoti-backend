@@ -73,7 +73,7 @@ export class RoomsService {
         provider: true,
         isLive: true,
         createdAt: true,
-        tags: true,
+        tag: true,
         imageUrl: true,
         isLocked: true,
 
@@ -246,7 +246,8 @@ export class RoomsService {
   // ---------------------------------------------------------
   async createRoom(data: {
     name: string;
-    tags: string[];
+    tag: string | null;
+    announcement?: string | null;
     seatCount: number;
     imageUrl?: string | null;
     hostId: string;
@@ -265,7 +266,7 @@ export class RoomsService {
       data: {
         id: uuidv4(),
         name: data.name,
-        tags: data.tags,
+        tag: data.tag,
         hostId: data.hostId,
         imageUrl: data.imageUrl,
       },
@@ -353,7 +354,7 @@ export class RoomsService {
       where: { id: roomId },
       data: {
         name: dto.name ?? room.name,
-        tags: dto.tags ?? room.tags,
+        tag: dto.tag ?? room.tag,
         seatCount: dto.seatCount ?? room.seatCount,
         imageUrl,
       },
@@ -555,8 +556,8 @@ export class RoomsService {
       },
     });
 
-    const participant = await this.prisma.roomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId } },
+    const participant = await this.prisma.roomParticipant.findFirst({
+      where: { roomId, userId },
     });
     if (!participant) {
       throw new NotFoundException('Participant record missing');
@@ -651,7 +652,7 @@ export class RoomsService {
         },
       },
     });
-
+    this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
     // --------------------------------------------------
     // 7) Return to frontend
     // --------------------------------------------------
@@ -663,8 +664,8 @@ export class RoomsService {
   }
 
   async makeAdmin(roomId: string, hostId: string, targetUserId: string) {
-    const host = await this.prisma.roomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId: hostId } },
+    const host = await this.prisma.roomParticipant.findFirst({
+      where: { roomId, userId: hostId },
     });
 
     if (host?.role !== 'HOST') {

@@ -6,8 +6,8 @@ export class CreateRoomDto {
 
   @IsOptional()
   @IsArray()
-  tags?: string[];
-
+  tag?: string;
+  announcement?: string;
   @IsString()
   //@Min(1)
   seatCount: number;
