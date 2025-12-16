@@ -4,11 +4,12 @@ export class UpdateRoomDto {
   @IsOptional()
   @IsString()
   name?: string;
+  announcement?: string;
 
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  tags?: string[];
+  tag?: string;
 
   @IsOptional()
   //@IsInt()

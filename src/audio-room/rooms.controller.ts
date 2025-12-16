@@ -96,19 +96,13 @@ export class RoomsController {
   ) {
     const hostId = req.user.userId;
 
-    // Ensure tags always becomes array
-    const tags = Array.isArray(dto.tags)
-      ? dto.tags
-      : dto.tags
-        ? [dto.tags]
-        : [];
-
-    // STEP 1 → Create room first (without image)
+    // STEP 1 → Create room first
     const room = await this.roomsService.createRoom({
       name: dto.name,
-      tags,
+      tag: dto.tag ?? null,
       seatCount: Number(dto.seatCount),
       imageUrl: null,
+      announcement: dto.announcement ?? null,
       hostId,
     });
 
@@ -116,7 +110,6 @@ export class RoomsController {
     if (file) {
       const imageUrl = await this.roomsService.processRoomImage(room.id, file);
       await this.roomsService.updateRoomImage(room.id, imageUrl);
-
       room.imageUrl = imageUrl;
     }
 
@@ -152,10 +145,9 @@ export class RoomsController {
 
     const normalizedDto = {
       name: dto.name,
-      // tags can be string | string[]
-      tags: Array.isArray(dto.tags) ? dto.tags : dto.tags ? [dto.tags] : [],
-
-      // FIX: convert seatCount to number if sent as string
+      tag: dto.tag,
+      announcement: dto.announcement,
+      //  seatCount to number if sent as string
       seatCount:
         dto.seatCount !== undefined && dto.seatCount !== null
           ? Number(dto.seatCount)
@@ -191,7 +183,7 @@ export class RoomsController {
   @Post(':id/leave')
   async leaveRoom(@Param('id') id: string, @Request() req) {
     const result = await this.roomsService.leaveRoom(id, req.user.userId);
-    
+
     return { success: true, data: result };
   }
 
