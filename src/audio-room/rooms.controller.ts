@@ -191,6 +191,7 @@ export class RoomsController {
   @Post(':id/leave')
   async leaveRoom(@Param('id') id: string, @Request() req) {
     const result = await this.roomsService.leaveRoom(id, req.user.userId);
+    
     return { success: true, data: result };
   }
 

@@ -7,5 +7,6 @@ import { GalleryModule } from './gallery/gallery.module';
   imports: [GalleryModule],
   controllers: [ProfileController],
   providers: [ProfileService],
+  exports: [ProfileService], 
 })
 export class ProfileModule {}

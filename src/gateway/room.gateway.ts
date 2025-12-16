@@ -12,6 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { ParticipantsService } from '../participants/participants.service';
 import { SeatsService } from '../seats/seats.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProfileService } from '../profile/profile.service';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/' })
 export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -22,6 +23,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private participantsService: ParticipantsService,
     private seatsService: SeatsService,
     private prisma: PrismaService,
+    private profileService: ProfileService,
   ) {
     console.log('✅ RoomGateway initialized');
   }
@@ -60,18 +62,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
         where: { roomId_userId: { roomId, userId } },
       });
     }
- // FETCH participant AFTER join
-  const participant = await this.participantsService.getParticipant(
-    roomId,
-    userId,
-  );
 
-  if (participant?.userId) {
-    this.server.to(`room:${roomId}`).emit('chat:system', {
-      message: `${participant.userId} joined the room`,
-      timestamp: Date.now(),
-    });
-  }
     // -----------------------------------------------------
     // NORMAL CONNECTION
     // -----------------------------------------------------
@@ -120,38 +111,22 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // ROOM JOIN / LEAVE MESSAGES
   // =====================================================
-@SubscribeMessage('room.join')
-async onRoomJoin(
-  @MessageBody() payload: { roomId: string; userId: string },
-  @ConnectedSocket() client: Socket,
-) {
-  const { roomId, userId } = payload;
+  @SubscribeMessage('room.join')
+  async onRoomJoin(
+    @MessageBody() payload: { roomId: string; userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { roomId, userId } = payload;
 
-  // join socket rooms
-  client.join(`room:${roomId}`);
-  client.join(`user:${userId}`);
+    // get participants
+    const participants = await this.participantsService.getActive(roomId);
 
-  // get participants
-  const participants = await this.participantsService.getActive(roomId);
-
-  // 🔹 find current participant (for nickname)
-  const joinedUser = participants.find(p => p.userId === userId);
-
-  //  SYSTEM CHAT MESSAGE (JOIN)
- if (joinedUser) {
-    this.emitSystemMessage(
-      roomId,
-      `${joinedUser.user.nickName} joined the room`,
-    );
+    // existing room event
+    this.server.to(`room:${roomId}`).emit('room.join', {
+      userId,
+      participants,
+    });
   }
-
-  // existing room event
-  this.server.to(`room:${roomId}`).emit('room.join', {
-    userId,
-    participants,
-  });
-}
-
 
   @SubscribeMessage('room.leave')
   async onRoomLeave(
@@ -170,7 +145,6 @@ async onRoomJoin(
       participants,
     });
   }
-
 
   @SubscribeMessage('seat.invite')
   async onSeatInvite(
@@ -191,7 +165,6 @@ async onRoomJoin(
     });
   }
 
-  
   @SubscribeMessage('seat.invite.accept')
   async onInviteAccept(
     @MessageBody()
@@ -266,24 +239,16 @@ async onRoomJoin(
     this.server.to(`room:${roomId}`).emit('seat.muted', { seatIndex, mute });
   }
 
-
   // =====================================================
-// PARTICIPANT UPDATE BROADCAST
-// =====================================================
-async broadcastParticipantUpdate(roomId: string) {
-  const participants = await this.participantsService.getActive(roomId);
+  // PARTICIPANT UPDATE BROADCAST
+  // =====================================================
+  async broadcastParticipantUpdate(roomId: string) {
+    const participants = await this.participantsService.getActive(roomId);
 
-  this.server.to(`room:${roomId}`).emit('participant.update', {
-    participants,
-  });
-}
-
-private emitSystemMessage(roomId: string, text: string) {
-  this.server.to(`room:${roomId}`).emit('chat:system', {
-    message: text,
-    timestamp: Date.now(),
-  });
-}
+    this.server.to(`room:${roomId}`).emit('participant.update', {
+      participants,
+    });
+  }
 
   // =====================================================
   // KICK EVENT EMIT
