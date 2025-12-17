@@ -25,7 +25,6 @@ export class BackpackService {
             name: true,
             icon: true,
             price: true,
-            type: true,
             category: {
               select: {
                 name: true,
@@ -89,7 +88,6 @@ export class BackpackService {
             name: true,
             icon: true,
             price: true,
-            type: true,
           },
         },
       },
@@ -123,7 +121,6 @@ export class BackpackService {
             name: true,
             icon: true,
             price: true,
-            type: true,
             validity: true,
             createdAt: true,
             category: {
@@ -180,7 +177,6 @@ export class BackpackService {
             name: true,
             icon: true,
             price: true,
-            type: true,
             validity: true,
             createdAt: true,
             category: {
