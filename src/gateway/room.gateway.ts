@@ -111,22 +111,26 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // ROOM JOIN / LEAVE MESSAGES
   // =====================================================
-  @SubscribeMessage('room.join')
-  async onRoomJoin(
-    @MessageBody() payload: { roomId: string; userId: string },
-    @ConnectedSocket() client: Socket,
-  ) {
-    const { roomId, userId } = payload;
+@SubscribeMessage('room.join')
+async onRoomJoin(
+  @MessageBody() payload: { roomId: string; userId: string },
+  @ConnectedSocket() client: Socket,
+) {
+  const { roomId, userId } = payload;
 
-    // get participants
-    const participants = await this.participantsService.getActive(roomId);
+  // ✅ Always ensure socket joins rooms
+  client.join(`user:${userId}`);
+  client.join(`room:${roomId}`);
 
-    // existing room event
-    this.server.to(`room:${roomId}`).emit('room.join', {
-      userId,
-      participants,
-    });
-  }
+  // ✅ ONE authoritative broadcast
+  await this.broadcastParticipants(roomId);
+
+  // ✅ Optional: notify join event (no state)
+  this.server.to(`room:${roomId}`).emit('room.join', {
+    userId,
+  });
+}
+
 
   @SubscribeMessage('room.leave')
   async onRoomLeave(
@@ -242,13 +246,14 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // PARTICIPANT UPDATE BROADCAST
   // =====================================================
-  async broadcastParticipantUpdate(roomId: string) {
-    const participants = await this.participantsService.getActive(roomId);
+private async broadcastParticipants(roomId: string) {
+  const participants = await this.participantsService.getActive(roomId);
 
-    this.server.to(`room:${roomId}`).emit('participant.update', {
-      participants,
-    });
-  }
+  this.server.to(`room:${roomId}`).emit('participant.update', {
+    participants,
+  });
+}
+
 
   // =====================================================
   // KICK EVENT EMIT

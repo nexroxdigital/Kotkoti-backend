@@ -33,12 +33,12 @@ export class GiftManagementController {
   }
 
   //  Gift Routes
-  @Post('gifts/all')
+  @Post('gifts/add')
   createGift(@Body() dto: CreateGiftDto) {
     return this.giftManagementService.createGift(dto);
   }
 
-  @Get('gifts/add')
+  @Get('gifts/all')
   findAllGifts() {
     return this.giftManagementService.findAllGifts();
   }
