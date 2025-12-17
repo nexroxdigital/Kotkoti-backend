@@ -1,11 +1,23 @@
-import { Controller, Get, Post, Put, Body, Param } from '@nestjs/common';
-
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  UseInterceptors,
+  UploadedFiles,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { unlinkSync } from 'fs';
 import { GiftManagementService } from './gift-management.service';
 import {
   CreateGiftCategoryDto,
   UpdateGiftCategoryDto,
 } from './dto/gift-category.dto';
 import { CreateGiftDto, UpdateGiftDto } from './dto/gift.dto';
+import { giftMulterConfig } from '../../common/multer.config';
 
 @Controller('gift-management')
 export class GiftManagementController {
@@ -34,8 +46,43 @@ export class GiftManagementController {
 
   //  Gift Routes
   @Post('gifts/add')
-  createGift(@Body() dto: CreateGiftDto) {
-    return this.giftManagementService.createGift(dto);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'giftIcon', maxCount: 1 },
+        { name: 'swf', maxCount: 1 },
+      ],
+      giftMulterConfig,
+    ),
+  )
+  async createGift(
+    @Body() dto: CreateGiftDto,
+    @UploadedFiles()
+    files: { giftIcon?: Express.Multer.File[]; swf?: Express.Multer.File[] },
+  ) {
+    if (files.giftIcon) {
+      dto.giftIcon = `/uploads/gifts/${files.giftIcon[0].filename}`;
+    }
+    if (files.swf) {
+      dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
+    }
+
+    if (!dto.giftIcon) {
+      if (files?.swf) unlinkSync(files.swf[0].path);
+      throw new BadRequestException('giftIcon is required');
+    }
+    if (!dto.swf) {
+      if (files?.giftIcon) unlinkSync(files.giftIcon[0].path);
+      throw new BadRequestException('swf is required');
+    }
+
+    try {
+      return await this.giftManagementService.createGift(dto);
+    } catch (error) {
+      if (files?.giftIcon) unlinkSync(files.giftIcon[0].path);
+      if (files?.swf) unlinkSync(files.swf[0].path);
+      throw error;
+    }
   }
 
   @Get('gifts/all')
@@ -49,7 +96,34 @@ export class GiftManagementController {
   }
 
   @Put('gifts/update/:giftId')
-  updateGift(@Param('id') id: string, @Body() dto: UpdateGiftDto) {
-    return this.giftManagementService.updateGift(id, dto);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'giftIcon', maxCount: 1 },
+        { name: 'swf', maxCount: 1 },
+      ],
+      giftMulterConfig,
+    ),
+  )
+  async updateGift(
+    @Param('id') id: string,
+    @Body() dto: UpdateGiftDto,
+    @UploadedFiles()
+    files: { giftIcon?: Express.Multer.File[]; swf?: Express.Multer.File[] },
+  ) {
+    if (files?.giftIcon) {
+      dto.giftIcon = `/uploads/gifts/${files.giftIcon[0].filename}`;
+    }
+    if (files?.swf) {
+      dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
+    }
+
+    try {
+      return await this.giftManagementService.updateGift(id, dto);
+    } catch (error) {
+      if (files?.giftIcon) unlinkSync(files.giftIcon[0].path);
+      if (files?.swf) unlinkSync(files.swf[0].path);
+      throw error;
+    }
   }
 }

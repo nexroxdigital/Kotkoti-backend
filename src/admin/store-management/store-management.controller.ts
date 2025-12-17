@@ -6,13 +6,20 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFiles,
+  UseInterceptors,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { StoreManagementService } from './store-management.service';
 import { CreateStoreCategoryDto } from './dto/create-store-category.dto';
 import { UpdateStoreCategoryDto } from './dto/update-store-category.dto';
 import { StoreCategoryService } from './store-category.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { UpdateStoreItemDto } from './dto/update-store-item.dto';
+import { giftMulterConfig } from '../../common/multer.config';
+
+import { unlinkSync } from 'fs';
 
 @Controller('store-management')
 export class StoreManagementController {
@@ -57,8 +64,41 @@ export class StoreManagementController {
 
   //  Create a new store item
   @Post('store-items/add')
-  createItem(@Body() dto: CreateStoreItemDto) {
-    return this.storeManagementService.createItem(dto);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'icon', maxCount: 1 },
+        { name: 'swf', maxCount: 1 },
+      ],
+      giftMulterConfig,
+    ),
+  )
+  async createItem(
+    @Body() dto: CreateStoreItemDto,
+    @UploadedFiles()
+    files: { icon?: Express.Multer.File[]; swf?: Express.Multer.File[] },
+  ) {
+    if (files?.icon) {
+      dto.icon = `/uploads/gifts/${files.icon[0].filename}`;
+    }
+    if (files?.swf) {
+      dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
+    }
+
+    if (!dto.icon) {
+      // Cleanup if validation fails here (files might be uploaded even if logic fails)
+      if (files?.swf) unlinkSync(files.swf[0].path);
+      throw new BadRequestException('icon is required');
+    }
+
+    try {
+      return await this.storeManagementService.createItem(dto);
+    } catch (error) {
+      // Cleanup files on database/service error
+      if (files?.icon) unlinkSync(files.icon[0].path);
+      if (files?.swf) unlinkSync(files.swf[0].path);
+      throw error;
+    }
   }
 
   //  Get all store items
@@ -75,8 +115,36 @@ export class StoreManagementController {
 
   //  Update a store item by ID
   @Patch('store-items/update/:itemId')
-  updateItem(@Param('itemId') id: string, @Body() dto: UpdateStoreItemDto) {
-    return this.storeManagementService.updateItem(id, dto);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'icon', maxCount: 1 },
+        { name: 'swf', maxCount: 1 },
+      ],
+      giftMulterConfig,
+    ),
+  )
+  async updateItem(
+    @Param('itemId') id: string,
+    @Body() dto: UpdateStoreItemDto,
+    @UploadedFiles()
+    files: { icon?: Express.Multer.File[]; swf?: Express.Multer.File[] },
+  ) {
+    if (files?.icon) {
+      dto.icon = `/uploads/gifts/${files.icon[0].filename}`;
+    }
+    if (files?.swf) {
+      dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
+    }
+
+    try {
+      return await this.storeManagementService.updateItem(id, dto);
+    } catch (error) {
+      // Cleanup new files on error
+      if (files?.icon) unlinkSync(files.icon[0].path);
+      if (files?.swf) unlinkSync(files.swf[0].path);
+      throw error;
+    }
   }
 
   // @desc Delete a store item by ID

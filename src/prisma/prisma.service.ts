@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { withOptimize } from '@prisma/extension-optimize';
 import { Pool } from 'pg';
 
 @Injectable()
@@ -47,6 +48,19 @@ export class PrismaService
         { emit: 'event', level: 'warn' },
       ],
     });
+
+    // 🔹 Apply Prisma Optimize ONCE, globally
+    if (process.env.OPTIMIZE_API_KEY) {
+      this.$extends(
+        withOptimize({
+          apiKey: process.env.OPTIMIZE_API_KEY,
+        }),
+      );
+    } else {
+      this.logger.warn(
+        'OPTIMIZE_API_KEY is not set. Prisma Optimize is disabled.',
+      );
+    }
 
     this.pool = pool;
   }
