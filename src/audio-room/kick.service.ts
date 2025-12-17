@@ -18,13 +18,23 @@ export class KickService {
     private roomGateway: RoomGateway,
   ) {}
 
-
-    // Get all kicked users (host panel)
+  // Get all kicked users (host panel)
   async getKickList(roomId: string) {
     return this.prisma.audioRoomKick.findMany({
       where: { roomId },
       include: {
-        user: { select: { id: true, nickName: true, email: true, profilePicture: true, charmLevel: true , wealthLevel: true, dob: true, country: true} },
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            email: true,
+            profilePicture: true,
+            charmLevel: true,
+            wealthLevel: true,
+            dob: true,
+            country: true,
+          },
+        },
       },
       orderBy: { expiresAt: 'desc' },
     });
@@ -39,11 +49,12 @@ export class KickService {
 
     const actor = await this.participantsService.getParticipant(roomId, userId);
     // Only host can kick
-    if (room.hostId !== hostId || actor.role !== 'ADMIN') {
+    const isHost = room.hostId === hostId;
+    const isAdmin = actor?.role === 'ADMIN';
+
+    if (!isHost && !isAdmin) {
       throw new ForbiddenException('Only host or admin can kick users');
     }
-
-
 
     // Ban for 24 hours
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -77,12 +88,12 @@ export class KickService {
     });
 
     // Emit list-change event to host UI
-this.roomGateway.server.to(`room:${roomId}`).emit("kick.list.update", {});
+    this.roomGateway.server.to(`room:${roomId}`).emit('kick.list.update', {});
 
     return { success: true };
   }
 
-  // 📌 Remove kick (unban)
+  // Remove kick (unban)
   async removeKick(roomId: string, targetId: string) {
     const exists = await this.prisma.audioRoomKick.findUnique({
       where: { roomId_userId: { roomId, userId: targetId } },
@@ -96,7 +107,7 @@ this.roomGateway.server.to(`room:${roomId}`).emit("kick.list.update", {});
     return { success: true };
   }
 
-  // 📌 Check kick while joining
+  // Check kick while joining
   async checkBan(roomId: string, userId: string) {
     const kicked = await this.prisma.audioRoomKick.findUnique({
       where: { roomId_userId: { roomId, userId } },
