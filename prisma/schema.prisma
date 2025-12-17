@@ -336,8 +336,7 @@ model StoreItem {
   name        String
   price       Int
   icon        String
-  type        String
-  validity    DateTime?
+  validity    Int? @default(10)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime?     @updatedAt
   swf         String?
