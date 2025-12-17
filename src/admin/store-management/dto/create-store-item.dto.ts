@@ -19,12 +19,10 @@ export class CreateStoreItemDto {
   @IsString()
   icon: string;
 
-  @IsString()
-  type: string;
 
   @IsOptional()
-  @IsDateString()
-  validity?: string; // Prisma will convert to Date automatically
+  @IsInt()
+  validity?: number | null; // Prisma will convert to Date automatically
 
   @IsOptional()
   @IsString()

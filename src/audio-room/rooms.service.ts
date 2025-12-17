@@ -142,13 +142,36 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                profilePicture: true,
-                gender: true,
                 email: true,
+                phone: true,
+                profilePicture: true,
+                coverImage: true,
+                roleId: true,
                 dob: true,
+                bio: true,
+                gender: true,
                 country: true,
+                gold: true,
+                diamond: true,
+                isDiamondBlocked: true,
+                isGoldBlocked: true,
+                isAccountBlocked: true,
+                isHost: true,
+                isReseller: true,
+                agencyId: true,
+                vipId: true,
                 charmLevel: true,
-                charmLevelId: true,
+                wealthLevel: true,
+                createdAt: true,
+                updatedAt: true,
+                activeItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icon: true,
+                    swf: true,
+                  },
+                },
               },
             },
           },
@@ -160,6 +183,7 @@ export class RoomsService {
             id: true,
             userId: true,
             isHost: true,
+            role: true,
             rtcUid: true,
             muted: true,
             joinedAt: true,
@@ -167,13 +191,36 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                profilePicture: true,
-                gender: true,
                 email: true,
+                phone: true,
+                profilePicture: true,
+                coverImage: true,
+                roleId: true,
                 dob: true,
+                bio: true,
+                gender: true,
                 country: true,
+                gold: true,
+                diamond: true,
+                isDiamondBlocked: true,
+                isGoldBlocked: true,
+                isAccountBlocked: true,
+                isHost: true,
+                isReseller: true,
+                agencyId: true,
+                vipId: true,
                 charmLevel: true,
-                charmLevelId: true,
+                wealthLevel: true,
+                createdAt: true,
+                updatedAt: true,
+                activeItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icon: true,
+                    swf: true,
+                  },
+                },
               },
             },
           },
@@ -183,13 +230,36 @@ export class RoomsService {
           select: {
             id: true,
             nickName: true,
-            profilePicture: true,
-            gender: true,
             email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
             dob: true,
+            bio: true,
+            gender: true,
             country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
             charmLevel: true,
-            charmLevelId: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                swf: true,
+              },
+            },
           },
         },
 
@@ -221,7 +291,19 @@ export class RoomsService {
 
     if (!room) throw new NotFoundException('Room not found');
 
-    return room;
+    const participantsByRole = room.participants.reduce(
+      (acc, participant) => {
+        acc[participant.role].push(participant);
+        return acc;
+      },
+      {
+        HOST: [],
+        ADMIN: [],
+        USER: [],
+      } as Record<'HOST' | 'ADMIN' | 'USER', typeof room.participants>,
+    );
+
+    return { ...room, participantsByRole };
   }
 
   async updateRtcUid(userId: string, roomId: string, rtcUid: number) {
@@ -399,19 +481,6 @@ export class RoomsService {
     const room = await this.prisma.audioRoom.findFirst({
       where: { hostId, isLive: true },
       include: {
-        host: {
-          select: {
-            id: true,
-            nickName: true,
-            profilePicture: true,
-            gender: true,
-            email: true,
-            dob: true,
-            country: true,
-            charmLevel: true,
-            charmLevelId: true,
-          },
-        },
         seats: {
           orderBy: { index: 'asc' },
           include: {
@@ -419,23 +488,48 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                profilePicture: true,
-                gender: true,
                 email: true,
+                phone: true,
+                profilePicture: true,
+                coverImage: true,
+                roleId: true,
                 dob: true,
+                bio: true,
+                gender: true,
                 country: true,
+                gold: true,
+                diamond: true,
+                isDiamondBlocked: true,
+                isGoldBlocked: true,
+                isAccountBlocked: true,
+                isHost: true,
+                isReseller: true,
+                agencyId: true,
+                vipId: true,
                 charmLevel: true,
-                charmLevelId: true,
+                wealthLevel: true,
+                createdAt: true,
+                updatedAt: true,
+                activeItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icon: true,
+                    swf: true,
+                  },
+                },
               },
             },
           },
         },
+
         participants: {
           where: { disconnectedAt: null },
           select: {
             id: true,
             userId: true,
             isHost: true,
+            role: true,
             rtcUid: true,
             muted: true,
             joinedAt: true,
@@ -443,17 +537,88 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                profilePicture: true,
-                gender: true,
                 email: true,
+                phone: true,
+                profilePicture: true,
+                coverImage: true,
+                roleId: true,
                 dob: true,
+                bio: true,
+                gender: true,
                 country: true,
+                gold: true,
+                diamond: true,
+                isDiamondBlocked: true,
+                isGoldBlocked: true,
+                isAccountBlocked: true,
+                isHost: true,
+                isReseller: true,
+                agencyId: true,
+                vipId: true,
                 charmLevel: true,
-                charmLevelId: true,
+                wealthLevel: true,
+                createdAt: true,
+                updatedAt: true,
+                activeItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icon: true,
+                    swf: true,
+                  },
+                },
               },
             },
           },
         },
+
+        host: {
+          select: {
+            id: true,
+            nickName: true,
+            email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
+            dob: true,
+            bio: true,
+            gender: true,
+            country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
+            charmLevel: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                swf: true,
+              },
+            },
+          },
+        },
+
+        bans: {
+          select: {
+            id: true,
+            userId: true,
+            bannedBy: true,
+            reason: true,
+            createdAt: true,
+          },
+        },
+
         _count: {
           select: {
             // Count Active Participants
@@ -605,13 +770,36 @@ export class RoomsService {
           select: {
             id: true,
             nickName: true,
-            profilePicture: true,
             email: true,
-            gender: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
             dob: true,
+            bio: true,
+            gender: true,
             country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
             charmLevel: true,
-            charmLevelId: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                swf: true,
+              },
+            },
           },
         },
         seats: {
@@ -632,6 +820,7 @@ export class RoomsService {
             id: true,
             userId: true,
             isHost: true,
+            role: true,
             rtcUid: true,
             muted: true,
             joinedAt: true,
@@ -639,25 +828,64 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                profilePicture: true,
                 email: true,
-                gender: true,
+                phone: true,
+                profilePicture: true,
+                coverImage: true,
+                roleId: true,
                 dob: true,
+                bio: true,
+                gender: true,
                 country: true,
+                gold: true,
+                diamond: true,
+                isDiamondBlocked: true,
+                isGoldBlocked: true,
+                isAccountBlocked: true,
+                isHost: true,
+                isReseller: true,
+                agencyId: true,
+                vipId: true,
                 charmLevel: true,
-                charmLevelId: true,
+                wealthLevel: true,
+                createdAt: true,
+                updatedAt: true,
+                activeItem: {
+                  select: {
+                    id: true,
+                    name: true,
+                    icon: true,
+                    swf: true,
+                  },
+                },
               },
             },
           },
         },
       },
     });
+
+    if (!fullRoom) return null;
+
+    const participantsByRole = fullRoom.participants.reduce(
+      (acc, participant) => {
+        acc[participant.role].push(participant);
+        return acc;
+      },
+      {
+        HOST: [],
+        ADMIN: [],
+        USER: [],
+      } as Record<'HOST' | 'ADMIN' | 'USER', typeof fullRoom.participants>,
+    );
+
     this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
     // --------------------------------------------------
     // 7) Return to frontend
     // --------------------------------------------------
     return {
       room: fullRoom,
+      participantsGrouped: participantsByRole,
       token: tokenInfo, // ONLY subscriber token
       rtcUid: rtcUidNum,
     };

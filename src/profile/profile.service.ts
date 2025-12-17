@@ -200,17 +200,7 @@ export class ProfileService {
             id: true,
             name: true,
             icon: true,
-            price: true,
             swf: true,
-            swftime: true,
-            type: true,
-            validity: true,
-            category: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
           },
         },
       },
@@ -750,17 +740,8 @@ export class ProfileService {
                 id: true,
                 name: true,
                 icon: true,
-                price: true,
                 swf: true,
-                swftime: true,
-                type: true,
-                validity: true,
-                category: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
+          
               },
             },
           },
