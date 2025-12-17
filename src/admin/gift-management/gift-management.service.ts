@@ -5,6 +5,8 @@ import {
   CreateGiftCategoryDto,
   UpdateGiftCategoryDto,
 } from './dto/gift-category.dto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class GiftManagementService {
@@ -33,6 +35,13 @@ export class GiftManagementService {
     return this.prisma.giftCategory.update({ where: { id }, data: dto });
   }
 
+  //  Delete a store category by id
+  async deleteCategory(id: string) {
+    return this.prisma.giftCategory.delete({
+      where: { id },
+    });
+  }
+
   //  Gift Methods
   async createGift(dto: CreateGiftDto) {
     return this.prisma.gift.create({ data: dto });
@@ -54,5 +63,30 @@ export class GiftManagementService {
   async updateGift(id: string, dto: UpdateGiftDto) {
     await this.findOneGift(id);
     return this.prisma.gift.update({ where: { id }, data: dto });
+  }
+
+  async deleteGift(id: string) {
+    const gift = await this.prisma.gift.findUnique({
+      where: { id },
+    });
+
+    if (!gift) throw new NotFoundException('Gift not found');
+
+    // Delete files
+    const files = [gift.giftIcon, gift.swf];
+    for (const file of files) {
+      if (file) {
+        // Resolve absolute path
+        const filePath = path.join(process.cwd(), file);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+    }
+
+    // Delete gift from DB
+    return this.prisma.gift.delete({
+      where: { id },
+    });
   }
 }

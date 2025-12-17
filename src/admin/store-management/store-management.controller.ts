@@ -17,7 +17,7 @@ import { UpdateStoreCategoryDto } from './dto/update-store-category.dto';
 import { StoreCategoryService } from './store-category.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { UpdateStoreItemDto } from './dto/update-store-item.dto';
-import { giftMulterConfig } from '../../common/multer.config';
+import { storeItemMulterConfig } from '../../common/multer.config';
 
 import { unlinkSync } from 'fs';
 
@@ -70,7 +70,7 @@ export class StoreManagementController {
         { name: 'icon', maxCount: 1 },
         { name: 'swf', maxCount: 1 },
       ],
-      giftMulterConfig,
+      storeItemMulterConfig,
     ),
   )
   async createItem(
@@ -79,10 +79,10 @@ export class StoreManagementController {
     files: { icon?: Express.Multer.File[]; swf?: Express.Multer.File[] },
   ) {
     if (files?.icon) {
-      dto.icon = `/uploads/gifts/${files.icon[0].filename}`;
+      dto.icon = `/uploads/store/${files.icon[0].filename}`;
     }
     if (files?.swf) {
-      dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
+      dto.swf = `/uploads/store/${files.swf[0].filename}`;
     }
 
     if (!dto.icon) {
@@ -121,7 +121,7 @@ export class StoreManagementController {
         { name: 'icon', maxCount: 1 },
         { name: 'swf', maxCount: 1 },
       ],
-      giftMulterConfig,
+      storeItemMulterConfig,
     ),
   )
   async updateItem(
@@ -131,10 +131,10 @@ export class StoreManagementController {
     files: { icon?: Express.Multer.File[]; swf?: Express.Multer.File[] },
   ) {
     if (files?.icon) {
-      dto.icon = `/uploads/gifts/${files.icon[0].filename}`;
+      dto.icon = `/uploads/store/${files.icon[0].filename}`;
     }
     if (files?.swf) {
-      dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
+      dto.swf = `/uploads/store/${files.swf[0].filename}`;
     }
 
     try {

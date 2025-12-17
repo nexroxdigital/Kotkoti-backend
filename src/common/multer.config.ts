@@ -251,3 +251,44 @@ export const giftMulterConfig = {
     cb(null, true);
   },
 };
+
+export const storeItemMulterConfig = {
+  storage: diskStorage({
+    destination: './uploads/store',
+    filename: (req, file, cb) => {
+      const original = file.originalname
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9.-]/g, '')
+        .toLowerCase();
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const ext = extname(original);
+      const nameWithoutExt = original.replace(ext, '');
+      cb(null, `${nameWithoutExt}-${uniqueSuffix}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
+    const allowed = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/jpg',
+      'image/gif',
+      'image/svga',
+      'application/x-shockwave-flash',
+      'application/octet-stream',
+    ];
+
+    if (
+      !allowed.includes(file.mimetype) &&
+      !file.originalname.toLowerCase().endsWith('.svga') &&
+      !file.originalname.toLowerCase().endsWith('.swf')
+    ) {
+      return cb(
+        new BadRequestException('Only JPG/PNG/WEBP/SVGA/SWF allowed'),
+        false,
+      );
+    }
+    cb(null, true);
+  },
+};

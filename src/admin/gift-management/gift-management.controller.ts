@@ -8,6 +8,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   BadRequestException,
+  Delete,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { unlinkSync } from 'fs';
@@ -42,6 +43,12 @@ export class GiftManagementController {
   @Put('categories/update/:categoryId')
   updateCategory(@Param('id') id: string, @Body() dto: UpdateGiftCategoryDto) {
     return this.giftManagementService.updateCategory(id, dto);
+  }
+
+  // Delete a store category by id
+  @Delete('categories/delete/:id')
+  remove(@Param('id') id: string) {
+    return this.giftManagementService.deleteCategory(id);
   }
 
   //  Gift Routes
@@ -125,5 +132,10 @@ export class GiftManagementController {
       if (files?.swf) unlinkSync(files.swf[0].path);
       throw error;
     }
+  }
+
+  @Delete('gifts/delete/:giftId')
+  deleteGift(@Param('giftId') id: string) {
+    return this.giftManagementService.deleteGift(id);
   }
 }
