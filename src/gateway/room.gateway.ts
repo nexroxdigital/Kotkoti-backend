@@ -118,18 +118,17 @@ async onRoomJoin(
 ) {
   const { roomId, userId } = payload;
 
-  // ✅ Always ensure socket joins rooms
+  // 1️⃣ Join rooms FIRST
   client.join(`user:${userId}`);
   client.join(`room:${roomId}`);
 
-  // ✅ ONE authoritative broadcast
+  // 2️⃣ ONE authoritative state update
   await this.broadcastParticipants(roomId);
 
-  // ✅ Optional: notify join event (no state)
-  this.server.to(`room:${roomId}`).emit('room.join', {
-    userId,
-  });
+  // 3️⃣ Optional: lightweight event (no state)
+  this.server.to(`room:${roomId}`).emit('room.joined', { userId });
 }
+
 
 
   @SubscribeMessage('room.leave')
