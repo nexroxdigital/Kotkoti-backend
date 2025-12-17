@@ -7,7 +7,6 @@ export class UpdateRoomDto {
   announcement?: string;
 
   @IsOptional()
-  @IsArray()
   @IsString({ each: true })
   tag?: string;
 
