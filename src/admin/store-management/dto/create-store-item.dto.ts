@@ -1,10 +1,5 @@
-import {
-  IsString,
-  IsInt,
-  IsOptional,
-  IsUUID,
-  IsDateString,
-} from 'class-validator';
+import { IsString, IsInt, IsOptional, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateStoreItemDto {
   @IsUUID()
@@ -13,22 +8,25 @@ export class CreateStoreItemDto {
   @IsString()
   name: string;
 
+  @Type(() => Number)
   @IsInt()
   price: number;
 
+  @IsOptional()
   @IsString()
   icon: string;
 
-
+  @Type(() => Number)
   @IsOptional()
   @IsInt()
-  validity?: number | null; // Prisma will convert to Date automatically
+  validity?: number | null;
 
   @IsOptional()
   @IsString()
   swf?: string;
 
+  @Type(() => Number)
   @IsOptional()
   @IsInt()
-  swfTime?: number;
+  swftime?: number;
 }

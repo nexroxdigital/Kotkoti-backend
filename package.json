@@ -32,6 +32,7 @@
     "@nestjs/websockets": "^11.1.9",
     "@prisma/adapter-pg": "^7.0.1",
     "@prisma/client": "^7.0.1",
+    "@prisma/extension-optimize": "^2.0.1",
     "@types/joi": "^17.2.3",
     "agora-access-token": "^2.0.4",
     "bcrypt": "^6.0.0",

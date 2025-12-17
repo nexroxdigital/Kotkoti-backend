@@ -11,7 +11,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.useGlobalInterceptors(new PerformanceInterceptor());
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(new ValidationPipe({ transform: true }));
 
   app.enableCors({
     /*  origin: ['http://localhost:3000', 'http://192.168.0.102:3000', 'https://audio-room-frontend.vercel.app'] */
