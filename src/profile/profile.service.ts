@@ -654,17 +654,28 @@ export class ProfileService {
     if (includeList.includes('charmLevel')) include.charmLevel = true;
     if (includeList.includes('wealthLevel')) include.wealthLevel = true;
 
-    const users = await this.prisma.user.findMany({
-      where: {
-        id: {
-          contains: search, // PARTIAL MATCH
-          mode: 'insensitive',
-        },
+   const users = await this.prisma.user.findMany({
+  where: {
+    id: {
+      contains: search,
+      mode: 'insensitive',
+    },
+  },
+  include: {
+    ...include,
+    activeItem: {
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+        swf: true,
       },
-      include: Object.keys(include).length ? include : undefined,
-      take: 20, // Prevent abuse
-      orderBy: { createdAt: 'desc' },
-    });
+    },
+  },
+  take: 20,
+  orderBy: { createdAt: 'desc' },
+});
+
 
     return users.map(({ password, ...user }) => user);
   }
