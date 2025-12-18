@@ -98,7 +98,7 @@ export class RoomsService {
             // ... seat fields
             index: true,
             userId: true,
-             user: {
+            user: {
               select: {
                 id: true,
                 nickName: true,
@@ -314,19 +314,19 @@ export class RoomsService {
 
     if (!room) throw new NotFoundException('Room not found');
 
-    const participantsByRole = room.participants.reduce(
-      (acc, participant) => {
-        acc[participant.role].push(participant);
-        return acc;
-      },
-      {
-        HOST: [],
-        ADMIN: [],
-        USER: [],
-      } as Record<'HOST' | 'ADMIN' | 'USER', typeof room.participants>,
-    );
+    // const participantsByRole = room.participants.reduce(
+    //   (acc, participant) => {
+    //     acc[participant.role].push(participant);
+    //     return acc;
+    //   },
+    //   {
+    //     HOST: [],
+    //     ADMIN: [],
+    //     USER: [],
+    //   } as Record<'HOST' | 'ADMIN' | 'USER', typeof room.participants>,
+    // );
 
-    return { ...room, participantsByRole };
+    return room;
   }
 
   async updateRtcUid(userId: string, roomId: string, rtcUid: number) {
@@ -919,25 +919,24 @@ export class RoomsService {
 
     if (!fullRoom) return null;
 
-    const participantsByRole = fullRoom.participants.reduce(
-      (acc, participant) => {
-        acc[participant.role].push(participant);
-        return acc;
-      },
-      {
-        HOST: [],
-        ADMIN: [],
-        USER: [],
-      } as Record<'HOST' | 'ADMIN' | 'USER', typeof fullRoom.participants>,
-    );
+    // const participantsByRole = fullRoom.participants.reduce(
+    //   (acc, participant) => {
+    //     acc[participant.role].push(participant);
+    //     return acc;
+    //   },
+    //   {
+    //     HOST: [],
+    //     ADMIN: [],
+    //     USER: [],
+    //   } as Record<'HOST' | 'ADMIN' | 'USER', typeof fullRoom.participants>,
+    // );
 
-    this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
+    // this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
     // --------------------------------------------------
     // 7) Return to frontend
     // --------------------------------------------------
     return {
       room: fullRoom,
-      participantsGrouped: participantsByRole,
       token: tokenInfo, // ONLY subscriber token
       rtcUid: rtcUidNum,
     };
@@ -948,39 +947,97 @@ export class RoomsService {
       where: { roomId, userId: hostId },
     });
 
-    if (host?.role !== 'HOST') {
+    if (!host) {
+      throw new NotFoundException('Host is not a participant in this room');
+    }
+
+    if (host.role !== 'HOST') {
       throw new ForbiddenException('Only host can assign admin');
     }
+
+    const targetUser = await this.prisma.roomParticipant.findFirst({
+      where: { roomId, userId: targetUserId },
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('Target user not found in this room');
+    }
+
+    if (targetUser.role === 'HOST') {
+      throw new ForbiddenException('Cannot change host role');
+    }
+
+        if (targetUser.role === 'ADMIN') {
+      throw new ForbiddenException('Target user is already an admin');
+    }
+
+
 
     await this.prisma.roomParticipant.update({
       where: { roomId_userId: { roomId, userId: targetUserId } },
       data: { role: 'ADMIN' },
     });
 
-    return { success: true };
+    return {
+      status: 'success',
+      message: 'User has been successfully promoted to admin',
+    };
   }
 
-  async removeAdmin(roomId: string, actorId: string, targetUserId: string) {
-    const actor = await this.participant.getParticipant(roomId, actorId);
+async removeAdmin(roomId: string, actorId: string, targetUserId: string) {
+  //  Check actor
+  const host = await this.participant.getParticipant(roomId, actorId);
 
-    if (actor.role !== 'HOST') {
-      throw new ForbiddenException('Only host can remove admin');
-    }
-
-    await this.prisma.roomParticipant.update({
-      where: {
-        roomId_userId: {
-          roomId,
-          userId: targetUserId,
-        },
-      },
-      data: {
-        role: 'USER',
-      },
-    });
-
-    return { success: true };
+  if (!host) {
+    throw new NotFoundException('Host is not a participant in this room');
   }
+
+  if (host.role !== 'HOST') {
+    throw new ForbiddenException('Only host can remove admin');
+  }
+
+  // Check target user
+  const targetUser = await this.prisma.roomParticipant.findFirst({
+    where: {
+      roomId,
+      userId: targetUserId,
+    },
+  });
+
+  if (!targetUser) {
+    throw new NotFoundException('Target user not found in this room');
+  }
+
+  if (targetUser.role === 'HOST') {
+    throw new ForbiddenException('Cannot remove admin role from host');
+  }
+
+  // Optional: idempotent behavior
+  if (targetUser.role === 'USER') {
+    return {
+      status: 'success',
+      message: 'User is already a regular member',
+    };
+  }
+
+  // Remove admin
+  await this.prisma.roomParticipant.update({
+    where: {
+      roomId_userId: {
+        roomId,
+        userId: targetUserId,
+      },
+    },
+    data: {
+      role: 'USER',
+    },
+  });
+
+  return {
+    status: 'success',
+    message: 'Admin role removed successfully',
+  };
+}
 
   async leaveRoom(roomId: string, userId: string) {
     await this.prisma.seat.updateMany({
