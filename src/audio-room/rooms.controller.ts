@@ -350,6 +350,7 @@ export class RoomsController {
       Number(seatIndex),
       req.user.userId,
     );
+    console.log("muted seattttttttttttt",seats)
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
     return { ok: true, seats };
   }
@@ -367,6 +368,7 @@ export class RoomsController {
       Number(seatIndex),
       req.user.userId,
     );
+        console.log("muted seattttttttttttt",seats)
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
     return { ok: true, seats };
   }
@@ -581,15 +583,31 @@ export class RoomsController {
     return { success: true };
   }
 
-  @Patch(':roomId/admin/:userId')
+  @Post(':roomId/admin')
   @UseGuards(JwtAuthGuard)
   async makeAdmin(
     @Param('roomId') roomId: string,
-    @Param('userId') targetUserId: string,
+     @Body('targetUserId') targetUserId: string,
     @Req() req,
   ) {
     return this.roomsService.makeAdmin(roomId, req.user.userId, targetUserId);
   }
+
+
+  @Delete(':roomId/admin/remove')
+@UseGuards(JwtAuthGuard)
+async removeAdmin(
+  @Param('roomId') roomId: string,
+  @Body('targetUserId') targetUserId: string,
+  @Req() req,
+) {
+  return this.roomsService.removeAdmin(
+    roomId,
+    req.user.userId,
+    targetUserId,
+  );
+}
+
 
   // ============================
   // RTC
