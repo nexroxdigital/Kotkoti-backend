@@ -83,19 +83,19 @@ export class ParticipantsService {
       },
     });
 
-    const grouped = participants.reduce(
-      (acc, participant) => {
-        acc[participant.role].push(participant);
-        return acc;
-      },
-      {
-        HOST: [],
-        ADMIN: [],
-        USER: [],
-      } as Record<'HOST' | 'ADMIN' | 'USER', typeof participants>,
-    );
+    // const grouped = participants.reduce(
+    //   (acc, participant) => {
+    //     acc[participant.role].push(participant);
+    //     return acc;
+    //   },
+    //   {
+    //     HOST: [],
+    //     ADMIN: [],
+    //     USER: [],
+    //   } as Record<'HOST' | 'ADMIN' | 'USER', typeof participants>,
+    // );
 
-    return { participants, grouped };
+    return participants;
   }
 
   async getRoomWithHost(roomId: string) {

@@ -118,16 +118,19 @@ async onRoomJoin(
 ) {
   const { roomId, userId } = payload;
 
-  // 1️⃣ Join rooms FIRST
+  // 1️⃣ Join socket rooms FIRST
   client.join(`user:${userId}`);
   client.join(`room:${roomId}`);
 
-  // 2️⃣ ONE authoritative state update
-  await this.broadcastParticipants(roomId);
+  // 2️⃣ Fetch FULL updated participants list
+  const participants = await this.participantsService.getActive(roomId);
 
-  // 3️⃣ Optional: lightweight event (no state)
-  this.server.to(`room:${roomId}`).emit('room.joined', { userId });
+  // 3️⃣ Emit FULL authoritative state (previous + new)
+  this.server.to(`room:${roomId}`).emit('participant.update', {
+    participants,
+  });
 }
+
 
 
 
@@ -178,7 +181,7 @@ async onRoomJoin(
     },
   ) {
     const { roomId, seatIndex, userId } = payload;
-
+console.log("seat-invite-payload", payload)
     // Use existing seat service logic
     const seats = await this.seatsService.takeSeat(roomId, seatIndex, userId);
 
@@ -195,6 +198,7 @@ async onRoomJoin(
       userId: string;
     },
   ) {
+    console.log("seat-reject-payload", payload)
     this.server
       .to(`room:${payload.roomId}`)
       .emit('seat.invite.reject', payload);

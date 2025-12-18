@@ -931,7 +931,7 @@ export class RoomsService {
     //   } as Record<'HOST' | 'ADMIN' | 'USER', typeof fullRoom.participants>,
     // );
 
-    // this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
+    this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
     // --------------------------------------------------
     // 7) Return to frontend
     // --------------------------------------------------
