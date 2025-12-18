@@ -350,6 +350,7 @@ export class RoomsController {
       Number(seatIndex),
       req.user.userId,
     );
+    console.log("muted seattttttttttttt",seats)
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
     return { ok: true, seats };
   }
@@ -367,6 +368,7 @@ export class RoomsController {
       Number(seatIndex),
       req.user.userId,
     );
+        console.log("muted seattttttttttttt",seats)
     this.roomGateway.broadcastSeatUpdate(roomId, seats);
     return { ok: true, seats };
   }
