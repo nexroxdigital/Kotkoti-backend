@@ -459,6 +459,7 @@ export class RoomsService {
       where: { id: roomId },
       data: {
         name: dto.name ?? room.name,
+        announcement: dto.announcement ?? room.announcement,
         tag: dto.tag ?? room.tag,
         seatCount: dto.seatCount ?? room.seatCount,
         imageUrl,
@@ -667,7 +668,7 @@ export class RoomsService {
 
   async joinRoom(roomId: string, userId: string, pin?: string) {
     // --------------------------------------------------
-    // 1) Check ban/kick
+    // 1 Ban / kick check
     // --------------------------------------------------
     const kick = await this.prisma.audioRoomKick.findUnique({
       where: { roomId_userId: { roomId, userId } },
@@ -675,37 +676,40 @@ export class RoomsService {
 
     if (kick) {
       if (kick.expiresAt > new Date()) {
-        const hours = Math.ceil(
+        const hoursLeft = Math.ceil(
           (kick.expiresAt.getTime() - Date.now()) / 3600000,
         );
         throw new ForbiddenException(
-          `You are banned from this room for ${hours} more hours`,
+          `You are banned from this room for ${hoursLeft} more hours`,
         );
       }
 
-      // Expired: remove ban
+      // expired ban → cleanup
       await this.prisma.audioRoomKick.delete({
         where: { roomId_userId: { roomId, userId } },
       });
     }
 
     // --------------------------------------------------
-    // 2) Load room
+    // 2 Load room
     // --------------------------------------------------
     const room = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
-      include: {
+      select: {
+        id: true,
+        isLive: true,
+        isLocked: true,
+        pinHash: true,
+        provider: true,
+        hostId: true,
+        chatMode: true,
         host: {
           select: {
             id: true,
             nickName: true,
             profilePicture: true,
-            email: true,
             gender: true,
-            dob: true,
-            country: true,
             charmLevel: true,
-            charmLevelId: true,
           },
         },
       },
@@ -715,19 +719,22 @@ export class RoomsService {
       throw new NotFoundException('Room not live');
     }
 
-    // 🔒 PIN CHECK
+    // --------------------------------------------------
+    // 3 PIN check
+    // --------------------------------------------------
     if (room.isLocked) {
       if (!pin) {
-        throw new ForbiddenException('Room is locked');
+        throw new ForbiddenException('ROOM_PIN_REQUIRED');
       }
 
       const ok = await verifyPin(pin, room.pinHash!);
       if (!ok) {
-        throw new ForbiddenException('Invalid room PIN');
+        throw new ForbiddenException('INVALID_ROOM_PIN');
       }
     }
+
     // --------------------------------------------------
-    // 3) Create/update participant
+    // 4 Upsert participant (refresh-safe)
     // --------------------------------------------------
     await this.prisma.roomParticipant.upsert({
       where: { roomId_userId: { roomId, userId } },
@@ -736,6 +743,7 @@ export class RoomsService {
         userId,
         isHost: room.hostId === userId,
         joinedAt: new Date(),
+        lastActiveAt: new Date(),
       },
       update: {
         disconnectedAt: null,
@@ -744,47 +752,45 @@ export class RoomsService {
       },
     });
 
-    const participant = await this.prisma.roomParticipant.findFirst({
-      where: { roomId, userId },
+    const participant = await this.prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId, userId } },
     });
+
     if (!participant) {
-      throw new NotFoundException('Participant record missing');
+      throw new NotFoundException('Participant missing');
     }
 
     // --------------------------------------------------
-    // 4) Ensure stable rtcUid (generate once)
+    // 5 Ensure stable rtcUid
     // --------------------------------------------------
-    let rtcUidNum: number;
+    let rtcUid: number;
 
     if (participant.rtcUid) {
-      rtcUidNum = parseInt(participant.rtcUid, 10);
-      if (isNaN(rtcUidNum)) {
-        rtcUidNum = Math.floor(Math.random() * 1_000_000_000);
-        await this.prisma.roomParticipant.update({
-          where: { roomId_userId: { roomId, userId } },
-          data: { rtcUid: String(rtcUidNum) },
-        });
+      rtcUid = Number(participant.rtcUid);
+      if (isNaN(rtcUid)) {
+        rtcUid = Math.floor(Math.random() * 1_000_000_000);
       }
     } else {
-      rtcUidNum = Math.floor(Math.random() * 1_000_000_000);
-      await this.prisma.roomParticipant.update({
-        where: { roomId_userId: { roomId, userId } },
-        data: { rtcUid: String(rtcUidNum) },
-      });
+      rtcUid = Math.floor(Math.random() * 1_000_000_000);
     }
 
+    await this.prisma.roomParticipant.update({
+      where: { roomId_userId: { roomId, userId } },
+      data: { rtcUid: String(rtcUid) },
+    });
+
     // --------------------------------------------------
-    // 5) Issue ONE subscriber token ONLY
+    // 6 Issue Agora SUBSCRIBER token only
     // --------------------------------------------------
-    const tokenInfo = await this.rtc.issueToken(
+    const token = await this.rtc.issueToken(
       room.provider,
       roomId,
-      'subscriber', // ALWAYS subscriber
-      rtcUidNum, // same UID
+      'subscriber',
+      rtcUid,
     );
 
     // --------------------------------------------------
-    // 6) Reload full room detail
+    // 7 Load FULL room state for frontend
     // --------------------------------------------------
     const fullRoom = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
@@ -793,36 +799,10 @@ export class RoomsService {
           select: {
             id: true,
             nickName: true,
-            email: true,
-            phone: true,
             profilePicture: true,
-            coverImage: true,
-            roleId: true,
-            dob: true,
-            bio: true,
             gender: true,
-            country: true,
-            gold: true,
-            diamond: true,
-            isDiamondBlocked: true,
-            isGoldBlocked: true,
-            isAccountBlocked: true,
-            isHost: true,
-            isReseller: true,
-            agencyId: true,
-            vipId: true,
             charmLevel: true,
             wealthLevel: true,
-            createdAt: true,
-            updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
           },
         },
         seats: {
@@ -832,36 +812,9 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                email: true,
-                phone: true,
                 profilePicture: true,
-                coverImage: true,
-                roleId: true,
-                dob: true,
-                bio: true,
                 gender: true,
-                country: true,
-                gold: true,
-                diamond: true,
-                isDiamondBlocked: true,
-                isGoldBlocked: true,
-                isAccountBlocked: true,
-                isHost: true,
-                isReseller: true,
-                agencyId: true,
-                vipId: true,
                 charmLevel: true,
-                wealthLevel: true,
-                createdAt: true,
-                updatedAt: true,
-                activeItem: {
-                  select: {
-                    id: true,
-                    name: true,
-                    icon: true,
-                    swf: true,
-                  },
-                },
               },
             },
           },
@@ -880,36 +833,9 @@ export class RoomsService {
               select: {
                 id: true,
                 nickName: true,
-                email: true,
-                phone: true,
                 profilePicture: true,
-                coverImage: true,
-                roleId: true,
-                dob: true,
-                bio: true,
                 gender: true,
-                country: true,
-                gold: true,
-                diamond: true,
-                isDiamondBlocked: true,
-                isGoldBlocked: true,
-                isAccountBlocked: true,
-                isHost: true,
-                isReseller: true,
-                agencyId: true,
-                vipId: true,
                 charmLevel: true,
-                wealthLevel: true,
-                createdAt: true,
-                updatedAt: true,
-                activeItem: {
-                  select: {
-                    id: true,
-                    name: true,
-                    icon: true,
-                    swf: true,
-                  },
-                },
               },
             },
           },
@@ -917,28 +843,18 @@ export class RoomsService {
       },
     });
 
-    if (!fullRoom) return null;
+    if (!fullRoom) {
+      throw new NotFoundException('Room not found after join');
+    }
+    await this.gateway.broadcastParticipants(roomId);
 
-    // const participantsByRole = fullRoom.participants.reduce(
-    //   (acc, participant) => {
-    //     acc[participant.role].push(participant);
-    //     return acc;
-    //   },
-    //   {
-    //     HOST: [],
-    //     ADMIN: [],
-    //     USER: [],
-    //   } as Record<'HOST' | 'ADMIN' | 'USER', typeof fullRoom.participants>,
-    // );
-
-    this.gateway.server.to(`room:${roomId}`).emit('room.join', { userId });
     // --------------------------------------------------
-    // 7) Return to frontend
+    // 8 Return payload to frontend
     // --------------------------------------------------
     return {
       room: fullRoom,
-      token: tokenInfo, // ONLY subscriber token
-      rtcUid: rtcUidNum,
+      token,
+      rtcUid,
     };
   }
 
@@ -967,11 +883,9 @@ export class RoomsService {
       throw new ForbiddenException('Cannot change host role');
     }
 
-        if (targetUser.role === 'ADMIN') {
+    if (targetUser.role === 'ADMIN') {
       throw new ForbiddenException('Target user is already an admin');
     }
-
-
 
     await this.prisma.roomParticipant.update({
       where: { roomId_userId: { roomId, userId: targetUserId } },
@@ -984,60 +898,60 @@ export class RoomsService {
     };
   }
 
-async removeAdmin(roomId: string, actorId: string, targetUserId: string) {
-  //  Check actor
-  const host = await this.participant.getParticipant(roomId, actorId);
+  async removeAdmin(roomId: string, actorId: string, targetUserId: string) {
+    //  Check actor
+    const host = await this.participant.getParticipant(roomId, actorId);
 
-  if (!host) {
-    throw new NotFoundException('Host is not a participant in this room');
-  }
+    if (!host) {
+      throw new NotFoundException('Host is not a participant in this room');
+    }
 
-  if (host.role !== 'HOST') {
-    throw new ForbiddenException('Only host can remove admin');
-  }
+    if (host.role !== 'HOST') {
+      throw new ForbiddenException('Only host can remove admin');
+    }
 
-  // Check target user
-  const targetUser = await this.prisma.roomParticipant.findFirst({
-    where: {
-      roomId,
-      userId: targetUserId,
-    },
-  });
-
-  if (!targetUser) {
-    throw new NotFoundException('Target user not found in this room');
-  }
-
-  if (targetUser.role === 'HOST') {
-    throw new ForbiddenException('Cannot remove admin role from host');
-  }
-
-  // Optional: idempotent behavior
-  if (targetUser.role === 'USER') {
-    return {
-      status: 'success',
-      message: 'User is already a regular member',
-    };
-  }
-
-  // Remove admin
-  await this.prisma.roomParticipant.update({
-    where: {
-      roomId_userId: {
+    // Check target user
+    const targetUser = await this.prisma.roomParticipant.findFirst({
+      where: {
         roomId,
         userId: targetUserId,
       },
-    },
-    data: {
-      role: 'USER',
-    },
-  });
+    });
 
-  return {
-    status: 'success',
-    message: 'Admin role removed successfully',
-  };
-}
+    if (!targetUser) {
+      throw new NotFoundException('Target user not found in this room');
+    }
+
+    if (targetUser.role === 'HOST') {
+      throw new ForbiddenException('Cannot remove admin role from host');
+    }
+
+    // Optional: idempotent behavior
+    if (targetUser.role === 'USER') {
+      return {
+        status: 'success',
+        message: 'User is already a regular member',
+      };
+    }
+
+    // Remove admin
+    await this.prisma.roomParticipant.update({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId: targetUserId,
+        },
+      },
+      data: {
+        role: 'USER',
+      },
+    });
+
+    return {
+      status: 'success',
+      message: 'Admin role removed successfully',
+    };
+  }
 
   async leaveRoom(roomId: string, userId: string) {
     await this.prisma.seat.updateMany({
@@ -1050,7 +964,7 @@ async removeAdmin(roomId: string, actorId: string, targetUserId: string) {
       data: { disconnectedAt: new Date() },
     });
 
-    this.gateway.server.to(`room:${roomId}`).emit('room.leave', { userId });
+    await this.gateway.broadcastParticipants(roomId);
 
     return { ok: true };
   }
