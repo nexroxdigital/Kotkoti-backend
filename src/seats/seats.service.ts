@@ -41,7 +41,7 @@ export class SeatsService {
     const seats = await this.prisma.seat.findMany({
       where: { roomId },
       orderBy: { index: 'asc' },
-            include: {
+      include: {
         user: {
           select: {
             id: true,
@@ -79,7 +79,6 @@ export class SeatsService {
           },
         },
       },
-      
     });
 
     // Send update to all users
@@ -262,33 +261,119 @@ export class SeatsService {
     return { seats: updatedSeats };
   }
 
-  async requestSeat(roomId: string, userId: string, seatIndex?: number) {
-    const seat = await this.prisma.seat.findFirst({
-      where: { roomId, index: seatIndex },
-    });
+async requestSeat(roomId: string, userId: string, seatIndex?: number) {
+  if (seatIndex == null) {
+    throw new BadRequestException('Seat index required');
+  }
 
-    if (!seat) throw new NotFoundException('Seat not found');
+  // 1 Ensure user is active participant
+  const participant = await this.prisma.roomParticipant.findFirst({
+    where: {
+      roomId,
+      userId,
+      disconnectedAt: null,
+    },
+  });
 
-    // Cannot request LOCKED seat
-    if (seat.mode === 'LOCKED') {
-      throw new BadRequestException('This seat is locked');
-    }
+  if (!participant) {
+    throw new BadRequestException('Join the room first');
+  }
 
-    // FREE seat → INSTANT JOIN (NO REQUEST)
-    if (seat.mode === 'FREE') {
-      return this.takeSeat(roomId, seatIndex!, userId);
-    }
+  // 2 Get seat
+  const seat = await this.prisma.seat.findFirst({
+    where: { roomId, index: seatIndex },
+  });
 
-    // REQUEST seat → create approval request
-    return this.prisma.seatRequest.create({
-      data: {
-        id: uuidv4(),
+  if (!seat) {
+    throw new NotFoundException('Seat not found');
+  }
+
+  if (seat.mode === 'LOCKED') {
+    throw new BadRequestException('This seat is locked');
+  }
+
+  if (seat.userId) {
+    throw new BadRequestException('Seat already occupied');
+  }
+
+  // 3 FREE → instant join
+  if (seat.mode === 'FREE') {
+    return this.takeSeat(roomId, seatIndex, userId);
+  }
+
+  // 4 REMOVE all previous pending requests by this user in this room
+  await this.prisma.seatRequest.deleteMany({
+    where: {
+      roomId,
+      userId,
+      status: 'PENDING',
+    },
+  });
+
+  // 5 CREATE new request
+  const request = await this.prisma.seatRequest.create({
+    data: {
+      roomId,
+      userId,
+      seatIndex,
+      status: 'PENDING',
+    },
+    include: {
+      user: {
+     select: {
+            id: true,
+            nickName: true,
+            email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
+            dob: true,
+            bio: true,
+            gender: true,
+            country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
+            charmLevel: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                swf: true,
+              },
+            },
+          },
+      },
+    },
+  });
+
+  return request;
+}
+
+
+  async getRoomSeatRequests(roomId: string) {
+    return this.prisma.seatRequest.findMany({
+      where: {
         roomId,
-        userId,
-        seatIndex: seatIndex ?? null,
         status: 'PENDING',
       },
-          include: {
+
+      orderBy: {
+        createdAt: 'desc',
+      },
+
+      include: {
         user: {
           select: {
             id: true,
@@ -433,7 +518,7 @@ export class SeatsService {
       data: { userId },
     });
 
-    // ✅ RETURN FULLY POPULATED SEAT DATA
+    // RETURN FULLY POPULATED SEAT DATA
     const updatedSeats = await this.prisma.seat.findMany({
       where: { roomId },
       orderBy: { index: 'asc' },
@@ -512,7 +597,7 @@ export class SeatsService {
         where: {
           roomId: req.roomId,
           index: req.seatIndex,
-          mode: { in: ['FREE', 'REQUEST'] }, // 🔥 new logic
+          mode: { in: ['FREE', 'REQUEST'] },
         },
       });
     } else {
@@ -520,7 +605,7 @@ export class SeatsService {
         where: {
           roomId: req.roomId,
           userId: null,
-          mode: { in: ['FREE', 'REQUEST'] }, // 🔥 new logic
+          mode: { in: ['FREE', 'REQUEST'] },
         },
       });
     }

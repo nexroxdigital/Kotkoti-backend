@@ -125,4 +125,20 @@ export class ParticipantsService {
 
     return participant;
   }
+
+  async ensureParticipant(roomId: string, userId: string) {
+    const exists = await this.prisma.roomParticipant.findFirst({
+      where: { roomId, userId },
+    });
+
+    if (!exists) {
+      await this.prisma.roomParticipant.create({
+        data: {
+          roomId,
+          userId,
+          isHost: false,
+        },
+      });
+    }
+  }
 }

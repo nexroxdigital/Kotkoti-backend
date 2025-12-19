@@ -111,28 +111,25 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // =====================================================
   // ROOM JOIN / LEAVE MESSAGES
   // =====================================================
-@SubscribeMessage('room.join')
-async onRoomJoin(
-  @MessageBody() payload: { roomId: string; userId: string },
-  @ConnectedSocket() client: Socket,
-) {
-  const { roomId, userId } = payload;
+  @SubscribeMessage('room.join')
+  async onRoomJoin(
+    @MessageBody() payload: { roomId: string; userId: string },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const { roomId, userId } = payload;
 
-  // 1️⃣ Join socket rooms FIRST
-  client.join(`user:${userId}`);
-  client.join(`room:${roomId}`);
+    // 1️⃣ Join socket rooms FIRST
+    client.join(`user:${userId}`);
+    client.join(`room:${roomId}`);
 
-  // 2️⃣ Fetch FULL updated participants list
-  const participants = await this.participantsService.getActive(roomId);
+    // 2️⃣ Fetch FULL updated participants list
+    const participants = await this.participantsService.getActive(roomId);
 
-  // 3️⃣ Emit FULL authoritative state (previous + new)
-  this.server.to(`room:${roomId}`).emit('participant.update', {
-    participants,
-  });
-}
-
-
-
+    // 3️⃣ Emit FULL authoritative state (previous + new)
+    this.server.to(`room:${roomId}`).emit('participant.update', {
+      participants,
+    });
+  }
 
   @SubscribeMessage('room.leave')
   async onRoomLeave(
@@ -181,7 +178,7 @@ async onRoomJoin(
     },
   ) {
     const { roomId, seatIndex, userId } = payload;
-console.log("seat-invite-payload", payload)
+    console.log('seat-invite-payload', payload);
     // Use existing seat service logic
     const seats = await this.seatsService.takeSeat(roomId, seatIndex, userId);
 
@@ -198,7 +195,7 @@ console.log("seat-invite-payload", payload)
       userId: string;
     },
   ) {
-    console.log("seat-reject-payload", payload)
+    console.log('seat-reject-payload', payload);
     this.server
       .to(`room:${payload.roomId}`)
       .emit('seat.invite.reject', payload);
@@ -231,9 +228,34 @@ console.log("seat-invite-payload", payload)
     this.server.to(`room:${roomId}`).emit('seat.update', { seats });
   }
 
-  emitSeatRequest(roomId: string, request: any) {
-    this.emitToHost(roomId, 'seat.request', { request });
-  }
+
+  async emitSeatRequests(roomId: string) {
+  const requests = await this.prisma.seatRequest.findMany({
+    where: {
+      roomId,
+      status: 'PENDING',
+    },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      user: {
+        select: {
+          id: true,
+          nickName: true,
+          profilePicture: true,
+          gender: true,
+          country: true,
+          charmLevel: true,
+        },
+      },
+    },
+  });
+
+  // emit ONLY to host
+  await this.emitToHost(roomId, 'seat.requests', {
+    requests,
+  });
+}
+
 
   async emitToHost(roomId: string, event: string, payload: any) {
     const room = await this.participantsService.getRoomWithHost(roomId);
@@ -249,14 +271,13 @@ console.log("seat-invite-payload", payload)
   // =====================================================
   // PARTICIPANT UPDATE BROADCAST
   // =====================================================
-private async broadcastParticipants(roomId: string) {
-  const participants = await this.participantsService.getActive(roomId);
+  async broadcastParticipants(roomId: string) {
+    const participants = await this.participantsService.getActive(roomId);
 
-  this.server.to(`room:${roomId}`).emit('participant.update', {
-    participants,
-  });
-}
-
+    this.server.to(`room:${roomId}`).emit('participant.update', {
+      participants,
+    });
+  }
 
   // =====================================================
   // KICK EVENT EMIT

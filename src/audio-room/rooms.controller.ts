@@ -70,6 +70,25 @@ export class RoomsController {
 
     return { success: true, room };
   }
+  @UseGuards(JwtAuthGuard)
+  @Get(':roomId/seat-requests/all')
+  async getRoomRequests(@Param('roomId') roomId: string, @Req() req) {
+    const userId = req.user.userId;
+
+    // host-only check
+    const room = await this.prisma.audioRoom.findUnique({
+      where: { id: roomId },
+      select: { hostId: true },
+    });
+
+    if (!room || room.hostId !== userId) {
+      throw new ForbiddenException('Only host can view seat requests');
+    }
+
+    return {
+      requests: await this.seatsService.getRoomSeatRequests(roomId),
+    };
+  }
 
   @UseGuards(JwtAuthGuard)
   @Post(':id/rtc-uid')
@@ -282,7 +301,7 @@ export class RoomsController {
 
     // Fail-safe socket emit
     try {
-      await this.roomGateway.emitSeatRequest(roomId, request);
+      await this.roomGateway.emitSeatRequests(roomId);
     } catch (e) {
       console.warn('Failed to emit seat.request', e);
     }
