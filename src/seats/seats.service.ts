@@ -619,7 +619,7 @@ async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     // ======================================
     await this.prisma.seat.updateMany({
       where: { roomId: req.roomId, userId: req.userId },
-      data: { userId: null, micOn: false },
+      data: { userId: null},
     });
 
     // ======================================
@@ -627,7 +627,7 @@ async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     // ======================================
     await this.prisma.seat.update({
       where: { id: seat.id },
-      data: { userId: req.userId, micOn: false },
+      data: { userId: req.userId},
     });
 
     // Mark request resolved
