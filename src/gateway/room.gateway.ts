@@ -225,7 +225,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // SERVER-ONLY EMITS (CONTROLLER → WS)
   // =====================================================
   broadcastSeatUpdate(roomId: string, seats: any[]) {
-    this.server.to(`room:${roomId}`).emit('seat.update', { seats });
+    this.server.to(`room:${roomId}`).emit('seat.update',  seats );
   }
 
   async emitSeatRequests(roomId: string) {
