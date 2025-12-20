@@ -228,17 +228,16 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(`room:${roomId}`).emit('seat.update', { seats });
   }
 
-
   async emitSeatRequests(roomId: string) {
-  const requests = await this.prisma.seatRequest.findMany({
-    where: {
-      roomId,
-      status: 'PENDING',
-    },
-    orderBy: { createdAt: 'asc' },
-    include: {
-      user: {
-   select: {
+    const requests = await this.prisma.seatRequest.findMany({
+      where: {
+        roomId,
+        status: 'PENDING',
+      },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        user: {
+          select: {
             id: true,
             nickName: true,
             email: true,
@@ -272,16 +271,15 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
               },
             },
           },
+        },
       },
-    },
-  });
-
-  // emit ONLY to host
-  await this.emitToHost(roomId, 'seat.requests', {
-    requests,
-  });
-}
-
+    });
+console.log(requests)
+    // emit ONLY to host
+    await this.emitToHost(roomId, 'seat.requests', {
+      requests,
+    });
+  }
 
   async emitToHost(roomId: string, event: string, payload: any) {
     const room = await this.participantsService.getRoomWithHost(roomId);
