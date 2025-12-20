@@ -17,10 +17,15 @@ import { SetNewPasswordDto } from './dto/set-new-password.dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Post('google/verify')
+  async googleVerify(@Body() body: { credential: string }) {
+    return this.authService.googleLogin(body.credential);
+  }
+
   @Post('register-email')
   async registerEmail(@Body() dto: RegisterEmailDto) {
     return this.authService.registerEmail(dto.email);
-  }
+  } 
 
   @Post('resend-otp')
   async resendOtp(@Body() dto: ResendOtpDto) {
