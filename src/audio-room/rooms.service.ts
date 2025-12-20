@@ -796,46 +796,46 @@ export class RoomsService {
       where: { id: roomId },
       include: {
         host: {
+          select: {
+            id: true,
+            nickName: true,
+            email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
+            dob: true,
+            bio: true,
+            gender: true,
+            country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
+            charmLevel: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: {
               select: {
                 id: true,
-                nickName: true,
-                email: true,
-                phone: true,
-                profilePicture: true,
-                coverImage: true,
-                roleId: true,
-                dob: true,
-                bio: true,
-                gender: true,
-                country: true,
-                gold: true,
-                diamond: true,
-                isDiamondBlocked: true,
-                isGoldBlocked: true,
-                isAccountBlocked: true,
-                isHost: true,
-                isReseller: true,
-                agencyId: true,
-                vipId: true,
-                charmLevel: true,
-                wealthLevel: true,
-                createdAt: true,
-                updatedAt: true,
-                activeItem: {
-                  select: {
-                    id: true,
-                    name: true,
-                    icon: true,
-                    swf: true,
-                  },
-                },
+                name: true,
+                icon: true,
+                swf: true,
               },
+            },
+          },
         },
         seats: {
           orderBy: { index: 'asc' },
           include: {
             user: {
-                    select: {
+              select: {
                 id: true,
                 nickName: true,
                 email: true,
@@ -883,7 +883,7 @@ export class RoomsService {
             muted: true,
             joinedAt: true,
             user: {
-                   select: {
+              select: {
                 id: true,
                 nickName: true,
                 email: true,
@@ -1034,16 +1034,69 @@ export class RoomsService {
   }
 
   async leaveRoom(roomId: string, userId: string) {
+    // 1 Clear seat if user was seated
     await this.prisma.seat.updateMany({
       where: { roomId, userId },
-      data: { userId: null, micOn: true },
+      data: {
+        userId: null,
+        micOn: true,
+      },
     });
 
+    // 2 Mark participant disconnected
     await this.prisma.roomParticipant.updateMany({
       where: { roomId, userId },
       data: { disconnectedAt: new Date() },
     });
 
+    // 3 FETCH UPDATED SEATS
+    const seats = await this.prisma.seat.findMany({
+      where: { roomId },
+      orderBy: { index: 'asc' },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
+            dob: true,
+            bio: true,
+            gender: true,
+            country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
+            charmLevel: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: {
+              select: {
+                id: true,
+                name: true,
+                icon: true,
+                swf: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // 4 BROADCAST SEAT UPDATE (THIS WAS MISSING)
+    this.gateway.broadcastSeatUpdate(roomId, seats);
+
+    // 5 BROADCAST PARTICIPANTS
     await this.gateway.broadcastParticipants(roomId);
 
     return { ok: true };
