@@ -211,6 +211,7 @@ export const roomImageMulterConfig = {
   },
 };
 
+// gif image upload
 export const giftMulterConfig = {
   storage: diskStorage({
     destination: './uploads/gifts',
@@ -225,7 +226,7 @@ export const giftMulterConfig = {
       cb(null, `${nameWithoutExt}-${uniqueSuffix}${ext}`);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
     const allowed = [
       'image/jpeg',
@@ -252,6 +253,7 @@ export const giftMulterConfig = {
   },
 };
 
+// store Item image upload
 export const storeItemMulterConfig = {
   storage: diskStorage({
     destination: './uploads/store',
@@ -266,7 +268,8 @@ export const storeItemMulterConfig = {
       cb(null, `${nameWithoutExt}-${uniqueSuffix}${ext}`);
     },
   }),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: 50 * 1024 * 1024 }, // 30MB
+
   fileFilter: (req: any, file: Express.Multer.File, cb: any) => {
     const allowed = [
       'image/jpeg',

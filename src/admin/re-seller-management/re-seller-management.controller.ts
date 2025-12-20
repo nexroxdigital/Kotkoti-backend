@@ -7,6 +7,12 @@ export class ReSellerManagementController {
     private readonly reSellerManagementService: ReSellerManagementService,
   ) {}
 
+  // Get Reseller List
+  @Get('reseller-list')
+  async getResellerList() {
+    return this.reSellerManagementService.getResellerList();
+  }
+
   @Get('/seller-profile/:userId')
   async getOwnCoinSellerInfo(@Param('userId') userId: string) {
     return this.reSellerManagementService.getOwnCoinSellerInfo(userId);
