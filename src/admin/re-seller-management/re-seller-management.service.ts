@@ -12,8 +12,36 @@ export class ReSellerManagementService {
 
   // Get Reseller List
   async getResellerList() {
-    const resellers = await this.prisma.coinSeller.findMany();
+    const resellers = await this.prisma.coinSeller.findMany({
+      include: {
+        user: {
+          select: {
+            nickName: true,
+            email: true,
+            phone: true,
+            country: true,
+            profilePicture: true,
+          },
+        },
+      },
+    });
     return resellers;
+  }
+
+  // Get non-reseller user list
+  async getUserList() {
+    const users = await this.prisma.user.findMany({
+      where: {
+        isReseller: false,
+      },
+      select: {
+        id: true,
+        nickName: true,
+        email: true,
+      },
+    });
+
+    return users;
   }
 
   // Get coin reseller's own profile
@@ -37,7 +65,7 @@ export class ReSellerManagementService {
   }
 
   // Add a user as a coin reseller
-  async addReseller(userId: string) {
+  async addReseller(userId: string, amount: number) {
     const user = await this.prisma.user.findFirst({ where: { id: userId } });
 
     if (!user) throw new NotFoundException('User not found');
@@ -49,6 +77,10 @@ export class ReSellerManagementService {
 
     if (existing) throw new BadRequestException('User is already a reseller');
 
+    if (amount <= 0) {
+      throw new BadRequestException('Amount must be greater than 0');
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -59,7 +91,7 @@ export class ReSellerManagementService {
     const reseller = await this.prisma.coinSeller.create({
       data: {
         userId,
-        totalCoin: 0,
+        totalCoin: amount,
         status: 'ACTIVE',
         createdAt: new Date(),
       },
