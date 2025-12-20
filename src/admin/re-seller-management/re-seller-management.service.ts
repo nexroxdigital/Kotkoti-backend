@@ -10,6 +10,12 @@ import { PrismaService } from 'src/prisma/prisma.service';
 export class ReSellerManagementService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Get Reseller List
+  async getResellerList() {
+    const resellers = await this.prisma.coinSeller.findMany();
+    return resellers;
+  }
+
   // Get coin reseller's own profile
   async getOwnCoinSellerInfo(userId: string) {
     const reseller = await this.prisma.coinSeller.findUnique({
