@@ -45,40 +45,7 @@ export class ParticipantsService {
       },
       include: {
         user: {
-          select: {
-            id: true,
-            nickName: true,
-            email: true,
-            phone: true,
-            profilePicture: true,
-            coverImage: true,
-            roleId: true,
-            dob: true,
-            bio: true,
-            gender: true,
-            country: true,
-            gold: true,
-            diamond: true,
-            isDiamondBlocked: true,
-            isGoldBlocked: true,
-            isAccountBlocked: true,
-            isHost: true,
-            isReseller: true,
-            agencyId: true,
-            vipId: true,
-            charmLevel: true,
-            wealthLevel: true,
-            createdAt: true,
-            updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
-          },
+       eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIyMTU3NjY1OSIsInNlc3Npb25JZCI6ImNkODhmODFjLWIxNjAtNDUxOS04YTViLWRhNWU5NGE3MThjZSIsImVtYWlsIjoiaGVsbG8xMjNAZ21haWwuY29tIiwiaWF0IjoxNzY2MjIwMDE4LCJleHAiOjE3NjYzMDY0MTh9.6iiXBfGpaIB02XWKaJqgZsCezFXKt9L3oZqH91x3DHY
         },
       },
     });
