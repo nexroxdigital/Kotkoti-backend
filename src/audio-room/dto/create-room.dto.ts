@@ -5,7 +5,7 @@ export class CreateRoomDto {
   name: string;
 
   @IsOptional()
-  @IsArray()
+  //@IsArray()
   tag?: string;
   announcement?: string;
   @IsString()
