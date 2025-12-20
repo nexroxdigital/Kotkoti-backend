@@ -26,26 +26,22 @@ export class UserController {
   }
 
   @Get('all')
-  @UseGuards(JwtAuthGuard)
   findAll() {
     return this.userService.findAll();
   }
 
   @Get('details/:id')
-  @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.userService.findOne(id);
   }
 
   @Patch('update/:id')
-  @UseGuards(JwtAuthGuard)
   @UsePipes(new ValidationPipe({ whitelist: true }))
   update(@Param('id') id: string, @Body() data: UpdateUserDto) {
     return this.userService.update(id, data);
   }
 
   @Delete('delete/:id')
-  @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string) {
     return this.userService.remove(id);
   }

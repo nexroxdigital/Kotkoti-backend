@@ -724,6 +724,7 @@ async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     const seats = await this.prisma.seat.findMany({
       where: { roomId },
       orderBy: { index: 'asc' },
+      
     });
 
     return { ok: true, seats };

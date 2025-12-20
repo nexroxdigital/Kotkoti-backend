@@ -14,7 +14,7 @@ import { RtcModule } from './rtc/rtc.module';
 import { SocialModule } from './social/social.module';
 import { StoreModule } from './store/store.module';
 import { UserSettingModule } from './user-setting/user-setting.module';
-import { UserModule } from './user/user.module';
+import { UserModule } from './admin/user/user.module';
 
 import { RoomsModule } from './audio-room/rooms.module';
 import { ImageValidationMiddleware } from './common/image-validation.middleware';
