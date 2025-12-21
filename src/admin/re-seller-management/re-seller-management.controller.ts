@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { ReSellerManagementService } from './re-seller-management.service';
 
 @Controller('re-seller-management')
@@ -34,9 +34,15 @@ export class ReSellerManagementController {
   }
 
   // Remove a user from coin resellers
-  @Delete('remove/:userId')
-  async removeReseller(@Param('userId') userId: string) {
-    return this.reSellerManagementService.removeReseller(userId);
+  @Patch('deactivate/:userId')
+  async deactivateReseller(@Param('userId') userId: string) {
+    return this.reSellerManagementService.deactivateReseller(userId);
+  }
+
+  // Activate a user as coin reseller
+  @Patch('activate/:userId')
+  async activateReseller(@Param('userId') userId: string) {
+    return this.reSellerManagementService.activateReseller(userId);
   }
 
   // Send coins to a reseller account

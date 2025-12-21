@@ -107,6 +107,12 @@ export class StoreManagementController {
     return this.storeManagementService.findAllItem();
   }
 
+  // Get  store items by category
+  @Get('store-items/by-category/:categoryId')
+  findItemByCategory(@Param('categoryId') categoryId: string) {
+    return this.storeManagementService.findItemByCategory(categoryId);
+  }
+
   //  Get a single store item by ID
   @Get('store-items/details/:itemId')
   findOneItem(@Param('itemId') id: string) {
