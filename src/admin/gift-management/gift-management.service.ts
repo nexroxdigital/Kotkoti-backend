@@ -47,14 +47,41 @@ export class GiftManagementService {
     return this.prisma.gift.create({ data: dto });
   }
 
+  async findGiftsByCategory(categoryId: string) {
+    return this.prisma.gift.findMany({
+      where: { categoryId },
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
   async findAllGifts() {
-    return this.prisma.gift.findMany({ include: { category: true } });
+    return this.prisma.gift.findMany({
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
   }
 
   async findOneGift(id: string) {
     const gift = await this.prisma.gift.findUnique({
       where: { id },
-      include: { category: true },
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
     if (!gift) throw new NotFoundException('Gift not found');
     return gift;

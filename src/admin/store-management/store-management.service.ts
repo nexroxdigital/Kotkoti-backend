@@ -16,12 +16,22 @@ export class StoreManagementService {
     });
   }
 
+  // Get  store items by category
+  async findItemByCategory(categoryId: string) {
+    return this.prisma.storeItem.findMany({
+      where: { categoryId },
+    });
+  }
+
   // Get all store items
   async findAllItem() {
     return this.prisma.storeItem.findMany({
       include: {
-        category: true,
-        backpacks: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }
@@ -31,8 +41,11 @@ export class StoreManagementService {
     return this.prisma.storeItem.findUniqueOrThrow({
       where: { id },
       include: {
-        category: true,
-        backpacks: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
       },
     });
   }

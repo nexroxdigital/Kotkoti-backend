@@ -97,6 +97,11 @@ export class GiftManagementController {
     return this.giftManagementService.findAllGifts();
   }
 
+  @Get('gifts/by-category/:categoryId')
+  findGiftsByCategory(@Param('categoryId') categoryId: string) {
+    return this.giftManagementService.findGiftsByCategory(categoryId);
+  }
+
   @Get('gifts/details/:giftId')
   findOneGift(@Param('id') id: string) {
     return this.giftManagementService.findOneGift(id);

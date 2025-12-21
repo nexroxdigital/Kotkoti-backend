@@ -12,8 +12,36 @@ export class ReSellerManagementService {
 
   // Get Reseller List
   async getResellerList() {
-    const resellers = await this.prisma.coinSeller.findMany();
+    const resellers = await this.prisma.coinSeller.findMany({
+      include: {
+        user: {
+          select: {
+            nickName: true,
+            email: true,
+            phone: true,
+            country: true,
+            profilePicture: true,
+          },
+        },
+      },
+    });
     return resellers;
+  }
+
+  // Get non-reseller user list
+  async getUserList() {
+    const users = await this.prisma.user.findMany({
+      where: {
+        isReseller: false,
+      },
+      select: {
+        id: true,
+        nickName: true,
+        email: true,
+      },
+    });
+
+    return users;
   }
 
   // Get coin reseller's own profile
@@ -37,7 +65,7 @@ export class ReSellerManagementService {
   }
 
   // Add a user as a coin reseller
-  async addReseller(userId: string) {
+  async addReseller(userId: string, amount: number) {
     const user = await this.prisma.user.findFirst({ where: { id: userId } });
 
     if (!user) throw new NotFoundException('User not found');
@@ -49,6 +77,10 @@ export class ReSellerManagementService {
 
     if (existing) throw new BadRequestException('User is already a reseller');
 
+    if (amount <= 0) {
+      throw new BadRequestException('Amount must be greater than 0');
+    }
+
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -59,7 +91,7 @@ export class ReSellerManagementService {
     const reseller = await this.prisma.coinSeller.create({
       data: {
         userId,
-        totalCoin: 0,
+        totalCoin: amount,
         status: 'ACTIVE',
         createdAt: new Date(),
       },
@@ -69,13 +101,11 @@ export class ReSellerManagementService {
   }
 
   // Remove a user from coin resellers
-  async removeReseller(userId: string) {
+  async deactivateReseller(userId: string) {
     const reseller = await this.prisma.coinSeller.findFirst({
       where: { userId },
     });
     if (!reseller) throw new NotFoundException('Reseller not found');
-
-    // await this.prisma.coinSeller.delete({ where: { id: reseller.id } });
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -87,11 +117,38 @@ export class ReSellerManagementService {
     await this.prisma.coinSeller.update({
       where: { userId: userId },
       data: {
-        status: 'in-active',
+        status: 'deactivate',
       },
     });
 
     return { message: 'User removed from coin resellers' };
+  }
+
+  // Re-activate a user as coin reseller
+  async activateReseller(userId: string) {
+    const reseller = await this.prisma.coinSeller.findFirst({
+      where: { userId },
+    });
+
+    if (!reseller) {
+      throw new NotFoundException('Reseller record not found');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        isReseller: true,
+      },
+    });
+
+    await this.prisma.coinSeller.update({
+      where: { userId },
+      data: {
+        status: 'ACTIVE',
+      },
+    });
+
+    return { message: 'User re-activated as coin reseller' };
   }
 
   // Send coins to a reseller WITH buying history + transaction

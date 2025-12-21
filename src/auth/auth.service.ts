@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { User } from '@prisma/client/edge';
+import { User } from '@prisma/client';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -25,11 +25,11 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     private jwtService: JwtService,
-  ) {
-    
-  }
-  
-  private google = new OAuth2Client("729799433930-n8srt06sdicha4jhsan8khtk52vj8qev.apps.googleusercontent.com")
+  ) {}
+
+  private google = new OAuth2Client(
+    '729799433930-n8srt06sdicha4jhsan8khtk52vj8qev.apps.googleusercontent.com',
+  );
   // ----------------------------------
   // OTP Generator
   // ----------------------------------
@@ -42,92 +42,92 @@ export class AuthService {
     return otp;
   }
 
+  async googleLogin(idToken: string, req?: Request) {
+    // 1. Verify Google Token
+    const ticket = await this.google.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-async googleLogin(idToken: string, req?: Request) {
-  // 1. Verify Google Token
-  const ticket = await this.google.verifyIdToken({
-    idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      throw new BadRequestException('Invalid Google token');
+    }
 
-  const payload = ticket.getPayload();
-  if (!payload || !payload.email) {
-    throw new BadRequestException('Invalid Google token');
-  }
+    const { email, name, picture } = payload;
 
-  const { email, name, picture } = payload;
+    // 2. Find or Create User
+    let user = await this.prisma.user.findUnique({ where: { email } });
 
-  // 2. Find or Create User
-  let user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Generate unique ID for new user
+      const userId = await generateUniqueUserId(this.prisma);
+      user = await this.prisma.user.create({
+        data: {
+          id: userId,
+          email,
+          nickName: name || 'Unknown',
+          profilePicture: picture || null,
+        },
+      });
+    }
 
-  if (!user) {
-    // Generate unique ID for new user
-    const userId = await generateUniqueUserId(this.prisma);
-    user = await this.prisma.user.create({
+    // 3. Extract Metadata for Session (Mirroring your Login logic)
+    const ip =
+      (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req?.ip;
+    const userAgent = req?.headers?.['user-agent']?.toString();
+    const deviceId = req?.headers?.['x-device-id'] as string;
+
+    // 4. Create Database Session
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const session = await this.prisma.session.create({
       data: {
-        id: userId,
-        email,
-        nickName: name,
-        profilePicture: picture,
+        userId: user.id,
+        expiresAt,
+        lastAccessed: new Date(),
+        deviceId,
+        ipAddress: ip,
+        userAgent,
       },
     });
+
+    // 5. Generate Access Token (Standardized Payload)
+    // Ensure 'userId' and 'sessionId' match what your JwtStrategy expects
+    const accessToken = await this.jwtService.signAsync(
+      {
+        userId: user.id,
+        sessionId: session.id,
+        email: user.email,
+      },
+      { expiresIn: '1d' },
+    );
+
+    // 6. Generate and Hash Refresh Token
+    const jti = crypto.randomUUID();
+    const refreshRaw = await this.jwtService.signAsync(
+      { userId: user.id, sessionId: session.id, jti },
+      { expiresIn: '7d' },
+    );
+
+    const refreshHash = await bcrypt.hash(refreshRaw, 10);
+
+    // Store refresh token in DB
+    await this.prisma.refreshToken.create({
+      data: {
+        id: jti,
+        token: refreshHash,
+        userId: user.id,
+      },
+    });
+
+    return {
+      user,
+      token: accessToken,
+      refreshToken: refreshRaw,
+      sessionId: session.id,
+    };
   }
-
-  // 3. Extract Metadata for Session (Mirroring your Login logic)
-  const ip = (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req?.ip;
-  const userAgent = req?.headers?.['user-agent']?.toString();
-  const deviceId = (req?.headers?.['x-device-id'] as string);
-
-  // 4. Create Database Session
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-  const session = await this.prisma.session.create({
-    data: {
-      userId: user.id,
-      expiresAt,
-      lastAccessed: new Date(),
-      deviceId,
-      ipAddress: ip,
-      userAgent,
-    },
-  });
-
-  // 5. Generate Access Token (Standardized Payload)
-  // Ensure 'userId' and 'sessionId' match what your JwtStrategy expects
-  const accessToken = await this.jwtService.signAsync(
-    { 
-      userId: user.id, 
-      sessionId: session.id, 
-      email: user.email 
-    },
-    { expiresIn: '1d' },
-  );
-
-  // 6. Generate and Hash Refresh Token
-  const jti = crypto.randomUUID();
-  const refreshRaw = await this.jwtService.signAsync(
-    { userId: user.id, sessionId: session.id, jti },
-    { expiresIn: '7d' },
-  );
-
-  const refreshHash = await bcrypt.hash(refreshRaw, 10);
-
-  // Store refresh token in DB
-  await this.prisma.refreshToken.create({
-    data: {
-      id: jti,
-      token: refreshHash,
-      userId: user.id,
-    },
-  });
-
-  return {
-    user,
-    token: accessToken,
-    refreshToken: refreshRaw,
-    sessionId: session.id,
-  };
-}
-
 
   // ----------------------------------
   // REGISTER EMAIL
