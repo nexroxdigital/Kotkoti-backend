@@ -11,8 +11,8 @@ import {
   Delete,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { unlinkSync } from 'fs';
 import { GiftManagementService } from './gift-management.service';
+import { FileCleanupInterceptor } from '../../common/interceptors/file-cleanup.interceptor';
 import {
   CreateGiftCategoryDto,
   UpdateGiftCategoryDto,
@@ -21,6 +21,7 @@ import { CreateGiftDto, UpdateGiftDto } from './dto/gift.dto';
 import { giftMulterConfig } from '../../common/multer.config';
 
 @Controller('gift-management')
+@UseInterceptors(FileCleanupInterceptor)
 export class GiftManagementController {
   constructor(private readonly giftManagementService: GiftManagementService) {}
 
@@ -74,22 +75,10 @@ export class GiftManagementController {
       dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
     }
 
-    if (!dto.giftIcon) {
-      if (files?.swf) unlinkSync(files.swf[0].path);
-      throw new BadRequestException('giftIcon is required');
-    }
-    if (!dto.swf) {
-      if (files?.giftIcon) unlinkSync(files.giftIcon[0].path);
-      throw new BadRequestException('swf is required');
-    }
+    if (!dto.giftIcon) throw new BadRequestException('giftIcon is required');
+    if (!dto.swf) throw new BadRequestException('swf is required');
 
-    try {
-      return await this.giftManagementService.createGift(dto);
-    } catch (error) {
-      if (files?.giftIcon) unlinkSync(files.giftIcon[0].path);
-      if (files?.swf) unlinkSync(files.swf[0].path);
-      throw error;
-    }
+    return await this.giftManagementService.createGift(dto);
   }
 
   @Get('gifts/all')
@@ -130,13 +119,7 @@ export class GiftManagementController {
       dto.swf = `/uploads/gifts/${files.swf[0].filename}`;
     }
 
-    try {
-      return await this.giftManagementService.updateGift(id, dto);
-    } catch (error) {
-      if (files?.giftIcon) unlinkSync(files.giftIcon[0].path);
-      if (files?.swf) unlinkSync(files.swf[0].path);
-      throw error;
-    }
+    return await this.giftManagementService.updateGift(id, dto);
   }
 
   @Delete('gifts/delete/:giftId')

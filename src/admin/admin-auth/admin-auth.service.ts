@@ -19,6 +19,7 @@ export class AdminAuthService {
     private configService: ConfigService,
   ) {}
 
+  // Register employee
   async registerEmployee(data: CreateEmployeeDto) {
     const existingUser = await this.prisma.employee.findUnique({
       where: { email: data.email },
@@ -42,6 +43,7 @@ export class AdminAuthService {
     return safeUser;
   }
 
+  // Login employee
   async login(dto: LoginEmployeeDto) {
     const employee = await this.prisma.employee.findUnique({
       where: { email: dto.email },
@@ -87,6 +89,21 @@ export class AdminAuthService {
     };
   }
 
+  // logout employee
+  async logout(employeeId: string) {
+    await this.prisma.employee.update({
+      where: { id: employeeId },
+      data: {
+        refreshToken: null,
+      },
+    });
+
+    return {
+      message: 'Logout successful',
+    };
+  }
+
+  //
   private generateTokens(userId: string, email: string, role: string) {
     const accessToken = this.jwtService.sign(
       {

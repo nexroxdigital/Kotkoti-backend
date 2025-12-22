@@ -18,10 +18,10 @@ import { StoreCategoryService } from './store-category.service';
 import { CreateStoreItemDto } from './dto/create-store-item.dto';
 import { UpdateStoreItemDto } from './dto/update-store-item.dto';
 import { storeItemMulterConfig } from '../../common/multer.config';
-
-import { unlinkSync } from 'fs';
+import { FileCleanupInterceptor } from '../../common/interceptors/file-cleanup.interceptor';
 
 @Controller('store-management')
+@UseInterceptors(FileCleanupInterceptor)
 export class StoreManagementController {
   constructor(
     private storeManagementService: StoreManagementService,
@@ -85,20 +85,9 @@ export class StoreManagementController {
       dto.swf = `/uploads/store/${files.swf[0].filename}`;
     }
 
-    if (!dto.icon) {
-      // Cleanup if validation fails here (files might be uploaded even if logic fails)
-      if (files?.swf) unlinkSync(files.swf[0].path);
-      throw new BadRequestException('icon is required');
-    }
+    if (!dto.icon) throw new BadRequestException('icon is required');
 
-    try {
-      return await this.storeManagementService.createItem(dto);
-    } catch (error) {
-      // Cleanup files on database/service error
-      if (files?.icon) unlinkSync(files.icon[0].path);
-      if (files?.swf) unlinkSync(files.swf[0].path);
-      throw error;
-    }
+    return await this.storeManagementService.createItem(dto);
   }
 
   //  Get all store items
@@ -143,14 +132,7 @@ export class StoreManagementController {
       dto.swf = `/uploads/store/${files.swf[0].filename}`;
     }
 
-    try {
-      return await this.storeManagementService.updateItem(id, dto);
-    } catch (error) {
-      // Cleanup new files on error
-      if (files?.icon) unlinkSync(files.icon[0].path);
-      if (files?.swf) unlinkSync(files.swf[0].path);
-      throw error;
-    }
+    return await this.storeManagementService.updateItem(id, dto);
   }
 
   // @desc Delete a store item by ID
