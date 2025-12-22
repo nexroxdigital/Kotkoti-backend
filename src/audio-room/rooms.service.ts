@@ -64,7 +64,17 @@ export class RoomsService {
 
   async listRooms() {
     return this.prisma.audioRoom.findMany({
-      where: { isLive: true },
+      where: {
+        isLive: true,
+
+        // 🔥 ONLY rooms with at least one active participant
+        participants: {
+          some: {
+            disconnectedAt: null,
+          },
+        },
+      },
+
       orderBy: { createdAt: 'desc' },
 
       select: {
@@ -95,35 +105,18 @@ export class RoomsService {
           where: { userId: { not: null } },
           orderBy: { index: 'asc' },
           select: {
-            // ... seat fields
             index: true,
             userId: true,
             user: {
               select: {
                 id: true,
                 nickName: true,
-                email: true,
-                phone: true,
                 profilePicture: true,
-                coverImage: true,
-                roleId: true,
-                dob: true,
-                bio: true,
                 gender: true,
+                dob: true,
                 country: true,
-                gold: true,
-                diamond: true,
-                isDiamondBlocked: true,
-                isGoldBlocked: true,
-                isAccountBlocked: true,
-                isHost: true,
-                isReseller: true,
-                agencyId: true,
-                vipId: true,
                 charmLevel: true,
                 wealthLevel: true,
-                createdAt: true,
-                updatedAt: true,
                 activeItem: {
                   select: {
                     id: true,
@@ -139,12 +132,12 @@ export class RoomsService {
 
         _count: {
           select: {
-            // 1. Count Active Participants
+            // Active users count
             participants: {
               where: { disconnectedAt: null },
             },
 
-            // 2. Count Occupied Seats (MUST BE ADDED HERE)
+            // Occupied seats count
             seats: {
               where: { userId: { not: null } },
             },
