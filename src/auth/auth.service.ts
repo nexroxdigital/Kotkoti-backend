@@ -9,7 +9,7 @@ import * as crypto from 'crypto';
 import { MailService } from '../mail/mail.service';
 import { PrismaService } from '../prisma/prisma.service';
 
-import { User } from '@prisma/client/edge';
+import { User } from '@prisma/client';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -42,6 +42,12 @@ export class AuthService {
     return otp;
   }
 
+  async googleLogin(idToken: string, req?: Request) {
+    // 1. Verify Google Token
+    const ticket = await this.google.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
 async googleLogin(idToken: string, req?: Request) {
   
@@ -55,7 +61,8 @@ async googleLogin(idToken: string, req?: Request) {
     throw new BadRequestException('Invalid Google token');
   }
 
-  const { email, name, picture } = payload;
+    // 2. Find or Create User
+    let user = await this.prisma.user.findUnique({ where: { email } });
 
   let user = await this.prisma.user.findUnique({ where: { email } });
 
@@ -67,10 +74,12 @@ async googleLogin(idToken: string, req?: Request) {
 
     user = await this.prisma.user.create({
       data: {
-        id: userId,
-        email,
-        nickName: name,
-        profilePicture: picture,
+        userId: user.id,
+        expiresAt,
+        lastAccessed: new Date(),
+        deviceId,
+        ipAddress: ip,
+        userAgent,
       },
     });
 
@@ -132,6 +141,22 @@ async googleLogin(idToken: string, req?: Request) {
   };
 }
 
+    // Store refresh token in DB
+    await this.prisma.refreshToken.create({
+      data: {
+        id: jti,
+        token: refreshHash,
+        userId: user.id,
+      },
+    });
+
+    return {
+      user,
+      token: accessToken,
+      refreshToken: refreshRaw,
+      sessionId: session.id,
+    };
+  }
 
 
   // ----------------------------------

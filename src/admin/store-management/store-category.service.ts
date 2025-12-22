@@ -14,16 +14,13 @@ export class StoreCategoryService {
 
   //  Get all store categories
   async findAllCategory() {
-    return this.prisma.storeCategory.findMany({
-      include: { items: true },
-    });
+    return this.prisma.storeCategory.findMany();
   }
 
   //  Get a single store category by id
   async findOneCategory(id: string) {
     return this.prisma.storeCategory.findUniqueOrThrow({
       where: { id },
-      include: { items: true },
     });
   }
 

@@ -111,6 +111,7 @@ export class CoinResellerService {
       seller: history[0].seller,
       receivers: history.map((item) => ({
         id: item.receiver.id,
+        sl: item.id,
         nickName: item.receiver.nickName,
         amount: item.amount,
         status: item.status,
