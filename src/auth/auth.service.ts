@@ -29,7 +29,7 @@ export class AuthService {
     
   }
   
-  private google = new OAuth2Client("729799433930-n8srt06sdicha4jhsan8khtk52vj8qev.apps.googleusercontent.com")
+  private google = new OAuth2Client()
   // ----------------------------------
   // OTP Generator
   // ----------------------------------
@@ -44,25 +44,27 @@ export class AuthService {
 
 
 async googleLogin(idToken: string, req?: Request) {
-  // 1. Verify Google Token
+  
   const ticket = await this.google.verifyIdToken({
     idToken,
     audience: process.env.GOOGLE_CLIENT_ID,
   });
 
   const payload = ticket.getPayload();
-  if (!payload || !payload.email) {
+  if (!payload?.email) {
     throw new BadRequestException('Invalid Google token');
   }
 
   const { email, name, picture } = payload;
 
-  // 2. Find or Create User
   let user = await this.prisma.user.findUnique({ where: { email } });
 
+  // =========================
+  // FIRST TIME GOOGLE LOGIN
+  // =========================
   if (!user) {
-    // Generate unique ID for new user
     const userId = await generateUniqueUserId(this.prisma);
+
     user = await this.prisma.user.create({
       data: {
         id: userId,
@@ -71,19 +73,29 @@ async googleLogin(idToken: string, req?: Request) {
         profilePicture: picture,
       },
     });
+
+    // ❌ NO TOKEN, NO SESSION
+    return {
+      needsProfileCompletion: true,
+      user,
+    };
   }
 
-  // 3. Extract Metadata for Session (Mirroring your Login logic)
-  const ip = (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req?.ip;
-  const userAgent = req?.headers?.['user-agent']?.toString();
-  const deviceId = (req?.headers?.['x-device-id'] as string);
+  // =========================
+  // NORMAL LOGIN FLOW
+  // =========================
 
-  // 4. Create Database Session
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+  const ip =
+    (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+    req?.ip;
+
+  const userAgent = req?.headers?.['user-agent']?.toString();
+  const deviceId = req?.headers?.['x-device-id'] as string;
+
   const session = await this.prisma.session.create({
     data: {
       userId: user.id,
-      expiresAt,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       lastAccessed: new Date(),
       deviceId,
       ipAddress: ip,
@@ -91,18 +103,11 @@ async googleLogin(idToken: string, req?: Request) {
     },
   });
 
-  // 5. Generate Access Token (Standardized Payload)
-  // Ensure 'userId' and 'sessionId' match what your JwtStrategy expects
   const accessToken = await this.jwtService.signAsync(
-    { 
-      userId: user.id, 
-      sessionId: session.id, 
-      email: user.email 
-    },
+    { userId: user.id, sessionId: session.id, email: user.email },
     { expiresIn: '1d' },
   );
 
-  // 6. Generate and Hash Refresh Token
   const jti = crypto.randomUUID();
   const refreshRaw = await this.jwtService.signAsync(
     { userId: user.id, sessionId: session.id, jti },
@@ -111,7 +116,6 @@ async googleLogin(idToken: string, req?: Request) {
 
   const refreshHash = await bcrypt.hash(refreshRaw, 10);
 
-  // Store refresh token in DB
   await this.prisma.refreshToken.create({
     data: {
       id: jti,
@@ -127,6 +131,7 @@ async googleLogin(idToken: string, req?: Request) {
     sessionId: session.id,
   };
 }
+
 
 
   // ----------------------------------

@@ -17,7 +17,7 @@ import { SetNewPasswordDto } from './dto/set-new-password.dto';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('google/verify')
+  @Post('google-verify')
   async googleVerify(@Body() body: { credential: string }) {
     return this.authService.googleLogin(body.credential);
   }
