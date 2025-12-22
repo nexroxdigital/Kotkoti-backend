@@ -9,7 +9,7 @@ datasource db {
 model User {
   id                    String                @id @default(uuid())
   email                 String                @unique
-  password              String
+  password              String?
   phone                 String?               @unique
   dob                   DateTime?
   bio                   String?
@@ -365,6 +365,7 @@ model Employee {
   email          String       @unique
   phone          String?      @unique
   password       String
+  refreshToken   String? 
   profilePicture String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -784,6 +785,7 @@ enum FriendStatus {
 }
 
 enum EmployeeRole {
+  OWNER
   ADMIN
   MANAGER
   STAFF
