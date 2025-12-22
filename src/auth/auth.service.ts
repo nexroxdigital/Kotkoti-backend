@@ -25,11 +25,9 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     private jwtService: JwtService,
-  ) {
-    
-  }
-  
-  private google = new OAuth2Client()
+  ) {}
+
+  private google = new OAuth2Client();
   // ----------------------------------
   // OTP Generator
   // ----------------------------------
@@ -42,97 +40,93 @@ export class AuthService {
     return otp;
   }
 
+  async googleLogin(idToken: string, req?: Request) {
+    const ticket = await this.google.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
 
-async googleLogin(idToken: string, req?: Request) {
-  
-  const ticket = await this.google.verifyIdToken({
-    idToken,
-    audience: process.env.GOOGLE_CLIENT_ID,
-  });
+    const payload = ticket.getPayload();
+    if (!payload?.email) {
+      throw new BadRequestException('Invalid Google token');
+    }
 
-  const payload = ticket.getPayload();
-  if (!payload?.email) {
-    throw new BadRequestException('Invalid Google token');
-  }
+    const { email, name, picture } = payload;
 
-  const { email, name, picture } = payload;
+    let user = await this.prisma.user.findUnique({ where: { email } });
 
-  let user = await this.prisma.user.findUnique({ where: { email } });
+    // =========================
+    // FIRST TIME GOOGLE LOGIN
+    // =========================
+    if (!user) {
+      const userId = await generateUniqueUserId(this.prisma);
 
-  // =========================
-  // FIRST TIME GOOGLE LOGIN
-  // =========================
-  if (!user) {
-    const userId = await generateUniqueUserId(this.prisma);
+      user = await this.prisma.user.create({
+        data: {
+          id: userId,
+          email,
+          nickName: name,
+          profilePicture: picture,
+        },
+      });
 
-    user = await this.prisma.user.create({
+      // ❌ NO TOKEN, NO SESSION
+      return {
+        needsProfileCompletion: true,
+        user,
+      };
+    }
+
+    // =========================
+    // NORMAL LOGIN FLOW
+    // =========================
+
+    const ip =
+      (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
+      req?.ip;
+
+    const userAgent = req?.headers?.['user-agent']?.toString();
+    const deviceId = req?.headers?.['x-device-id'] as string;
+
+    const session = await this.prisma.session.create({
       data: {
-        id: userId,
-        email,
-        nickName: name,
-        profilePicture: picture,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        lastAccessed: new Date(),
+        deviceId,
+        ipAddress: ip,
+        userAgent,
       },
     });
 
-    // ❌ NO TOKEN, NO SESSION
+    const accessToken = await this.jwtService.signAsync(
+      { userId: user.id, sessionId: session.id, email: user.email },
+      { expiresIn: '1d' },
+    );
+
+    const jti = crypto.randomUUID();
+    const refreshRaw = await this.jwtService.signAsync(
+      { userId: user.id, sessionId: session.id, jti },
+      { expiresIn: '7d' },
+    );
+
+    const refreshHash = await bcrypt.hash(refreshRaw, 10);
+
+    await this.prisma.refreshToken.create({
+      data: {
+        id: jti,
+        token: refreshHash,
+        userId: user.id,
+      },
+    });
+
     return {
-      needsProfileCompletion: true,
       user,
+      token: accessToken,
+      refreshToken: refreshRaw,
+      sessionId: session.id,
     };
   }
-
-  // =========================
-  // NORMAL LOGIN FLOW
-  // =========================
-
-  const ip =
-    (req?.headers?.['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
-    req?.ip;
-
-  const userAgent = req?.headers?.['user-agent']?.toString();
-  const deviceId = req?.headers?.['x-device-id'] as string;
-
-  const session = await this.prisma.session.create({
-    data: {
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      lastAccessed: new Date(),
-      deviceId,
-      ipAddress: ip,
-      userAgent,
-    },
-  });
-
-  const accessToken = await this.jwtService.signAsync(
-    { userId: user.id, sessionId: session.id, email: user.email },
-    { expiresIn: '1d' },
-  );
-
-  const jti = crypto.randomUUID();
-  const refreshRaw = await this.jwtService.signAsync(
-    { userId: user.id, sessionId: session.id, jti },
-    { expiresIn: '7d' },
-  );
-
-  const refreshHash = await bcrypt.hash(refreshRaw, 10);
-
-  await this.prisma.refreshToken.create({
-    data: {
-      id: jti,
-      token: refreshHash,
-      userId: user.id,
-    },
-  });
-
-  return {
-    user,
-    token: accessToken,
-    refreshToken: refreshRaw,
-    sessionId: session.id,
-  };
-}
-
-
 
   // ----------------------------------
   // REGISTER EMAIL
