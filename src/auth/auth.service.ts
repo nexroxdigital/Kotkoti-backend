@@ -70,11 +70,11 @@ export class AuthService {
         },
       });
 
-      // ❌ NO TOKEN, NO SESSION
-      return {
-        needsProfileCompletion: true,
-        user,
-      };
+      // // ❌ NO TOKEN, NO SESSION
+      // return {
+      //   needsProfileCompletion: true,
+      //   user,
+      // };
     }
 
     // =========================
