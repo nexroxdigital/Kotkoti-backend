@@ -131,16 +131,39 @@ export class ProfileService {
   async getUserById(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-      select: {
+       select: {
         id: true,
         nickName: true,
+        email: true,
+        phone: true,
         profilePicture: true,
+        coverImage: true,
+        roleId: true,
+        dob: true,
+        bio: true,
         gender: true,
         country: true,
+        gold: true,
+        diamond: true,
+        isDiamondBlocked: true,
+        isGoldBlocked: true,
+        isAccountBlocked: true,
         isHost: true,
+        isReseller: true,
+        agencyId: true,
         vipId: true,
-        charmLevelId: true,
-        wealthLevelId: true,
+        charmLevel: true,
+        wealthLevel: true,
+        createdAt: true,
+        updatedAt: true,
+        activeItem: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            swf: true,
+          },
+        },
       },
     });
   }
