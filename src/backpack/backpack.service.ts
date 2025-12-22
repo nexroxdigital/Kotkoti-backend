@@ -7,11 +7,7 @@ export class BackpackService {
 
   // get all backpack items grouped by category
   async getAllItemsGrouped(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { activeItemId: true },
-    });
-    const activeItemId = user?.activeItemId ?? null;
+
 
     //  Fetch all backpack items with item + category info
     const backpackItems = await this.prisma.backpack.findMany({
@@ -19,6 +15,7 @@ export class BackpackService {
       select: {
         id: true,
         acquiredAt: true,
+        isActive: true,
         item: {
           select: {
             id: true,
@@ -52,7 +49,7 @@ export class BackpackService {
         backpackItemId: bItem.id,
         acquiredAt: bItem.acquiredAt,
         ...itemWithoutCategory,
-        isUsed: itemWithoutCategory.id === activeItemId,
+        isUsed: bItem.isActive,
       });
     }
 
@@ -206,11 +203,18 @@ export class BackpackService {
    * Update user's activeItemId
    */
   async useItem(userId: string, itemId: string) {
-    // Step 1: Check if user owns this item
+    // Step 1: Check if user owns this item and get its category
     const backpackRecord = await this.prisma.backpack.findFirst({
       where: {
         userId,
         itemId,
+      },
+      include: {
+        item: {
+          select: {
+            categoryId: true,
+          },
+        },
       },
     });
 
@@ -218,20 +222,37 @@ export class BackpackService {
       throw new NotFoundException('Item not found in your backpack');
     }
 
-    // Step 2: Update user's activeItemId
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: { activeItemId: itemId },
-      select: {
-        id: true,
-        activeItemId: true,
-      },
+    const categoryId = backpackRecord.item.categoryId;
+
+    // Step 2: Use a transaction to deactivate other items in the same category and activate this one
+    await this.prisma.$transaction(async (tx) => {
+      // Deactivate all items of the same category for this user
+      await tx.backpack.updateMany({
+        where: {
+          userId,
+          item: { categoryId },
+          isActive: true,
+        },
+        data: { isActive: false },
+      });
+
+      // Activate the selected item
+      await tx.backpack.update({
+        where: { id: backpackRecord.id },
+        data: { isActive: true },
+      });
+
+      // Optional: Update User.activeItemId for legacy compatibility (setting it to the most recently activated item)
+      await tx.user.update({
+        where: { id: userId },
+        data: { activeItemId: itemId },
+      });
     });
 
-    // Step 3: Return success response with currently active itemId
     return {
       message: 'Item is now active',
-      activeItemId: updatedUser.activeItemId,
+      itemId: itemId,
+      categoryId: categoryId,
     };
   }
 
@@ -251,6 +272,7 @@ export class BackpackService {
       select: {
         id: true,
         itemId: true,
+        isActive: true,
       },
     });
 
@@ -264,23 +286,36 @@ export class BackpackService {
       select: { activeItemId: true },
     });
 
-    // Step 3: If this item is currently active → deactivate it
-    if (user?.activeItemId === backpackItem.itemId) {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: { activeItemId: null },
+    // Step 3: If this item is active → deactivate it
+    if (backpackItem.isActive) {
+      await this.prisma.backpack.update({
+        where: { id: backpackItemId },
+        data: { isActive: false },
       });
 
+      // Also clear User.activeItemId if it matches (legacy cleanup)
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { activeItemId: true },
+      });
+
+      if (user?.activeItemId === backpackItem.itemId) {
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { activeItemId: null },
+        });
+      }
+
       return {
-        message: 'Active item removed successfully',
-        activeItemId: null,
+        message: 'Item deactivated and removed successfully',
+        isActive: false,
       };
     }
 
-    // Step 4: The item was not active → nothing to change
+    // Step 4: The item was not active → nothing to change in activation status
     return {
-      message: 'Item is not active, nothing changed',
-      activeItemId: user?.activeItemId ?? null,
+      message: 'Item removed successfully',
+      isActive: false,
     };
   }
 }

@@ -352,6 +352,7 @@ model Backpack {
   itemId     String
   quantity   Int       @default(1)
   acquiredAt DateTime  @default(now())
+  isActive   Boolean   @default(false)
   item       StoreItem @relation(fields: [itemId], references: [id])
   user       User      @relation(fields: [userId], references: [id])
 
