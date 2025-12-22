@@ -114,7 +114,7 @@ async googleLogin(idToken: string, req?: Request) {
 
   const accessToken = await this.jwtService.signAsync(
     { userId: user.id, sessionId: session.id, email: user.email },
-    { expiresIn: '1d' },
+    { expiresIn: '7d' },
   );
 
   const jti = crypto.randomUUID();
