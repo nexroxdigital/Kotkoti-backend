@@ -27,6 +27,9 @@ export class UserSettingService {
 
     if (!user) throw new NotFoundException('User not found');
 
+    if (!user.password) {
+      throw new BadRequestException('No password set for this account');
+    }
     const match = await bcrypt.compare(password, user.password);
     if (!match) throw new BadRequestException('Incorrect password');
 
@@ -114,6 +117,9 @@ export class UserSettingService {
     }
 
     // 3. Validate password
+    if (!user.password) {
+      throw new BadRequestException('No password set for this account');
+    }
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) throw new BadRequestException('Incorrect password');
 
