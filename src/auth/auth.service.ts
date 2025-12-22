@@ -868,6 +868,9 @@ export class AuthService {
     }
 
     // 2. Check old password
+    if (!user.password) {
+      throw new BadRequestException('No password set for this account');
+    }
     const isMatch = await bcrypt.compare(oldPassword, user.password);
     if (!isMatch) {
       throw new BadRequestException('Old password is incorrect');
