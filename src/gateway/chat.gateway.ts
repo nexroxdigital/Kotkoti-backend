@@ -64,8 +64,7 @@ export class ChatGateway {
     this.server.to(`room:${roomId}`).emit('chat:system', {
       type: 'JOIN',
       userId,
-      nickName: participant.nickName,
-      profilePicture: participant.profilePicture,
+      ...participant,
       message: `${participant.nickName} joined the room`,
       timestamp: Date.now(),
     });
