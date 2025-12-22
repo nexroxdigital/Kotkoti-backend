@@ -43,7 +43,7 @@ export class AuthService {
   async googleLogin(idToken: string, req?: Request) {
     const ticket = await this.google.verifyIdToken({
       idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: "201708348580-f3eot8aban1d8uvgpqke2g2iihvml2hl.apps.googleusercontent.com",
     });
 
     const payload = ticket.getPayload();
