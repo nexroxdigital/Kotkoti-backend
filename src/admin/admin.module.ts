@@ -5,8 +5,17 @@ import { LevelManagementModule } from './level-management/level-management.modul
 import { GiftManagementModule } from './gift-management/gift-management.module';
 import { SvipManagementModule } from './svip-management/svip-management.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
+import { UserManagementModule } from './user-management/user-management.module';
 
 @Module({
-  imports: [StoreManagementModule, ReSellerManagementModule, LevelManagementModule, GiftManagementModule, SvipManagementModule, AdminAuthModule],
+  imports: [
+    StoreManagementModule,
+    ReSellerManagementModule,
+    LevelManagementModule,
+    GiftManagementModule,
+    SvipManagementModule,
+    AdminAuthModule,
+    UserManagementModule,
+  ],
 })
 export class AdminModule {}

@@ -6,18 +6,17 @@ import {
   Param,
   Patch,
   Post,
-  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+
 import { CreateUserDto } from './dto/create-user.dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto/update-user.dto';
-import { UserService } from './user.service';
+import { UserManagementService } from './user-management.service';
 
-@Controller('admin/users')
-export class UserController {
-  constructor(private readonly userService: UserService) {}
+@Controller('user-management')
+export class UserManagementController {
+  constructor(private readonly userService: UserManagementService) {}
 
   @Post()
   @UsePipes(new ValidationPipe({ whitelist: true }))
