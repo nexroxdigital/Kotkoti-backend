@@ -22,6 +22,7 @@ export class BackpackService {
             name: true,
             icon: true,
             price: true,
+            categoryId: true,
             category: {
               select: {
                 name: true,
@@ -43,12 +44,14 @@ export class BackpackService {
         grouped[categoryName] = [];
       }
 
-      const { category, ...itemWithoutCategory } = bItem.item;
+      const { category, id, ...itemData } = bItem.item;
 
       grouped[categoryName].push({
         backpackItemId: bItem.id,
         acquiredAt: bItem.acquiredAt,
-        ...itemWithoutCategory,
+        itemId: id,
+        ...itemData,
+        categoryName: category.name,
         isUsed: bItem.isActive,
       });
     }
