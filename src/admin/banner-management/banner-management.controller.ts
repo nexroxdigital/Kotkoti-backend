@@ -8,9 +8,9 @@ import {
   Post,
   Put,
   UploadedFile,
-  UseInterceptors,
+  // UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+// import { FileInterceptor } from '@nestjs/platform-express';
 //import { bannerMulterConfig } from 'src/common/multer.config';
 import { BannerManagementService } from './banner-management.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
