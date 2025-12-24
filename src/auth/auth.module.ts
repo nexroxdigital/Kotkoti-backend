@@ -7,12 +7,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionsController } from './sessions.controller';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ProfileModule } from 'src/profile/profile.module';
 
 @Module({
   imports: [
     PrismaModule,
     MailModule,
-    ConfigModule, // ✅ REQUIRED
+    ConfigModule,
+    ProfileModule,
 
     JwtModule.registerAsync({
       inject: [ConfigService],

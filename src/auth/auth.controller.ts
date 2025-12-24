@@ -1,4 +1,13 @@
-import { Controller, Post, Body, UseGuards, Req, Get } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Get,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterEmailDto } from './dto/register-email.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
@@ -12,6 +21,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { Request } from 'express';
 import { VerifyForgotOtpDto } from './dto/verify-forgot-otp.dto';
 import { SetNewPasswordDto } from './dto/set-new-password.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { profilePicMulterConfig } from 'src/common/multer.config';
 
 @Controller('auth')
 export class AuthController {
@@ -25,7 +36,7 @@ export class AuthController {
   @Post('register-email')
   async registerEmail(@Body() dto: RegisterEmailDto) {
     return this.authService.registerEmail(dto.email);
-  } 
+  }
 
   @Post('resend-otp')
   async resendOtp(@Body() dto: ResendOtpDto) {
@@ -53,9 +64,13 @@ export class AuthController {
     return this.authService.setPassword(dto.email, dto.password);
   }
 
+  @UseInterceptors(FileInterceptor('profilePicture', profilePicMulterConfig))
   @Post('complete-profile')
-  async completeProfile(@Body() dto: CompleteProfileDto) {
-    return this.authService.completeProfile(dto);
+  async completeProfile(
+    @Body() dto: CompleteProfileDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.authService.completeProfile(dto, file);
   }
 
   @Post('login')

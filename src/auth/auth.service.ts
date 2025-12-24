@@ -18,6 +18,8 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { Request } from 'express';
 import { generateUniqueUserId } from 'src/common/utils/generateUnique.util';
 import { OAuth2Client } from 'google-auth-library';
+import { join } from 'path';
+import { ProfileService } from 'src/profile/profile.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +27,7 @@ export class AuthService {
     private prisma: PrismaService,
     private mailService: MailService,
     private jwtService: JwtService,
+    private profileService: ProfileService,
   ) {}
 
   private google = new OAuth2Client();
@@ -43,7 +46,8 @@ export class AuthService {
   async googleLogin(idToken: string, req?: Request) {
     const ticket = await this.google.verifyIdToken({
       idToken,
-      audience: "201708348580-f3eot8aban1d8uvgpqke2g2iihvml2hl.apps.googleusercontent.com",
+      audience:
+        '201708348580-f3eot8aban1d8uvgpqke2g2iihvml2hl.apps.googleusercontent.com',
     });
 
     const payload = ticket.getPayload();
@@ -321,12 +325,22 @@ export class AuthService {
   // ----------------------------------
   // COMPLETE PROFILE + GENERATE TOKENS
   // ----------------------------------
-  async completeProfile(dto: CompleteProfileDto) {
+  async completeProfile(dto: CompleteProfileDto, file?: Express.Multer.File) {
     const { email, name, dob, gender, country } = dto;
 
     const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user)
+    if (!user) {
       throw new BadRequestException('User not found. Please set password.');
+    }
+
+    let profilePicture = user.profilePicture;
+
+    if (file) {
+      profilePicture = await this.profileService.processProfilePicture(
+        user.id,
+        file,
+      );
+    }
 
     const updatedUser = await this.prisma.user.update({
       where: { email },
@@ -335,20 +349,22 @@ export class AuthService {
         dob: dob ? new Date(dob) : null,
         gender,
         country,
+        profilePicture,
       },
     });
 
+    // ===== TOKEN LOGIC =====
     const jti = crypto.randomUUID();
+
     const refreshRaw = this.jwtService.sign(
       { userId: updatedUser.id, jti },
       { expiresIn: '7d' },
     );
-    const refreshHash = await bcrypt.hash(refreshRaw, 10);
 
     await this.prisma.refreshToken.create({
       data: {
         id: jti,
-        token: refreshHash,
+        token: await bcrypt.hash(refreshRaw, 10),
         userId: updatedUser.id,
       },
     });
