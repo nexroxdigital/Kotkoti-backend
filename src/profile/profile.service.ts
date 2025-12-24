@@ -17,6 +17,41 @@ import { UpdateMeDto } from './dto/update-me.dto';
 export class ProfileService {
   constructor(private prisma: PrismaService) {}
 
+  async processProfilePicture(userId: string, file: Express.Multer.File) {
+    if (!file) return null;
+
+    const tempPath = file.path;
+    const outputDir = join(process.cwd(), 'uploads/profile');
+    const timestamp = Date.now();
+    const finalFileName = `${userId}-${timestamp}.webp`;
+    const finalPath = join(outputDir, finalFileName);
+
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    // delete old image
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { profilePicture: true },
+    });
+
+    if (user?.profilePicture) {
+      const oldPath = join(process.cwd(), user.profilePicture);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    // resize + convert to webp
+    await sharp(tempPath)
+      .resize(300, 300, { fit: 'cover', position: 'center' })
+      .webp({ quality: 80 })
+      .toFile(finalPath);
+
+    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
+
+    return `/uploads/profile/${finalFileName}`;
+  }
+
   // ----------------------------------
   // GET USER DATA
   // ----------------------------------
@@ -131,7 +166,7 @@ export class ProfileService {
   async getUserById(userId: string) {
     return this.prisma.user.findUnique({
       where: { id: userId },
-       select: {
+      select: {
         id: true,
         nickName: true,
         email: true,
@@ -393,46 +428,11 @@ export class ProfileService {
   async uploadProfilePic(userId: string, file: Express.Multer.File) {
     if (!file) throw new BadRequestException('No file uploaded');
 
-    const tempPath = file.path;
-    const outputDir = join(process.cwd(), 'uploads/profile');
-    const timestamp = Date.now();
-    const finalFileName = `${userId}-${timestamp}.webp`;
-    const finalPath = join(outputDir, finalFileName);
+    const profilePicture = await this.processProfilePicture(userId, file);
 
-    // ensure output folder exists
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    //  1. Delete old image if exists (any format)
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { profilePicture: true },
-    });
-
-    if (user?.profilePicture) {
-      const old = join(process.cwd(), user.profilePicture);
-      if (fs.existsSync(old)) fs.unlinkSync(old);
-    }
-
-    //  2. Resize + crop + convert to WebP using Sharp
-    await sharp(tempPath)
-      .resize(300, 300, {
-        fit: 'cover',
-        position: 'center',
-      })
-      .webp({ quality: 80 }) // AUTO-WEBP!
-      .toFile(finalPath);
-
-    // delete temp raw upload
-    if (fs.existsSync(tempPath)) fs.unlinkSync(tempPath);
-
-    // 3. Update user profile
     const updatedUser = await this.prisma.user.update({
       where: { id: userId },
-      data: {
-        profilePicture: `/uploads/profile/${finalFileName}`,
-      },
+      data: { profilePicture },
       select: {
         id: true,
         nickName: true,
@@ -677,28 +677,27 @@ export class ProfileService {
     if (includeList.includes('charmLevel')) include.charmLevel = true;
     if (includeList.includes('wealthLevel')) include.wealthLevel = true;
 
-   const users = await this.prisma.user.findMany({
-  where: {
-    id: {
-      contains: search,
-      mode: 'insensitive',
-    },
-  },
-  include: {
-    ...include,
-    activeItem: {
-      select: {
-        id: true,
-        name: true,
-        icon: true,
-        swf: true,
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: {
+          contains: search,
+          mode: 'insensitive',
+        },
       },
-    },
-  },
-  take: 20,
-  orderBy: { createdAt: 'desc' },
-});
-
+      include: {
+        ...include,
+        activeItem: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            swf: true,
+          },
+        },
+      },
+      take: 20,
+      orderBy: { createdAt: 'desc' },
+    });
 
     return users.map(({ password, ...user }) => user);
   }
@@ -765,7 +764,6 @@ export class ProfileService {
                 name: true,
                 icon: true,
                 swf: true,
-          
               },
             },
           },
