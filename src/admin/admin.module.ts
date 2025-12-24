@@ -6,6 +6,7 @@ import { GiftManagementModule } from './gift-management/gift-management.module';
 import { SvipManagementModule } from './svip-management/svip-management.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
 import { UserManagementModule } from './user-management/user-management.module';
+import { BannerManagementModule } from './banner-management/banner-management.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { UserManagementModule } from './user-management/user-management.module';
     SvipManagementModule,
     AdminAuthModule,
     UserManagementModule,
+    BannerManagementModule,
   ],
 })
 export class AdminModule {}

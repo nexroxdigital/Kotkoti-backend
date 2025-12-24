@@ -781,6 +781,17 @@ model SvipLog {
   user      User      @relation(fields: [userId], references: [id])
 }
 
+model HomeBanner {
+  id              Int                  @id @default(autoincrement())
+  imgUrl          String
+  title           String
+  link            String?
+  isGlobal        Boolean              @default(false)
+  country         String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime?            @updatedAt
+}
+
 enum Provider {
   AGORA
   ZEGO
