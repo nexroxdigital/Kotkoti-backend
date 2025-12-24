@@ -203,10 +203,10 @@ export class BackpackService {
   /**
    * Activate an item for a user
    * Check if user owns the item in backpack
-   * Update user's activeItemId
+   * Update user's activeItemId and activeItems JSON
    */
   async useItem(userId: string, itemId: string) {
-    // Step 1: Check if user owns this item and get its category
+    // Step 1: Check if user owns this item and get its category with full item details
     const backpackRecord = await this.prisma.backpack.findFirst({
       where: {
         userId,
@@ -215,7 +215,17 @@ export class BackpackService {
       include: {
         item: {
           select: {
+            id: true,
+            name: true,
+            icon: true,
+            swf: true,
+            swftime: true,
             categoryId: true,
+            category: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
@@ -226,6 +236,16 @@ export class BackpackService {
     }
 
     const categoryId = backpackRecord.item.categoryId;
+    const categoryName = backpackRecord.item.category.name;
+
+    // Build item data object for activeItems JSON
+    const itemData = {
+      id: backpackRecord.item.id,
+      name: backpackRecord.item.name,
+      icon: backpackRecord.item.icon,
+      swf: backpackRecord.item.swf,
+      swftime: backpackRecord.item.swftime,
+    };
 
     // Step 2: Use a transaction to deactivate other items in the same category and activate this one
     await this.prisma.$transaction(async (tx) => {
@@ -245,10 +265,22 @@ export class BackpackService {
         data: { isActive: true },
       });
 
-      // Optional: Update User.activeItemId for legacy compatibility (setting it to the most recently activated item)
+      // Fetch current activeItems JSON
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { activeItems: true },
+      });
+
+      const currentActiveItems = (user?.activeItems as any) || {};
+      currentActiveItems[categoryName] = itemData; // Update category with full item data
+
+      // Update User with activeItems JSON and activeItemId for legacy compatibility
       await tx.user.update({
         where: { id: userId },
-        data: { activeItemId: itemId },
+        data: {
+          activeItemId: itemId,
+          activeItems: currentActiveItems,
+        },
       });
     });
 
@@ -256,6 +288,8 @@ export class BackpackService {
       message: 'Item is now active',
       itemId: itemId,
       categoryId: categoryId,
+      categoryName: categoryName,
+      itemData: itemData,
     };
   }
 
@@ -264,9 +298,10 @@ export class BackpackService {
    * 1. Check if backpack item exists for the user
    * 2. remove the item from user
    * 3. Clear activeItemId if it was the active item
+   * 4. Remove from activeItems JSON if active
    */
   async removeItem(userId: string, backpackItemId: string) {
-    // Step 1: Ensure the backpack item exists for this user
+    // Step 1: Ensure the backpack item exists for this user with category info
     const backpackItem = await this.prisma.backpack.findFirst({
       where: {
         id: backpackItemId,
@@ -276,6 +311,15 @@ export class BackpackService {
         id: true,
         itemId: true,
         isActive: true,
+        item: {
+          select: {
+            category: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -283,10 +327,12 @@ export class BackpackService {
       throw new NotFoundException('Backpack item not found');
     }
 
+    const categoryName = backpackItem.item.category.name;
+
     // Step 2: Fetch user's currently active item ID
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { activeItemId: true },
+      select: { activeItemId: true, activeItems: true },
     });
 
     // Step 3: If this item is active → deactivate it
@@ -296,16 +342,17 @@ export class BackpackService {
         data: { isActive: false },
       });
 
-      // Also clear User.activeItemId if it matches (legacy cleanup)
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { activeItemId: true },
-      });
-
+      // Clear User.activeItemId if it matches (legacy cleanup)
       if (user?.activeItemId === backpackItem.itemId) {
+        const currentActiveItems = (user.activeItems as any) || {};
+        delete currentActiveItems[categoryName]; // Remove category from activeItems JSON
+
         await this.prisma.user.update({
           where: { id: userId },
-          data: { activeItemId: null },
+          data: {
+            activeItemId: null,
+            activeItems: currentActiveItems,
+          },
         });
       }
 

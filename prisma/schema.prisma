@@ -33,6 +33,7 @@ model User {
   wealthLevelId         String?
   coverImage            String?
   activeItemId          String?
+  activeItems           Json?
   charmPoint            Int?
   wealthPoint           Int?
   activityLog           ActivityLog[]
