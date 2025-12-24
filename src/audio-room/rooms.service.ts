@@ -659,6 +659,278 @@ export class RoomsService {
     return room;
   }
 
+  // async joinRoom(roomId: string, userId: string, pin?: string) {
+  //   // --------------------------------------------------
+  //   // 1 Ban / kick check
+  //   // --------------------------------------------------
+  //   const kick = await this.prisma.audioRoomKick.findUnique({
+  //     where: { roomId_userId: { roomId, userId } },
+  //   });
+
+  //   if (kick) {
+  //     if (kick.expiresAt > new Date()) {
+  //       const hoursLeft = Math.ceil(
+  //         (kick.expiresAt.getTime() - Date.now()) / 3600000,
+  //       );
+  //       throw new ForbiddenException(
+  //         `You are banned from this room for ${hoursLeft} more hours`,
+  //       );
+  //     }
+
+  //     // expired ban → cleanup
+  //     await this.prisma.audioRoomKick.delete({
+  //       where: { roomId_userId: { roomId, userId } },
+  //     });
+  //   }
+
+  //   // --------------------------------------------------
+  //   // 2 Load room
+  //   // --------------------------------------------------
+  //   const room = await this.prisma.audioRoom.findUnique({
+  //     where: { id: roomId },
+  //     select: {
+  //       id: true,
+  //       isLive: true,
+  //       isLocked: true,
+  //       pinHash: true,
+  //       provider: true,
+  //       hostId: true,
+  //       chatMode: true,
+  //       host: {
+  //         select: {
+  //           id: true,
+  //           nickName: true,
+  //           profilePicture: true,
+  //           gender: true,
+  //           charmLevel: true,
+  //         },
+  //       },
+  //     },
+  //   });
+
+  //   if (!room || !room.isLive) {
+  //     throw new NotFoundException('Room not live');
+  //   }
+
+  //   // --------------------------------------------------
+  //   // 3 PIN check
+  //   // --------------------------------------------------
+  //   if (room.isLocked) {
+  //     if (!pin) {
+  //       throw new ForbiddenException('ROOM_PIN_REQUIRED');
+  //     }
+
+  //     const ok = await verifyPin(pin, room.pinHash!);
+  //     if (!ok) {
+  //       throw new ForbiddenException('INVALID_ROOM_PIN');
+  //     }
+  //   }
+
+  //   // --------------------------------------------------
+  //   // 4 Upsert participant (refresh-safe)
+  //   // --------------------------------------------------
+  //   await this.prisma.roomParticipant.upsert({
+  //     where: { roomId_userId: { roomId, userId } },
+  //     create: {
+  //       roomId,
+  //       userId,
+  //       isHost: room.hostId === userId,
+  //       joinedAt: new Date(),
+  //       lastActiveAt: new Date(),
+  //     },
+  //     update: {
+  //       disconnectedAt: null,
+  //       lastActiveAt: new Date(),
+  //       isHost: room.hostId === userId,
+  //     },
+  //   });
+
+  //   const participant = await this.prisma.roomParticipant.findUnique({
+  //     where: { roomId_userId: { roomId, userId } },
+  //   });
+
+  //   if (!participant) {
+  //     throw new NotFoundException('Participant missing');
+  //   }
+
+  //   // --------------------------------------------------
+  //   // 5 Ensure stable rtcUid
+  //   // --------------------------------------------------
+  //   let rtcUid: number;
+
+  //   if (participant.rtcUid) {
+  //     rtcUid = Number(participant.rtcUid);
+  //     if (isNaN(rtcUid)) {
+  //       rtcUid = Math.floor(Math.random() * 1_000_000_000);
+  //     }
+  //   } else {
+  //     rtcUid = Math.floor(Math.random() * 1_000_000_000);
+  //   }
+
+  //   await this.prisma.roomParticipant.update({
+  //     where: { roomId_userId: { roomId, userId } },
+  //     data: { rtcUid: String(rtcUid) },
+  //   });
+
+  //   // --------------------------------------------------
+  //   // 6 Issue Agora SUBSCRIBER token only
+  //   // --------------------------------------------------
+  //   const token = await this.rtc.issueToken(
+  //     room.provider,
+  //     roomId,
+  //     'subscriber',
+  //     rtcUid,
+  //   );
+
+  //   // --------------------------------------------------
+  //   // 7 Load FULL room state for frontend
+  //   // --------------------------------------------------
+  //   const fullRoom = await this.prisma.audioRoom.findUnique({
+  //     where: { id: roomId },
+  //     include: {
+  //       host: {
+  //         select: {
+  //           id: true,
+  //           nickName: true,
+  //           email: true,
+  //           phone: true,
+  //           profilePicture: true,
+  //           coverImage: true,
+  //           roleId: true,
+  //           dob: true,
+  //           bio: true,
+  //           gender: true,
+  //           country: true,
+  //           gold: true,
+  //           diamond: true,
+  //           isDiamondBlocked: true,
+  //           isGoldBlocked: true,
+  //           isAccountBlocked: true,
+  //           isHost: true,
+  //           isReseller: true,
+  //           agencyId: true,
+  //           vipId: true,
+  //           charmLevel: true,
+  //           wealthLevel: true,
+  //           createdAt: true,
+  //           updatedAt: true,
+  //           activeItem: {
+  //             select: {
+  //               id: true,
+  //               name: true,
+  //               icon: true,
+  //               swf: true,
+  //             },
+  //           },
+  //         },
+  //       },
+  //       seats: {
+  //         orderBy: { index: 'asc' },
+  //         include: {
+  //           user: {
+  //             select: {
+  //               id: true,
+  //               nickName: true,
+  //               email: true,
+  //               phone: true,
+  //               profilePicture: true,
+  //               coverImage: true,
+  //               roleId: true,
+  //               dob: true,
+  //               bio: true,
+  //               gender: true,
+  //               country: true,
+  //               gold: true,
+  //               diamond: true,
+  //               isDiamondBlocked: true,
+  //               isGoldBlocked: true,
+  //               isAccountBlocked: true,
+  //               isHost: true,
+  //               isReseller: true,
+  //               agencyId: true,
+  //               vipId: true,
+  //               charmLevel: true,
+  //               wealthLevel: true,
+  //               createdAt: true,
+  //               updatedAt: true,
+  //               activeItem: {
+  //                 select: {
+  //                   id: true,
+  //                   name: true,
+  //                   icon: true,
+  //                   swf: true,
+  //                 },
+  //               },
+  //             },
+  //           },
+  //         },
+  //       },
+  //       participants: {
+  //         where: { disconnectedAt: null },
+  //         select: {
+  //           id: true,
+  //           userId: true,
+  //           isHost: true,
+  //           role: true,
+  //           rtcUid: true,
+  //           muted: true,
+  //           joinedAt: true,
+  //           user: {
+  //             select: {
+  //               id: true,
+  //               nickName: true,
+  //               email: true,
+  //               phone: true,
+  //               profilePicture: true,
+  //               coverImage: true,
+  //               roleId: true,
+  //               dob: true,
+  //               bio: true,
+  //               gender: true,
+  //               country: true,
+  //               gold: true,
+  //               diamond: true,
+  //               isDiamondBlocked: true,
+  //               isGoldBlocked: true,
+  //               isAccountBlocked: true,
+  //               isHost: true,
+  //               isReseller: true,
+  //               agencyId: true,
+  //               vipId: true,
+  //               charmLevel: true,
+  //               wealthLevel: true,
+  //               createdAt: true,
+  //               updatedAt: true,
+  //               activeItem: {
+  //                 select: {
+  //                   id: true,
+  //                   name: true,
+  //                   icon: true,
+  //                   swf: true,
+  //                 },
+  //               },
+  //             },
+  //           },
+  //         },
+  //       },
+  //     },
+  //   });
+
+  //   if (!fullRoom) {
+  //     throw new NotFoundException('Room not found after join');
+  //   }
+  //   await this.gateway.broadcastParticipants(roomId);
+
+  //   // --------------------------------------------------
+  //   // 8 Return payload to frontend
+  //   // --------------------------------------------------
+  //   return {
+  //     room: fullRoom,
+  //     token,
+  //     rtcUid,
+  //   };
+  // }
+
   async joinRoom(roomId: string, userId: string, pin?: string) {
     // --------------------------------------------------
     // 1 Ban / kick check
@@ -713,6 +985,25 @@ export class RoomsService {
     }
 
     // --------------------------------------------------
+    // 2.5 Single-room guard (already in another room)
+    // --------------------------------------------------
+    const activeParticipant = await this.prisma.roomParticipant.findFirst({
+      where: {
+        userId,
+        disconnectedAt: null,
+        roomId: { not: roomId },
+        room: { isLive: true },
+      },
+      select: { roomId: true },
+    });
+
+    if (activeParticipant) {
+      throw new ForbiddenException(
+        'You are already in another room. Please leave it first.',
+      );
+    }
+
+    // --------------------------------------------------
     // 3 PIN check
     // --------------------------------------------------
     if (room.isLocked) {
@@ -758,11 +1049,8 @@ export class RoomsService {
     // --------------------------------------------------
     let rtcUid: number;
 
-    if (participant.rtcUid) {
+    if (participant.rtcUid && !isNaN(Number(participant.rtcUid))) {
       rtcUid = Number(participant.rtcUid);
-      if (isNaN(rtcUid)) {
-        rtcUid = Math.floor(Math.random() * 1_000_000_000);
-      }
     } else {
       rtcUid = Math.floor(Math.random() * 1_000_000_000);
     }
@@ -773,7 +1061,7 @@ export class RoomsService {
     });
 
     // --------------------------------------------------
-    // 6 Issue Agora SUBSCRIBER token only
+    // 6 Issue RTC SUBSCRIBER token
     // --------------------------------------------------
     const token = await this.rtc.issueToken(
       room.provider,
@@ -783,7 +1071,7 @@ export class RoomsService {
     );
 
     // --------------------------------------------------
-    // 7 Load FULL room state for frontend
+    // 7 Load FULL room state
     // --------------------------------------------------
     const fullRoom = await this.prisma.audioRoom.findUnique({
       where: { id: roomId },
@@ -919,10 +1207,11 @@ export class RoomsService {
     if (!fullRoom) {
       throw new NotFoundException('Room not found after join');
     }
+
     await this.gateway.broadcastParticipants(roomId);
 
     // --------------------------------------------------
-    // 8 Return payload to frontend
+    // 8 Return payload
     // --------------------------------------------------
     return {
       room: fullRoom,
