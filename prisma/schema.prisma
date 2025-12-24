@@ -214,10 +214,11 @@ model WealthLevel {
 }
 
 model WealthLevelPrivilege {
-  wealthLevelId String
-  storeItemsId  String?
-  isPower       Boolean?
-  powerName     String?
+  wealthLevelId   String
+  storeItemsId    String?
+  isPower         Boolean? @default(false)
+  canCreateFamily Boolean? @default(false)
+  roomAdminLimit  Int?     @default(0)
 
   wealthLevel WealthLevel @relation(fields: [wealthLevelId], references: [id], onDelete: Cascade)
   storeItems  StoreItem?  @relation(fields: [storeItemsId], references: [id], onDelete: Cascade)
@@ -226,10 +227,11 @@ model WealthLevelPrivilege {
 }
 
 model CharmLevelPrivilege {
-  charmLevelId String
-  storeItemsId String?
-  isPower      Boolean?
-  powerName    String?
+  charmLevelId    String
+  storeItemsId    String?
+  isPower         Boolean? @default(false)
+  canCreateFamily Boolean? @default(false)
+  roomAdminLimit  Int?     @default(0)
 
   charmLevel CharmLevel @relation(fields: [charmLevelId], references: [id], onDelete: Cascade)
   storeItems StoreItem? @relation(fields: [storeItemsId], references: [id], onDelete: Cascade)
