@@ -2,8 +2,8 @@ import { IsBoolean, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateBannerDto {
-  @IsNotEmpty()
   @IsString()
+  @IsNotEmpty()
   title: string;
 
   @IsOptional()
@@ -14,10 +14,14 @@ export class CreateBannerDto {
   @IsString()
   country?: string;
 
-  @Transform(({ value }) => value === 'true' || value === true)
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return false; // default value
+  })
   @IsBoolean()
   @IsOptional()
-  isGlobal?: boolean;
+  isGlobal?: boolean = false;
 
   @IsString()
   @IsOptional()
