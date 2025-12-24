@@ -90,14 +90,7 @@ export class ProfileService {
       wealthLevel: true,
       createdAt: true,
       updatedAt: true,
-      activeItem: {
-        select: {
-          id: true,
-          name: true,
-          icon: true,
-          swf: true,
-        },
-      },
+      activeItems: true,
     };
 
     const relationSelect: Record<string, true> = {};
@@ -191,14 +184,7 @@ export class ProfileService {
         wealthLevel: true,
         createdAt: true,
         updatedAt: true,
-        activeItem: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-            swf: true,
-          },
-        },
+        activeItems: true,
       },
     });
   }
@@ -243,14 +229,7 @@ export class ProfileService {
         wealthLevel: true,
         createdAt: true,
         updatedAt: true,
-        activeItem: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-            swf: true,
-          },
-        },
+        activeItems: true,
       },
     });
 
@@ -684,16 +663,13 @@ export class ProfileService {
           mode: 'insensitive',
         },
       },
-      include: {
+      select: {
         ...include,
-        activeItem: {
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-            swf: true,
-          },
-        },
+        id: true,
+        nickName: true,
+        email: true,
+        profilePicture: true,
+        activeItems: true,
       },
       take: 20,
       orderBy: { createdAt: 'desc' },
@@ -758,14 +734,7 @@ export class ProfileService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+            activeItems: true,
           },
         },
       },
