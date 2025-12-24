@@ -198,8 +198,8 @@ model CharmLevel {
   levelup_point Int
   levelNo       Int
 
-  privileges    CharmLevelPrivilege[]
-  users         User[] @relation("UserCharmLevel")
+  privileges CharmLevelPrivilege[]
+  users      User[]                @relation("UserCharmLevel")
 }
 
 model WealthLevel {
@@ -209,58 +209,52 @@ model WealthLevel {
   levelup_point Int
   levelNo       Int
 
-  privileges    WealthLevelPrivilege[]
-  users         User[] @relation("UserWealthLevel")
+  privileges WealthLevelPrivilege[]
+  users      User[]                 @relation("UserWealthLevel")
 }
 
 model WealthLevelPrivilege {
   wealthLevelId String
   privilegeId   Int
 
-  wealthLevel   WealthLevel            @relation(fields: [wealthLevelId], references: [id], onDelete: Cascade)
-  privilege     Level_privileges_Gift  @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
+  wealthLevel WealthLevel           @relation(fields: [wealthLevelId], references: [id], onDelete: Cascade)
+  privilege   Level_privileges_Gift @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
 
   @@id([wealthLevelId, privilegeId])
   @@index([privilegeId])
 }
 
-
 model CharmLevelPrivilege {
   charmLevelId String
   privilegeId  Int
 
-  charmLevel   CharmLevel             @relation(fields: [charmLevelId], references: [id], onDelete: Cascade)
-  privilege    Level_privileges_Gift  @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
+  charmLevel CharmLevel            @relation(fields: [charmLevelId], references: [id], onDelete: Cascade)
+  privilege  Level_privileges_Gift @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
 
   @@id([charmLevelId, privilegeId])
   @@index([privilegeId])
 }
 
-
-model Category_Level_privileges {
-  id         Int                     @id @default(autoincrement())
-  name       String
-  privileges Level_privileges_Gift[]
-}
+// model Category_Level_privileges {
+//   id         Int                     @id @default(autoincrement())
+//   name       String
+//   privileges Level_privileges_Gift[]
+// }
 
 model Level_privileges_Gift {
-  id          Int    @id @default(autoincrement())
-  name        String
-  categoryId  Int
-  image       String
-  swf         String
-  swfTime     String?
-  isCharm     Boolean?
-  isWealth    Boolean?
-  isPower     Boolean?
-  powerName   String?
-
-  category    Category_Level_privileges @relation(fields: [categoryId], references: [id])
+  id           Int      @id @default(autoincrement())
+  name         String
+  category     String   @default("N/A")
+  storeItemsId String?
+  isCharm      Boolean?
+  isWealth     Boolean?
+  isPower      Boolean?
+  powerName    String?
 
   charmLevels  CharmLevelPrivilege[]
   wealthLevels WealthLevelPrivilege[]
+  storeItems   StoreItem?             @relation(fields: [storeItemsId], references: [id])
 }
-
 
 model Follow {
   id         String   @id @default(uuid())
@@ -364,19 +358,20 @@ model StoreCategory {
 }
 
 model StoreItem {
-  id          String        @id @default(uuid())
-  categoryId  String
-  name        String
-  price       Int
-  icon        String
-  validity    Int? @default(10)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime?     @updatedAt
-  swf         String?
-  swftime     Int?
-  backpacks   Backpack[]
-  category    StoreCategory @relation(fields: [categoryId], references: [id])
-  activeUsers User[]        @relation("UserActiveItem")
+  id              String                  @id @default(uuid())
+  categoryId      String
+  name            String
+  price           Int
+  icon            String
+  validity        Int?                    @default(10)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime?               @updatedAt
+  swf             String?
+  swftime         Int?
+  backpacks       Backpack[]
+  category        StoreCategory           @relation(fields: [categoryId], references: [id])
+  activeUsers     User[]                  @relation("UserActiveItem")
+  levelPrivileges Level_privileges_Gift[]
 }
 
 model Backpack {
@@ -399,7 +394,7 @@ model Employee {
   email          String       @unique
   phone          String?      @unique
   password       String
-  refreshToken   String? 
+  refreshToken   String?
   profilePicture String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -469,8 +464,8 @@ model AudioRoom {
   provider     Provider           @default(AGORA)
   imageUrl     String?
   seatCount    Int                @default(12)
-  tag          String?   
-  announcement String? 
+  tag          String?
+  announcement String?
   host         User               @relation("UserHostedRooms", fields: [hostId], references: [id])
   bans         AudioRoomBan[]
   kicks        AudioRoomKick[]
@@ -478,7 +473,7 @@ model AudioRoom {
   participants RoomParticipant[]
   seats        Seat[]
   seatRequests SeatRequest[]
-  chatMode  ChatMode @default(ALL)
+  chatMode     ChatMode           @default(ALL)
 
   @@index([hostId, isLive])
   @@index([createdAt])
@@ -498,7 +493,6 @@ model Seat {
   @@index([roomId, index])
   @@index([roomId, micOn])
   @@index([roomId, mode])
-
 }
 
 model RoomParticipant {
@@ -782,14 +776,14 @@ model SvipLog {
 }
 
 model HomeBanner {
-  id              Int                  @id @default(autoincrement())
-  imgUrl          String
-  title           String
-  link            String?
-  isGlobal        Boolean              @default(false)
-  country         String?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime?            @updatedAt
+  id        Int       @id @default(autoincrement())
+  imgUrl    String
+  title     String
+  link      String?
+  isGlobal  Boolean   @default(false)
+  country   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime? @updatedAt
 }
 
 enum Provider {
