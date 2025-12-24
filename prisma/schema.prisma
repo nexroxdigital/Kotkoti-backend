@@ -215,24 +215,26 @@ model WealthLevel {
 
 model WealthLevelPrivilege {
   wealthLevelId String
-  privilegeId   Int
+  storeItemsId  String?
+  isPower       Boolean?
+  powerName     String?
 
-  wealthLevel WealthLevel           @relation(fields: [wealthLevelId], references: [id], onDelete: Cascade)
-  privilege   Level_privileges_Gift @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
+  wealthLevel WealthLevel @relation(fields: [wealthLevelId], references: [id], onDelete: Cascade)
+  storeItems  StoreItem?  @relation(fields: [storeItemsId], references: [id], onDelete: Cascade)
 
-  @@id([wealthLevelId, privilegeId])
-  @@index([privilegeId])
+  @@id([wealthLevelId])
 }
 
 model CharmLevelPrivilege {
   charmLevelId String
-  privilegeId  Int
+  storeItemsId String?
+  isPower      Boolean?
+  powerName    String?
 
-  charmLevel CharmLevel            @relation(fields: [charmLevelId], references: [id], onDelete: Cascade)
-  privilege  Level_privileges_Gift @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
+  charmLevel CharmLevel @relation(fields: [charmLevelId], references: [id], onDelete: Cascade)
+  storeItems StoreItem? @relation(fields: [storeItemsId], references: [id], onDelete: Cascade)
 
-  @@id([charmLevelId, privilegeId])
-  @@index([privilegeId])
+  @@id([charmLevelId])
 }
 
 // model Category_Level_privileges {
@@ -241,20 +243,20 @@ model CharmLevelPrivilege {
 //   privileges Level_privileges_Gift[]
 // }
 
-model Level_privileges_Gift {
-  id           Int      @id @default(autoincrement())
-  name         String
-  category     String   @default("N/A")
-  storeItemsId String?
-  isCharm      Boolean?
-  isWealth     Boolean?
-  isPower      Boolean?
-  powerName    String?
+// model Level_privileges_Gift {
+//   id           Int      @id @default(autoincrement())
+//   name         String
+//   category     String   @default("N/A")
+//   storeItemsId String?
+//   isCharm      Boolean?
+//   isWealth     Boolean?
+//   isPower      Boolean?
+//   powerName    String?
 
-  charmLevels  CharmLevelPrivilege[]
-  wealthLevels WealthLevelPrivilege[]
-  storeItems   StoreItem?             @relation(fields: [storeItemsId], references: [id])
-}
+//   charmLevels  CharmLevelPrivilege[]
+//   wealthLevels WealthLevelPrivilege[]
+//   storeItems   StoreItem?             @relation(fields: [storeItemsId], references: [id])
+// }
 
 model Follow {
   id         String   @id @default(uuid())
@@ -358,20 +360,22 @@ model StoreCategory {
 }
 
 model StoreItem {
-  id              String                  @id @default(uuid())
-  categoryId      String
-  name            String
-  price           Int
-  icon            String
-  validity        Int?                    @default(10)
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime?               @updatedAt
-  swf             String?
-  swftime         Int?
-  backpacks       Backpack[]
-  category        StoreCategory           @relation(fields: [categoryId], references: [id])
-  activeUsers     User[]                  @relation("UserActiveItem")
-  levelPrivileges Level_privileges_Gift[]
+  id                    String                 @id @default(uuid())
+  categoryId            String
+  name                  String
+  price                 Int
+  icon                  String
+  validity              Int?                   @default(10)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime?              @updatedAt
+  swf                   String?
+  swftime               Int?
+  isPrivilege           Boolean?               @default(false)
+  backpacks             Backpack[]
+  category              StoreCategory          @relation(fields: [categoryId], references: [id])
+  activeUsers           User[]                 @relation("UserActiveItem")
+  wealthLevelPrivileges WealthLevelPrivilege[]
+  charmLevelPrivileges  CharmLevelPrivilege[]
 }
 
 model Backpack {
