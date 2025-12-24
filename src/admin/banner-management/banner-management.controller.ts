@@ -11,7 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { bannerMulterConfig } from 'src/common/multer.config';
+//import { bannerMulterConfig } from 'src/common/multer.config';
 import { BannerManagementService } from './banner-management.service';
 import { CreateBannerDto } from './dto/create-banner.dto';
 import { UpdateBannerDto } from './dto/update-banner.dto';
@@ -23,7 +23,7 @@ export class BannerManagementController {
   ) {}
 
   @Post('add')
-  @UseInterceptors(FileInterceptor('image', bannerMulterConfig))
+  //@UseInterceptors(FileInterceptor('image', bannerMulterConfig))
   async create(
     @Body() dto: CreateBannerDto,
     @UploadedFile() file: Express.Multer.File,
@@ -45,7 +45,7 @@ export class BannerManagementController {
   }
 
   @Put('update/:bannerId')
-  @UseInterceptors(FileInterceptor('image', bannerMulterConfig))
+  //@UseInterceptors(FileInterceptor('image', bannerMulterConfig))
   async update(
     @Param('bannerId', ParseIntPipe) id: number,
     @Body() dto: UpdateBannerDto,
