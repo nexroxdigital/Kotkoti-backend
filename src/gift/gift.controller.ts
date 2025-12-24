@@ -37,7 +37,7 @@ export class GiftController {
   @UseGuards(JwtAuthGuard)
   @Post('send/:giftId')
   async sendGift(
-    @Body('receiverId') receiverId: string,
+    @Body('receiverId') receiverId: string[],
     @Req() req: RequestWithUser,
   ) {
     const senderId = (req.user as any)?.userId;
