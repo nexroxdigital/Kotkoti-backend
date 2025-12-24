@@ -197,6 +197,8 @@ model CharmLevel {
   imageUrl      String
   levelup_point Int
   levelNo       Int
+
+  privileges    CharmLevelPrivilege[]
   users         User[] @relation("UserCharmLevel")
 }
 
@@ -206,8 +208,34 @@ model WealthLevel {
   imageUrl      String
   levelup_point Int
   levelNo       Int
+
+  privileges    WealthLevelPrivilege[]
   users         User[] @relation("UserWealthLevel")
 }
+
+model WealthLevelPrivilege {
+  wealthLevelId String
+  privilegeId   Int
+
+  wealthLevel   WealthLevel            @relation(fields: [wealthLevelId], references: [id], onDelete: Cascade)
+  privilege     Level_privileges_Gift  @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
+
+  @@id([wealthLevelId, privilegeId])
+  @@index([privilegeId])
+}
+
+
+model CharmLevelPrivilege {
+  charmLevelId String
+  privilegeId  Int
+
+  charmLevel   CharmLevel             @relation(fields: [charmLevelId], references: [id], onDelete: Cascade)
+  privilege    Level_privileges_Gift  @relation(fields: [privilegeId], references: [id], onDelete: Cascade)
+
+  @@id([charmLevelId, privilegeId])
+  @@index([privilegeId])
+}
+
 
 model Category_Level_privileges {
   id         Int                     @id @default(autoincrement())
@@ -216,18 +244,23 @@ model Category_Level_privileges {
 }
 
 model Level_privileges_Gift {
-  id          Int                       @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   name        String
   categoryId  Int
-  expiredDate DateTime?
   image       String
   swf         String
   swfTime     String?
   isCharm     Boolean?
   isWealth    Boolean?
-  levelNo     Int?
+  isPower     Boolean?
+  powerName   String?
+
   category    Category_Level_privileges @relation(fields: [categoryId], references: [id])
+
+  charmLevels  CharmLevelPrivilege[]
+  wealthLevels WealthLevelPrivilege[]
 }
+
 
 model Follow {
   id         String   @id @default(uuid())
