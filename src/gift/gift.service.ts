@@ -43,22 +43,24 @@ export class GiftService {
     return result;
   }
 
-  // Send a gift from sender to one or more receivers
-  async sendGift(giftId: string, senderId: string, receiverId: string[]) {
+  // Send a gift from sender to one or more receivers with specified quantity
+  async sendGift(giftId: string, senderId: string, receiverId: string[], quantity: number = 1) {
     // Fetch gift
     const gift = await this.prisma.gift.findUnique({ where: { id: giftId } });
     if (!gift) throw new NotFoundException('Gift not found');
 
-    const totalCoins = gift.needCoin;
     const receiverCount = receiverId.length;
-    const totalCost = totalCoins * receiverCount;
+    
+    // Calculate total gift value and per-receiver amount
+    const totalGiftValue = gift.needCoin * quantity;
+    const coinsPerReceiver = Math.floor(totalGiftValue / receiverCount);
 
     // Run all DB updates inside a transaction
     const result = await this.prisma.$transaction(async (prisma) => {
-      // Deduct sender gold (total cost for all receivers)
+      // Deduct sender gold (total gift value)
       const sender = await prisma.user.updateMany({
-        where: { id: senderId, gold: { gte: totalCost } },
-        data: { gold: { decrement: totalCost } },
+        where: { id: senderId, gold: { gte: totalGiftValue } },
+        data: { gold: { decrement: totalGiftValue } },
       });
       if (sender.count === 0)
         throw new BadRequestException('Insufficient gold');
@@ -70,8 +72,8 @@ export class GiftService {
 
       if (!updatedSender) throw new NotFoundException('Sender not found');
 
-      // Update wealthPoints for sender (total for all receivers)
-      const senderNewWealth = (updatedSender.wealthPoint ?? 0) + totalCost;
+      // Update wealthPoints for sender (total gift value)
+      const senderNewWealth = (updatedSender.wealthPoint ?? 0) + totalGiftValue;
       await prisma.user.update({
         where: { id: senderId },
         data: { wealthPoint: senderNewWealth },
@@ -80,10 +82,10 @@ export class GiftService {
       // Process each receiver
       const transactions: any[] = [];
       for (const recId of receiverId) {
-        // Add diamond to receiver
+        // Add diamond to receiver (their share of total)
         await prisma.user.update({
           where: { id: recId },
-          data: { diamond: { increment: totalCoins } },
+          data: { diamond: { increment: coinsPerReceiver } },
         });
 
         // Update charmPoints for receiver
@@ -93,7 +95,7 @@ export class GiftService {
 
         if (!receiverBefore) throw new NotFoundException(`Receiver ${recId} not found`);
 
-        const receiverNewCharm = (receiverBefore.charmPoint ?? 0) + totalCoins;
+        const receiverNewCharm = (receiverBefore.charmPoint ?? 0) + coinsPerReceiver;
         await prisma.user.update({
           where: { id: recId },
           data: { charmPoint: receiverNewCharm },
@@ -105,8 +107,8 @@ export class GiftService {
             senderId,
             receiverId: recId,
             giftId,
-            quantity: 1,
-            totalCoins,
+            quantity: quantity,
+            totalCoins: coinsPerReceiver,
             streamId: 'none',
           },
         });
@@ -114,7 +116,7 @@ export class GiftService {
         transactions.push(transaction);
       }
 
-      return { transactions, senderId, receiverId, giftId, totalCoins };
+      return { transactions, senderId, receiverId, giftId, totalGiftValue, coinsPerReceiver, quantity };
     });
 
     // Emit gift to all receivers via gateway
@@ -123,14 +125,20 @@ export class GiftService {
         giftId: result.giftId,
         senderId: result.senderId,
         receiverId: recId,
-        totalCoins: result.totalCoins,
+        totalCoins: result.coinsPerReceiver,
+        quantity: result.quantity,
       });
     }
 
     return {
       status: 'ok',
-      message: `Gift sent successfully to ${receiverCount} receiver(s)`,
-      data: result.transactions,
+      message: `Gift sent successfully: ${quantity}x gift to ${receiverCount} receiver(s)`,
+      data: {
+        transactions: result.transactions,
+        totalGiftValue: result.totalGiftValue,
+        coinsPerReceiver: result.coinsPerReceiver,
+        quantity: result.quantity,
+      },
     };
   }
 }
