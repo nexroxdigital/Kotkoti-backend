@@ -38,6 +38,7 @@ export class GiftController {
   @Post('send/:giftId')
   async sendGift(
     @Body('receiverId') receiverId: string[],
+    @Body('quantity') quantity: number = 1,
     @Req() req: RequestWithUser,
   ) {
     const senderId = (req.user as any)?.userId;
@@ -47,6 +48,6 @@ export class GiftController {
     // Authenticated user
     const { giftId } = req.params;
 
-    return this.giftService.sendGift(giftId, senderId, receiverId);
+    return this.giftService.sendGift(giftId, senderId, receiverId, quantity);
   }
 }
