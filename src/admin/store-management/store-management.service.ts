@@ -36,6 +36,22 @@ export class StoreManagementService {
     });
   }
 
+  // Get all store items
+  async findAllPrivilegeItem() {
+    return this.prisma.storeItem.findMany({
+      where: {
+        isPrivilege: true,
+      },
+      include: {
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+  }
+
   // Get a single store item by id
   async findOneItem(id: string) {
     return this.prisma.storeItem.findUniqueOrThrow({

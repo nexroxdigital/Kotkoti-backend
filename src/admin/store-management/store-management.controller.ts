@@ -96,6 +96,12 @@ export class StoreManagementController {
     return this.storeManagementService.findAllItem();
   }
 
+  //  Get all store items
+  @Get('store-items/privilege/all')
+  findAllPrivilegeItems() {
+    return this.storeManagementService.findAllPrivilegeItem();
+  }
+
   // Get  store items by category
   @Get('store-items/by-category/:categoryId')
   findItemByCategory(@Param('categoryId') categoryId: string) {

@@ -30,7 +30,7 @@ export class StoreService {
 
     // Get all items for this category
     const items = await this.prisma.storeItem.findMany({
-      where: { categoryId },
+      where: { categoryId, isPrivilege: false },
       orderBy: { createdAt: 'desc' },
     });
 
