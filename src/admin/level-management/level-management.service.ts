@@ -1,10 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   CreateCharmLevelDto,
   // CreateWealthLevelDto,
   UpdateCharmLevelDto,
   // UpdateWealthLevelDto,
+  CreateLevelPrivilegeDto,
+  UpdateLevelPrivilegeDto,
 } from './dto/level.dto';
 
 @Injectable()
@@ -76,10 +82,121 @@ export class LevelManagementService {
     });
   }
 
-  async deleteCharmLevel(id: string) {
-    await this.findOneCharmLevel(id); // check if exists
-    return this.prisma.charmLevel.delete({
-      where: { id },
+  // CharmLevel Privilege Methods
+
+  async createCharmLevelPrivilege(dto: CreateLevelPrivilegeDto) {
+    // Check if charm level exists
+    const charmLevel = await this.prisma.charmLevel.findUnique({
+      where: { id: dto.levelId },
+    });
+
+    if (!charmLevel) {
+      throw new NotFoundException(
+        `CharmLevel with ID ${dto.levelId} not found`,
+      );
+    }
+
+    // Check if privilege already exists for this level
+    const existingPrivilege = await this.prisma.charmLevelPrivilege.findUnique({
+      where: { charmLevelId: dto.levelId },
+    });
+
+    if (existingPrivilege) {
+      throw new ConflictException(
+        `Privilege already exists for CharmLevel with ID ${dto.levelId}. Use update instead.`,
+      );
+    }
+
+    // Verify store item exists if provided
+    if (dto.storeItemsId) {
+      const storeItem = await this.prisma.storeItem.findUnique({
+        where: { id: dto.storeItemsId },
+      });
+
+      if (!storeItem) {
+        throw new NotFoundException(
+          `StoreItem with ID ${dto.storeItemsId} not found`,
+        );
+      }
+    }
+
+    return this.prisma.charmLevelPrivilege.create({
+      data: {
+        charmLevelId: dto.levelId,
+        storeItemsId: dto.storeItemsId || null,
+        isPower: dto.isPower ?? false,
+        canCreateFamily: dto.canCreateFamily ?? false,
+        roomAdminLimit: dto.roomAdminLimit ?? 0,
+      },
+      include: {
+        charmLevel: true,
+        storeItems: true,
+      },
+    });
+  }
+
+  async findCharmLevelPrivilege(charmLevelId: string) {
+    const privilege = await this.prisma.charmLevelPrivilege.findUnique({
+      where: { charmLevelId },
+      include: {
+        charmLevel: true,
+        storeItems: true,
+      },
+    });
+
+    if (!privilege) {
+      throw new NotFoundException(
+        `Privilege for CharmLevel with ID ${charmLevelId} not found`,
+      );
+    }
+
+    return privilege;
+  }
+
+  async updateCharmLevelPrivilege(
+    charmLevelId: string,
+    dto: UpdateLevelPrivilegeDto,
+  ) {
+    // Check if privilege exists
+    await this.findCharmLevelPrivilege(charmLevelId);
+
+    // Verify store item exists if provided
+    if (dto.storeItemsId) {
+      const storeItem = await this.prisma.storeItem.findUnique({
+        where: { id: dto.storeItemsId },
+      });
+
+      if (!storeItem) {
+        throw new NotFoundException(
+          `StoreItem with ID ${dto.storeItemsId} not found`,
+        );
+      }
+    }
+
+    const data: any = {};
+    if (dto.storeItemsId !== undefined) data.storeItemsId = dto.storeItemsId;
+    if (dto.isPower !== undefined) data.isPower = dto.isPower;
+    if (dto.canCreateFamily !== undefined)
+      data.canCreateFamily = dto.canCreateFamily;
+    if (dto.roomAdminLimit !== undefined)
+      data.roomAdminLimit = dto.roomAdminLimit;
+
+    return this.prisma.charmLevelPrivilege.update({
+      where: { charmLevelId },
+      data,
+      include: {
+        charmLevel: true,
+        storeItems: true,
+      },
+    });
+  }
+
+  async deleteCharmLevelPrivilege(charmLevelId: string) {
+    // Check if privilege exists
+    await this.findCharmLevelPrivilege(charmLevelId);
+
+    return this.prisma.charmLevelPrivilege.delete({
+      where: { charmLevelId },
     });
   }
 

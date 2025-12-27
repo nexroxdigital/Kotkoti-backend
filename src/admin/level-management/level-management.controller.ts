@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -10,7 +11,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { LevelManagementService } from './level-management.service';
-import { CreateCharmLevelDto, UpdateCharmLevelDto } from './dto/level.dto';
+import {
+  CreateCharmLevelDto,
+  UpdateCharmLevelDto,
+  CreateLevelPrivilegeDto,
+  UpdateLevelPrivilegeDto,
+} from './dto/level.dto';
 import { commonImageMulterConfig } from 'src/common/multer.config';
 import { FileCleanupInterceptor } from 'src/common/interceptors/file-cleanup.interceptor';
 
@@ -21,6 +27,7 @@ export class LevelManagementController {
     private readonly levelManagementService: LevelManagementService,
   ) {}
 
+  // charm level
   @Post('charm-level/add')
   @UseInterceptors(FileInterceptor('imageUrl', commonImageMulterConfig))
   addNewCharmLevel(
@@ -43,5 +50,29 @@ export class LevelManagementController {
     @Body() dto: UpdateCharmLevelDto,
   ) {
     return this.levelManagementService.updateCharmLevel(id, dto, file);
+  }
+
+  // charm level privilege
+  @Post('charm-level/privilege/add')
+  addCharmLevelPrivilege(@Body() dto: CreateLevelPrivilegeDto) {
+    return this.levelManagementService.createCharmLevelPrivilege(dto);
+  }
+
+  @Get('charm-level/privilege/:charmLevelId')
+  getCharmLevelPrivilege(@Param('charmLevelId') id: string) {
+    return this.levelManagementService.findCharmLevelPrivilege(id);
+  }
+
+  @Patch('charm-level/privilege/edit/:charmLevelId')
+  updateCharmLevelPrivilege(
+    @Param('charmLevelId') id: string,
+    @Body() dto: UpdateLevelPrivilegeDto,
+  ) {
+    return this.levelManagementService.updateCharmLevelPrivilege(id, dto);
+  }
+
+  @Delete('charm-level/privilege/delete/:charmLevelId')
+  deleteCharmLevelPrivilege(@Param('charmLevelId') id: string) {
+    return this.levelManagementService.deleteCharmLevelPrivilege(id);
   }
 }
