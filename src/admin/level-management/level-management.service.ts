@@ -1,77 +1,157 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-// import {
-//   CreateCategoryLevelDto,
-//   UpdateCategoryLevelDto,
-// } from './dto/category-level-privileges.dto';
-// import {
-//   CreateLevelGiftDto,
-//   UpdateLevelGiftDto,
-// } from './dto/level-privileges-gift.dto';
+import {
+  CreateCharmLevelDto,
+  // CreateWealthLevelDto,
+  UpdateCharmLevelDto,
+  // UpdateWealthLevelDto,
+} from './dto/level.dto';
 
 @Injectable()
 export class LevelManagementService {
   constructor(private prisma: PrismaService) {}
 
-  // // create category
-  // async createCategory(dto: CreateCategoryLevelDto) {
-  //   return this.prisma.category_Level_privileges.create({ data: dto });
-  // }
+  //  CharmLevel Methods
 
-  // //  all category
-  // async findAllCategory() {
-  //   return this.prisma.category_Level_privileges.findMany({
-  //     include: { privileges: true },
+  async createCharmLevel(dto: CreateCharmLevelDto, file?: Express.Multer.File) {
+    const data: any = {
+      name: dto.name,
+      imageUrl: file ? file.path : dto.imageUrl,
+      levelup_point: Number(dto.levelup_point),
+      levelNo: Number(dto.levelNo),
+    };
+
+    return this.prisma.charmLevel.create({ data });
+  }
+
+  async findAllCharmLevels() {
+    return this.prisma.charmLevel.findMany({
+      orderBy: {
+        levelNo: 'asc',
+      },
+    });
+  }
+
+  async findOneCharmLevel(id: string) {
+    const charmLevel = await this.prisma.charmLevel.findUniqueOrThrow({
+      where: { id },
+      include: {
+        privileges: {
+          include: {
+            storeItems: true,
+          },
+        },
+      },
+    });
+
+    if (!charmLevel) {
+      throw new NotFoundException(`CharmLevel with ID ${id} not found`);
+    }
+
+    return charmLevel;
+  }
+
+  async updateCharmLevel(
+    id: string,
+    dto: UpdateCharmLevelDto,
+    file?: Express.Multer.File,
+  ) {
+    await this.findOneCharmLevel(id); // check if exists
+
+    const data: any = {};
+
+    if (dto.name !== undefined) data.name = dto.name;
+    if (file) {
+      data.imageUrl = file.path;
+    } else if (dto.imageUrl !== undefined) {
+      data.imageUrl = dto.imageUrl;
+    }
+    if (dto.levelup_point !== undefined)
+      data.levelup_point = Number(dto.levelup_point);
+    if (dto.levelNo !== undefined) data.levelNo = Number(dto.levelNo);
+
+    return this.prisma.charmLevel.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteCharmLevel(id: string) {
+    await this.findOneCharmLevel(id); // check if exists
+    return this.prisma.charmLevel.delete({
+      where: { id },
+    });
+  }
+
+  // WealthLevel Methods
+
+  // async createWealthLevel(dto: CreateWealthLevelDto) {
+  //   return this.prisma.wealthLevel.create({
+  //     data: dto,
+  //     include: {
+  //       privileges: {
+  //         include: {
+  //           storeItems: true,
+  //         },
+  //       },
+  //     },
   //   });
   // }
 
-  // // detail category
-  // async findOneCategory(id: number) {
-  //   const category = await this.prisma.category_Level_privileges.findUnique({
+  // async findAllWealthLevels() {
+  //   return this.prisma.wealthLevel.findMany({
+  //     include: {
+  //       privileges: {
+  //         include: {
+  //           storeItems: true,
+  //         },
+  //       },
+  //     },
+  //     orderBy: {
+  //       levelNo: 'asc',
+  //     },
+  //   });
+  // }
+
+  // async findOneWealthLevel(id: string) {
+  //   const wealthLevel = await this.prisma.wealthLevel.findUnique({
   //     where: { id },
-  //     include: { privileges: true },
+  //     include: {
+  //       privileges: {
+  //         include: {
+  //           storeItems: true,
+  //         },
+  //       },
+  //     },
   //   });
-  //   if (!category) throw new NotFoundException('Category not found');
-  //   return category;
+
+  //   if (!wealthLevel) {
+  //     throw new NotFoundException(`WealthLevel with ID ${id} not found`);
+  //   }
+
+  //   return wealthLevel;
   // }
 
-  // // update category
-  // async updateCategory(id: number, dto: UpdateCategoryLevelDto) {
-  //   await this.findOneCategory(id); // check if exists
-  //   return this.prisma.category_Level_privileges.update({
+  // async updateWealthLevel(id: string, dto: UpdateWealthLevelDto) {
+  //   await this.findOneWealthLevel(id); // check if exists
+
+  //   return this.prisma.wealthLevel.update({
   //     where: { id },
   //     data: dto,
+  //     include: {
+  //       privileges: {
+  //         include: {
+  //           storeItems: true,
+  //         },
+  //       },
+  //     },
   //   });
   // }
 
-  // create  Level Gift
-  // async createLevel(dto: CreateLevelGiftDto) {
-  //   return this.prisma.level_privileges_Gift.create({ data: dto });
-  // }
-
-  // // find all Level Gift
-  // async findAllLevel() {
-  //   return this.prisma.level_privileges_Gift.findMany({
-  //     include: { category: true },
-  //   });
-  // }
-
-  // // find one Level Gift
-  // async findOneLevel(id: number) {
-  //   const gift = await this.prisma.level_privileges_Gift.findUnique({
+  // async deleteWealthLevel(id: string) {
+  //   await this.findOneWealthLevel(id); // check if exists
+  //   return this.prisma.wealthLevel.delete({
   //     where: { id },
-  //     include: { category: true },
-  //   });
-  //   if (!gift) throw new NotFoundException('Gift not found');
-  //   return gift;
-  // }
-
-  // //  update Level Gift
-  // async updateLevel(id: number, dto: UpdateLevelGiftDto) {
-  //   await this.findOneLevel(id); // check if exists
-  //   return this.prisma.level_privileges_Gift.update({
-  //     where: { id },
-  //     data: dto,
   //   });
   // }
 }
