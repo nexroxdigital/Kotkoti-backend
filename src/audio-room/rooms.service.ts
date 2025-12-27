@@ -527,14 +527,7 @@ export class RoomsService {
                 wealthLevel: true,
                 createdAt: true,
                 updatedAt: true,
-                activeItem: {
-                  select: {
-                    id: true,
-                    name: true,
-                    icon: true,
-                    swf: true,
-                  },
-                },
+                activeItems: true,
               },
             },
           },
@@ -576,14 +569,7 @@ export class RoomsService {
                 wealthLevel: true,
                 createdAt: true,
                 updatedAt: true,
-                activeItem: {
-                  select: {
-                    id: true,
-                    name: true,
-                    icon: true,
-                    swf: true,
-                  },
-                },
+                 activeItems: true,
               },
             },
           },
@@ -615,14 +601,7 @@ export class RoomsService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+             activeItems: true,
           },
         },
 
