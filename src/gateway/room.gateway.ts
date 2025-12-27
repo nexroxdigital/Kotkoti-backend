@@ -262,14 +262,7 @@ export class RoomGateway implements OnGatewayConnection, OnGatewayDisconnect {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+            activeItem : true,
           },
         },
       },

@@ -14,3 +14,16 @@ export async function generateUniqueUserId(
     if (!exists) return id.toString();
   }
 }
+
+
+// async function generateUserNo(prisma: PrismaClient): Promise<string> {
+//   const seq = await prisma.$transaction(async (tx) => {
+//     const updated = await tx.userSequence.update({
+//       where: { id: 1 },
+//       data: { current: { increment: 1 } },
+//     });
+//     return updated.current;
+//   });
+
+//   return seq.toString().padStart(8, '0');
+// }
