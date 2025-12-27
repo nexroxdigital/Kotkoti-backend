@@ -7,8 +7,6 @@ export class BackpackService {
 
   // get all backpack items grouped by category
   async getAllItemsGrouped(userId: string) {
-
-
     //  Fetch all backpack items with item + category info
     const backpackItems = await this.prisma.backpack.findMany({
       where: { userId },
@@ -21,7 +19,8 @@ export class BackpackService {
             id: true,
             name: true,
             icon: true,
-            price: true,
+            swf: true,
+            swftime: true,
             categoryId: true,
             category: {
               select: {
