@@ -31,6 +31,15 @@ export class AuthService {
   ) {}
 
   private google = new OAuth2Client();
+
+  private async generateUniqueUserId(): Promise<string> {
+  // Fetch the next number from the DB sequence
+  const result = await this.prisma.$queryRaw<{ nextval: bigint }[]>`SELECT nextval('user_id_seq')`;
+  const nextNumber = result[0].nextval;
+
+  // Convert to string and pad with zeros (e.g., 1 -> "00000001")
+  return nextNumber.toString().padStart(8, '0');
+}
   // ----------------------------------
   // OTP Generator
   // ----------------------------------

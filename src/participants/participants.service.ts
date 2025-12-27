@@ -70,14 +70,7 @@ export class ParticipantsService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+            activeItem: true,
           },
         },
       },

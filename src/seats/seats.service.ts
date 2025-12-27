@@ -68,15 +68,8 @@ export class SeatsService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
-          },
+            activeItem: true,
+          }
         },
       },
     });
@@ -144,14 +137,7 @@ export class SeatsService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+            activeItem: true,
           },
         },
       },
@@ -245,14 +231,7 @@ export class SeatsService {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+            activeItem: true,
           },
         },
       },
@@ -549,14 +528,7 @@ async requestSeat(roomId: string, userId: string, seatIndex?: number) {
             wealthLevel: true,
             createdAt: true,
             updatedAt: true,
-            activeItem: {
-              select: {
-                id: true,
-                name: true,
-                icon: true,
-                swf: true,
-              },
-            },
+            activeItem: true,
           },
         },
       },
@@ -639,6 +611,37 @@ async requestSeat(roomId: string, userId: string, seatIndex?: number) {
     const updatedSeats = await this.prisma.seat.findMany({
       where: { roomId: req.roomId },
       orderBy: { index: 'asc' },
+           include: {
+        user: {
+          select: {
+            id: true,
+            nickName: true,
+            email: true,
+            phone: true,
+            profilePicture: true,
+            coverImage: true,
+            roleId: true,
+            dob: true,
+            bio: true,
+            gender: true,
+            country: true,
+            gold: true,
+            diamond: true,
+            isDiamondBlocked: true,
+            isGoldBlocked: true,
+            isAccountBlocked: true,
+            isHost: true,
+            isReseller: true,
+            agencyId: true,
+            vipId: true,
+            charmLevel: true,
+            wealthLevel: true,
+            createdAt: true,
+            updatedAt: true,
+            activeItem: true,
+          },
+        },
+      }
     });
 
     return {
